@@ -1,36 +1,16 @@
-# Roadmap
+# Sprint 1
 
-## v0.1.0
+- [x] Integration skeleton
+- [x] Config Flow
 
-- [ ] Integration skeleton
-- [ ] Config Flow
-- [ ] Panel
-- [ ] HACS installation
-
-## v0.2.0
+# Sprint 2
 
 - [ ] SQLite
+- [ ] Models
+- [ ] Repositories
 
-## v0.3.0
+# Sprint 3
 
 - [ ] Groups
-
-## v0.4.0
-
-- [ ] Categories
-
-## v0.5.0
-
+- [ ] Members
 - [ ] Expenses
-
-## v0.6.0
-
-- [ ] Balance calculation
-
-## v0.7.0
-
-- [ ] Dashboard
-
-## v1.0.0
-
-- [ ] HACS Release
