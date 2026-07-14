@@ -1,18 +1,31 @@
 import { LitElement, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
+import "../components/se-balance-card";
 import "../components/se-button";
+import "../components/se-icon";
+import "../components/se-quick-actions";
 import "../dialogs/se-category-dialog";
 import "../dialogs/se-expense-dialog";
 import "../dialogs/se-member-dialog";
 import "../dialogs/se-payment-dialog";
 import type { SharedExpensesApi } from "../services/api";
-import { colorFor, formatDate, formatMoney, formatSignedMoney, initials } from "../services/format";
+import { colorFor, formatDate, formatMoney, initials } from "../services/format";
 import { errorMessage, type Localizer } from "../services/localize";
 import { sharedStyles } from "../styles/shared";
-import type { Category, Expense, Group, GroupBalances, Member, Settlement } from "../types";
+import type {
+  Category,
+  Expense,
+  Group,
+  GroupBalances,
+  Member,
+  Payment,
+  Settlement,
+} from "../types";
 
-type Tab = "balances" | "expenses" | "members" | "categories";
+type Tab = "overview" | "expenses" | "settlements" | "members" | "categories";
+
+const RECENT_EXPENSES = 4;
 
 /** Detail of a group: balances, expenses and members. */
 @customElement("se-group-page")
@@ -33,9 +46,11 @@ export class SeGroupPage extends LitElement {
 
   @state() private expenses: Expense[] = [];
 
+  @state() private payments: Payment[] = [];
+
   @state() private result?: GroupBalances;
 
-  @state() private tab: Tab = "balances";
+  @state() private tab: Tab = "overview";
 
   @state() private loading = true;
 
@@ -157,6 +172,51 @@ export class SeGroupPage extends LitElement {
       .section-title {
         padding: 12px 16px 4px;
       }
+
+      .section-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px 4px;
+      }
+
+      .link {
+        background: none;
+        border: none;
+        color: var(--primary-color, #03a9f4);
+        font-size: 13px;
+        font-weight: 500;
+        text-transform: uppercase;
+        cursor: pointer;
+        font-family: inherit;
+      }
+
+      .payer {
+        font-size: 13px;
+        margin-top: 2px;
+      }
+
+      .tail {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 6px;
+      }
+
+      .stack-avatars {
+        display: flex;
+      }
+
+      .stack-avatars .avatar.small {
+        width: 26px;
+        height: 26px;
+        font-size: 10px;
+        border: 2px solid var(--card-background-color, #fff);
+      }
+
+      .stack-avatars .avatar.small + .avatar.small {
+        margin-left: -8px;
+      }
     `,
   ];
 
@@ -184,8 +244,9 @@ export class SeGroupPage extends LitElement {
         ${this.error ? html`<div class="error">${this.error}</div>` : nothing}
 
         <div class="tabs" role="tablist">
-          ${this.renderTab("balances", translate("tab_balances"))}
+          ${this.renderTab("overview", translate("tab_overview"))}
           ${this.renderTab("expenses", translate("tab_expenses"))}
+          ${this.renderTab("settlements", translate("tab_settlements"))}
           ${this.renderTab("members", translate("tab_members"))}
           ${this.renderTab("categories", translate("tab_categories"))}
         </div>
@@ -206,12 +267,16 @@ export class SeGroupPage extends LitElement {
   }
 
   private renderTabContent() {
-    if (this.tab === "balances") {
-      return this.renderBalances();
+    if (this.tab === "overview") {
+      return this.renderOverview();
     }
 
     if (this.tab === "expenses") {
       return this.renderExpenses();
+    }
+
+    if (this.tab === "settlements") {
+      return this.renderSettlements();
     }
 
     if (this.tab === "categories") {
@@ -220,6 +285,131 @@ export class SeGroupPage extends LitElement {
 
     return this.renderMembers();
   }
+
+  private renderOverview() {
+    const translate = this.localize;
+
+    return html`
+      <se-balance-card
+        .localize=${this.localize}
+        .balances=${this.result?.balances ?? []}
+        .members=${this.members}
+        .currency=${this.group!.currency}
+        .language=${this.language}
+      ></se-balance-card>
+
+      <div class="card">
+        <se-quick-actions
+          .actions=${[
+            {
+              key: "expense",
+              label: translate("action_add_expense"),
+              symbol: "+",
+              color: "#2b7fd4",
+            },
+            {
+              key: "member",
+              label: translate("action_members"),
+              symbol: "👥",
+              color: "#3f8a4a",
+            },
+            {
+              key: "payment",
+              label: translate("action_settle"),
+              symbol: "⇄",
+              color: "#c9871f",
+            },
+            {
+              key: "category",
+              label: translate("tab_categories"),
+              symbol: "🏷",
+              color: "#8b5fbf",
+            },
+          ]}
+          @action=${this.handleQuickAction}
+        ></se-quick-actions>
+      </div>
+
+      <div class="card">
+        <div class="section-head">
+          <h3>${translate("recent_expenses")}</h3>
+          ${this.expenses.length > RECENT_EXPENSES
+            ? html`<button class="link" @click=${() => (this.tab = "expenses")}>
+                ${translate("see_all")}
+              </button>`
+            : nothing}
+        </div>
+        ${this.expenses.length === 0
+          ? html`<div class="empty">${translate("no_expenses")}</div>`
+          : this.expenses
+              .slice(0, RECENT_EXPENSES)
+              .map((expense) => this.renderExpense(expense))}
+      </div>
+    `;
+  }
+
+  private renderSettlements() {
+    const translate = this.localize;
+
+    return html`
+      <div class="card">
+        <h3 class="section-title">${translate("reimbursements")}</h3>
+        ${(this.result?.settlements ?? []).length === 0
+          ? html`<div class="empty">${translate("balance_settled")}</div>`
+          : this.result!.settlements.map((s) => this.renderSettlement(s))}
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">${translate("payments")}</h3>
+        ${this.payments.length === 0
+          ? html`<div class="empty">${translate("no_settlements")}</div>`
+          : this.payments.map((payment) => this.renderPayment(payment))}
+      </div>
+
+      <div class="actions">
+        <se-button @click=${() => this.openPayment()}>
+          ${translate("new_payment")}
+        </se-button>
+      </div>
+    `;
+  }
+
+  private renderPayment(payment: Payment) {
+    const from = this.memberById(payment.from_member_id);
+    const to = this.memberById(payment.to_member_id);
+
+    return html`
+      <div class="item">
+        <se-icon
+          icon="mdi:swap-horizontal"
+          fallback="⇄"
+          color="#c9871f"
+          .size=${40}
+        ></se-icon>
+        <div class="info">
+          <div class="title">${from?.name ?? "?"} → ${to?.name ?? "?"}</div>
+          <div class="muted">${formatDate(payment.payment_date, this.language)}</div>
+        </div>
+        <span class="amount">
+          ${formatMoney(payment.amount, this.group!.currency, this.language)}
+        </span>
+      </div>
+    `;
+  }
+
+  private handleQuickAction = (event: CustomEvent) => {
+    const key = event.detail.key;
+
+    if (key === "expense") {
+      this.openExpense();
+    } else if (key === "payment") {
+      this.openPayment();
+    } else if (key === "member") {
+      this.tab = "members";
+    } else {
+      this.tab = "categories";
+    }
+  };
 
   private renderCategories() {
     const translate = this.localize;
@@ -267,45 +457,6 @@ export class SeGroupPage extends LitElement {
     return `${this.localize("rule_capped")} ${cap}`;
   }
 
-  private renderBalances() {
-    const translate = this.localize;
-    const currency = this.group!.currency;
-    const settlements = this.result?.settlements ?? [];
-
-    return html`
-      <div class="card">
-        ${(this.result?.balances ?? []).map((balance) => {
-          const member = this.memberById(balance.member_id);
-
-          return html`
-            <div class="item">
-              ${this.renderAvatar(member?.name ?? "?", balance.member_id)}
-              <div class="info"><div class="title">${member?.name ?? "?"}</div></div>
-              <span
-                class=${`amount ${balance.amount > 0 ? "positive" : balance.amount < 0 ? "negative" : "muted"}`}
-              >
-                ${formatSignedMoney(balance.amount, currency, this.language)}
-              </span>
-            </div>
-          `;
-        })}
-      </div>
-
-      <div class="card">
-        <h3 class="section-title">${translate("reimbursements")}</h3>
-        ${settlements.length === 0
-          ? html`<div class="empty">${translate("balance_settled")}</div>`
-          : settlements.map((settlement) => this.renderSettlement(settlement))}
-      </div>
-
-      <div class="actions">
-        <se-button variant="text" @click=${() => this.openPayment()}>
-          ${translate("new_payment")}
-        </se-button>
-      </div>
-    `;
-  }
-
   private renderSettlement(settlement: Settlement) {
     const translate = this.localize;
     const from = this.memberById(settlement.from_member_id);
@@ -349,23 +500,59 @@ export class SeGroupPage extends LitElement {
   private renderExpense(expense: Expense) {
     const payer = this.memberById(expense.paid_by_member_id);
     const category = this.categories.find((c) => c.id === expense.category_id);
+    const payerColor = payer?.color ?? colorFor(expense.paid_by_member_id);
 
     return html`
       <button class="item item-button" @click=${() => this.openExpense(expense)}>
-        ${this.renderAvatar(payer?.name ?? "?", expense.paid_by_member_id)}
+        <se-icon
+          .icon=${category?.icon}
+          .fallback=${(category?.name ?? expense.title).charAt(0).toUpperCase()}
+          .color=${category?.color ?? colorFor(category?.id ?? expense.id)}
+        ></se-icon>
         <div class="info">
           <div class="title">${expense.title}</div>
           <div class="muted">
-            ${this.localize("paid_by")} ${payer?.name ?? "?"} ·
             ${formatDate(expense.expense_date, this.language)}
             ${category ? html` · ${category.name}` : nothing}
           </div>
+          <div class="payer" style=${`color:${payerColor}`}>
+            ${this.localize("paid_by")} ${payer?.name ?? "?"}
+          </div>
         </div>
-        <span class="amount">
-          ${formatMoney(expense.amount, expense.currency, this.language)}
-        </span>
-        <span class="chevron">›</span>
+        <div class="tail">
+          <span class="amount">
+            ${formatMoney(expense.amount, expense.currency, this.language)}
+          </span>
+          ${this.renderParticipants(expense)}
+        </div>
       </button>
+    `;
+  }
+
+  /** The members actually sharing the expense, stacked like on a receipt. */
+  private renderParticipants(expense: Expense) {
+    const shares = (expense.shares ?? []).filter((share) => share.amount !== 0);
+
+    if (shares.length === 0) {
+      return nothing;
+    }
+
+    return html`
+      <div class="stack-avatars">
+        ${shares.map((share) => {
+          const member = this.memberById(share.member_id);
+
+          return html`
+            <div
+              class="avatar small"
+              title=${member?.name ?? "?"}
+              style=${`background:${member?.color ?? colorFor(share.member_id)}`}
+            >
+              ${initials(member?.name ?? "?")}
+            </div>
+          `;
+        })}
+      </div>
     `;
   }
 
@@ -475,18 +662,21 @@ export class SeGroupPage extends LitElement {
     this.error = undefined;
 
     try {
-      const [group, members, categories, expenses, result] = await Promise.all([
-        this.api.getGroup(this.groupId),
-        this.api.listMembers(this.groupId, true),
-        this.api.listCategories(this.groupId),
-        this.api.listExpenses(this.groupId),
-        this.api.getBalances(this.groupId),
-      ]);
+      const [group, members, categories, expenses, payments, result] =
+        await Promise.all([
+          this.api.getGroup(this.groupId),
+          this.api.listMembers(this.groupId, true),
+          this.api.listCategories(this.groupId),
+          this.api.listExpenses(this.groupId),
+          this.api.listPayments(this.groupId),
+          this.api.getBalances(this.groupId),
+        ]);
 
       this.group = group;
       this.members = members;
       this.categories = categories;
       this.expenses = expenses;
+      this.payments = payments;
       this.result = result;
     } catch (error) {
       this.error = errorMessage(error, this.localize);
