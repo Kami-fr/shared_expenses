@@ -9,7 +9,7 @@ CONFIG_VERSION: Final = 1
 
 DATABASE_NAME: Final = "shared_expenses.db"
 DATABASE_SCHEMA: Final = "schema_v1.sql"
-DATABASE_VERSION: Final = 5
+DATABASE_VERSION: Final = 6
 STORAGE_KEY: Final = DOMAIN
 
 DEFAULT_CURRENCY: Final = "EUR"

@@ -112,6 +112,7 @@ async def websocket_create_group(
         vol.Optional("icon"): vol.Any(None, cv.string),
         vol.Optional("color"): vol.Any(None, cv.string),
         vol.Optional("split_rule"): vol.Any(None, SPLIT_RULE_SCHEMA),
+        vol.Optional("default_category_id"): vol.Any(None, cv.string),
     }
 )
 @websocket_api.async_response
@@ -128,7 +129,14 @@ async def websocket_update_group(
 
     changes: dict[str, Any] = {
         field: msg[field]
-        for field in ("name", "currency", "description", "icon", "color")
+        for field in (
+            "name",
+            "currency",
+            "description",
+            "icon",
+            "color",
+            "default_category_id",
+        )
         if field in msg
     }
 

@@ -164,6 +164,12 @@ class SharedExpensesManager:
 
         await self.get_group(group.id)
 
+        if group.default_category_id is not None:
+            # Its own category, never another group's: the id comes from the
+            # caller, and a foreign key alone would take any category in the
+            # house.
+            await self._get_group_category(group.id, group.default_category_id)
+
         await self._database.group_repository.update(group)
 
     async def archive_group(self, group_id: str) -> None:

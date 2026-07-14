@@ -19,7 +19,8 @@ _COLUMNS = """
     color,
     archived,
     created_at,
-    split_rule
+    split_rule,
+    default_category_id
 """
 
 # `members` also carries id, name, color and created_at, so a join needs the
@@ -33,7 +34,8 @@ _JOINED_COLUMNS = """
     groups.color,
     groups.archived,
     groups.created_at,
-    groups.split_rule
+    groups.split_rule,
+    groups.default_category_id
 """
 
 
@@ -54,9 +56,10 @@ class GroupRepository(BaseRepository):
                 color,
                 archived,
                 created_at,
-                split_rule
+                split_rule,
+                default_category_id
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 group.id,
@@ -68,6 +71,7 @@ class GroupRepository(BaseRepository):
                 int(group.archived),
                 group.created_at.isoformat(),
                 rule_to_json(group.split_rule),
+                group.default_category_id,
             ),
         )
 
@@ -165,7 +169,8 @@ class GroupRepository(BaseRepository):
                 icon = ?,
                 color = ?,
                 archived = ?,
-                split_rule = ?
+                split_rule = ?,
+                default_category_id = ?
             WHERE id = ?
             """,
             (
@@ -176,6 +181,7 @@ class GroupRepository(BaseRepository):
                 group.color,
                 int(group.archived),
                 rule_to_json(group.split_rule),
+                group.default_category_id,
                 group.id,
             ),
         )
@@ -205,4 +211,5 @@ class GroupRepository(BaseRepository):
             archived=bool(row["archived"]),
             created_at=datetime.fromisoformat(row["created_at"]),
             split_rule=rule_from_json(row["split_rule"]),
+            default_category_id=row["default_category_id"],
         )

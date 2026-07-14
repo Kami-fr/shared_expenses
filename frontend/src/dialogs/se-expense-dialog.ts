@@ -142,6 +142,15 @@ export class SeExpenseDialog extends LitElement {
       // an account tied to nobody has no better guess to offer.
       this.paidBy = this.meId ?? this.members[0]?.id ?? "";
 
+      // Where the group says new expenses start. Checked against the list
+      // rather than trusted: a category deleted a moment ago would otherwise
+      // preselect something that is not in the picker.
+      const preferred = this.group.default_category_id;
+
+      this.categoryId = this.categories.some((c) => c.id === preferred)
+        ? preferred!
+        : "";
+
       return;
     }
 
@@ -407,10 +416,10 @@ export class SeExpenseDialog extends LitElement {
       this.categoryId,
       html`
         <se-split-rule-editor
-          required
+          inherits="category"
           .localize=${this.localize}
           .members=${this.members}
-          .rule=${this.rule ?? this.defaultRule()}
+          .rule=${this.rule}
           .currency=${this.group.currency}
           .language=${this.language}
           .amount=${amount}

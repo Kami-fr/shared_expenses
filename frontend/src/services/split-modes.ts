@@ -14,7 +14,17 @@
 import { parseMoney } from "./format";
 import type { SplitRule } from "../types";
 
-export type Mode = "equal" | "exact" | "percent" | "partial" | "custom";
+export type Mode = "default" | "equal" | "exact" | "partial" | "custom";
+
+/**
+ * What the figures of `exact` are typed in.
+ *
+ * The two are one mode: "Antonin owes 5" and "Antonin owes 40%" are the same
+ * sentence about the same person, and only the unit differs. The rule stores
+ * them apart because they behave apart — one follows the amount, the other does
+ * not — but nobody filling in an expense thinks of that as two decisions.
+ */
+export type Unit = "money" | "percent";
 
 /** A whole, in hundredths of a percent. */
 export const FULL_PERCENT = 10_000;
@@ -27,8 +37,10 @@ export interface ModeState {
   envelopeInput: string;
   /** What each is down for, as typed, in `exact`. */
   amounts: Record<string, string>;
-  /** What share each takes, as typed, in `percent`. */
+  /** What share each takes, as typed, when `exact` is in percent. */
   percents: Record<string, string>;
+  /** Which of the two the figures of `exact` are in. */
+  unit: Unit;
   /** Who takes what is left, in `partial`. Empty means whoever paid. */
   restTo: string;
   /** Who takes what is left, in `custom`. Empty means whoever paid. */
@@ -40,14 +52,19 @@ export interface ModeState {
 /**
  * Read a stored rule back as the mode that would have written it.
  *
- * The three plain modes cannot say everything the model can — a rest split
- * between several people, or a fixed amount inside it. Those rules exist, and
+ * No rule is not an equal split: it is the absence of one, which sends the
+ * expense to its category's rule, and that category's to the group's. Saying
+ * "equal shares" there was a guess that came out wrong the moment the rule it
+ * deferred to was anything else.
+ *
+ * The plain modes cannot say everything the model can — a rest split between
+ * several people, or an amount and a share side by side. Those rules exist, and
  * reading one as something simpler would rewrite it the moment the expense was
  * saved again. They read as `custom`, which says the model in full.
  */
 export function modeOf(rule: SplitRule | null): Mode {
   if (rule === null) {
-    return "equal";
+    return "default";
   }
 
   const shares = Object.keys(rule.remainder?.percent ?? {});
@@ -59,9 +76,10 @@ export function modeOf(rule: SplitRule | null): Mode {
     return "custom";
   }
 
-  // Nothing shared up front: the whole expense is what people are down for.
+  // Nothing shared up front: the whole expense is what people are down for,
+  // in one unit or the other.
   if (rule.envelope === 0) {
-    return shares.length > 0 ? "percent" : "exact";
+    return "exact";
   }
 
   // A share of what an envelope left is more than the plain modes can say.
@@ -87,34 +105,35 @@ export function modeOf(rule: SplitRule | null): Mode {
 
 /** Write a mode out as the rule the backend stores. */
 export function ruleFor(mode: Mode, state: ModeState): SplitRule | null {
+  // The only mode that writes nothing, and the only one that means to: an
+  // expense with no rule takes its category's, a category with none the
+  // group's.
+  if (mode === "default") {
+    return null;
+  }
+
   if (mode === "equal") {
-    // Everyone, equally, is what no rule at all already means.
-    return state.participants.size === state.memberIds.length
-      ? null
-      : {
-          envelope: null,
-          participants: [...state.participants],
-          remainder: {},
-        };
+    // Spelled out even when it is everyone, which resolves the same as no rule
+    // but does not mean it: this one says "equal shares, whatever the category
+    // says", and it must survive being stored next to a category that says
+    // otherwise.
+    return {
+      envelope: null,
+      participants:
+        state.participants.size === state.memberIds.length
+          ? null
+          : [...state.participants],
+      remainder: {},
+    };
   }
 
   if (mode === "exact") {
     return {
       envelope: 0,
-      remainder: {
-        members: [...state.participants],
-        fixed: fixedOf(state),
-      },
-    };
-  }
-
-  if (mode === "percent") {
-    return {
-      envelope: 0,
-      remainder: {
-        members: [...state.participants],
-        percent: percentOf(state),
-      },
+      remainder:
+        state.unit === "percent"
+          ? { members: [...state.participants], percent: percentOf(state) }
+          : { members: [...state.participants], fixed: fixedOf(state) },
     };
   }
 
@@ -172,9 +191,7 @@ export function stateOf(
     rule?.remainder?.members ?? (payerId ? [payerId] : []);
 
   const participants =
-    mode === "exact" || mode === "percent"
-      ? new Set(takers)
-      : new Set(rule?.participants ?? memberIds);
+    mode === "exact" ? new Set(takers) : new Set(rule?.participants ?? memberIds);
 
   return {
     participants,
@@ -198,6 +215,9 @@ export function stateOf(
       mode === "partial" && rule?.remainder?.members?.length === 1
         ? rule.remainder.members[0]
         : payerId ?? "",
+    // Whichever the rule was written in. A rule with neither is an equal split
+    // dressed as `exact`, and money is the one to offer first.
+    unit: Object.keys(rule?.remainder?.percent ?? {}).length > 0 ? "percent" : "money",
     memberIds,
   };
 }

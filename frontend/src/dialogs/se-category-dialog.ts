@@ -41,6 +41,9 @@ export class SeCategoryDialog extends LitElement {
 
   @state() private rule: SplitRule | null = null;
 
+  /** This category is where a new expense starts. */
+  @state() private isDefault = false;
+
   @state() private busy = false;
 
   @state() private error?: string;
@@ -50,10 +53,14 @@ export class SeCategoryDialog extends LitElement {
   public connectedCallback(): void {
     super.connectedCallback();
 
+    this.isDefault =
+      this.category !== undefined &&
+      this.group.default_category_id === this.category.id;
+
     if (this.category) {
       this.name = this.category.name;
       this.icon = this.category.icon ?? "";
-    this.color = this.category.color;
+      this.color = this.category.color;
       this.rule = this.category.split_rule;
     }
   }
@@ -92,8 +99,22 @@ export class SeCategoryDialog extends LitElement {
           ></se-color-picker>
 
           <div>
+            <label class="switch">
+              <input
+                type="checkbox"
+                .checked=${this.isDefault}
+                @change=${(e: Event) =>
+                  (this.isDefault = (e.target as HTMLInputElement).checked)}
+              />
+              <span>${translate("default_category")}</span>
+            </label>
+            <div class="muted hint">${translate("default_category_hint")}</div>
+          </div>
+
+          <div>
             <label class="muted">${translate("default_split")}</label>
             <se-split-rule-editor
+              inherits="group"
               .localize=${this.localize}
               .members=${this.members}
               .rule=${this.rule}
@@ -102,6 +123,7 @@ export class SeCategoryDialog extends LitElement {
               @rule-changed=${(e: CustomEvent) => (this.rule = e.detail.rule)}
             ></se-split-rule-editor>
           </div>
+
         </div>
 
         <se-button slot="actions" variant="text" @click=${this.cancel}>
@@ -133,6 +155,25 @@ export class SeCategoryDialog extends LitElement {
     return colorFor(this.category?.id ?? this.name);
   }
 
+  /**
+   * Say whether this is the group's default, if that changed.
+   *
+   * The flag lives on the group, not the category — there is one of it, and a
+   * category cannot know it is the chosen one. Saved after the category itself,
+   * because a category being created has no id until then.
+   */
+  private async saveDefault(categoryId: string) {
+    const was = this.group.default_category_id === categoryId;
+
+    if (was === this.isDefault) {
+      return;
+    }
+
+    await this.api.updateGroup(this.group.id, {
+      default_category_id: this.isDefault ? categoryId : null,
+    });
+  }
+
   private cancel = () => {
     this.dispatchEvent(new CustomEvent("dialog-cancelled", { bubbles: true, composed: true }));
   };
@@ -152,6 +193,8 @@ export class SeCategoryDialog extends LitElement {
       const category = this.category
         ? await this.api.updateCategory(this.category.id, changes)
         : await this.api.createCategory({ group_id: this.group.id, ...changes });
+
+      await this.saveDefault(category.id);
 
       this.dispatchEvent(
         new CustomEvent("category-saved", {

@@ -10,6 +10,7 @@ import pytest
 from custom_components.shared_expenses.const import DATABASE_VERSION
 from custom_components.shared_expenses.exceptions import (
     CannotRemoveOwnerError,
+    CategoryNotFoundError,
     GroupArchivedError,
     GroupNotFoundError,
     InvalidExpenseError,
@@ -21,6 +22,7 @@ from custom_components.shared_expenses.manager import SharedExpensesManager
 from custom_components.shared_expenses.models import (
     ExpenseShare,
     GroupRole,
+    Remainder,
     SplitRule,
 )
 from custom_components.shared_expenses.storage.database import Database
@@ -1046,3 +1048,132 @@ async def test_balances_and_settlement_end_to_end(manager: SharedExpensesManager
 
     assert set(after.balances.values()) == {0}
     assert after.settlements == []
+
+async def test_a_category_can_be_an_equal_split_when_the_group_is_not(
+    manager: SharedExpensesManager,
+):
+    """A rule that says "equal shares" must not be mistaken for saying nothing.
+
+    Saying nothing sends the expense to the group's rule. A category spelling
+    out an equal split says the opposite, and the two are different rules even
+    though they resolve the same when the group has none.
+    """
+
+    group = await make_group(manager)
+    antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
+    owner = await owner_of(manager, group.id)
+
+    await manager.update_group(
+        replace(
+            group,
+            split_rule=SplitRule(
+                envelope=0,
+                remainder=Remainder(
+                    members=(owner.id, antonin.id),
+                    percent={owner.id: 6000, antonin.id: 4000},
+                ),
+            ),
+        )
+    )
+
+    spelled_out = SplitRule(envelope=None, participants=None, remainder=Remainder())
+    category = await manager.create_category(
+        group_id=group.id,
+        name="Courses",
+        split_rule=spelled_out,
+    )
+
+    expense = await manager.create_expense(
+        group_id=group.id,
+        title="Courses",
+        amount=10000,
+        paid_by_member_id=owner.id,
+        expense_date=NOW,
+        category_id=category.id,
+    )
+
+    assert await shares_of(manager, expense.id) == {owner.id: 5000, antonin.id: 5000}
+
+
+async def test_a_category_with_no_rule_takes_the_group_one(
+    manager: SharedExpensesManager,
+):
+    """The other half of it: saying nothing still defers, as it always did."""
+
+    group = await make_group(manager)
+    antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
+    owner = await owner_of(manager, group.id)
+
+    await manager.update_group(
+        replace(
+            group,
+            split_rule=SplitRule(
+                envelope=0,
+                remainder=Remainder(
+                    members=(owner.id, antonin.id),
+                    percent={owner.id: 6000, antonin.id: 4000},
+                ),
+            ),
+        )
+    )
+
+    category = await manager.create_category(
+        group_id=group.id,
+        name="Courses",
+        split_rule=None,
+    )
+
+    expense = await manager.create_expense(
+        group_id=group.id,
+        title="Courses",
+        amount=10000,
+        paid_by_member_id=owner.id,
+        expense_date=NOW,
+        category_id=category.id,
+    )
+
+    assert await shares_of(manager, expense.id) == {owner.id: 6000, antonin.id: 4000}
+
+async def test_a_group_can_name_a_default_category(manager: SharedExpensesManager):
+    """Most households spend on the same thing; picking it every time says nothing."""
+
+    group = await make_group(manager)
+    category = await manager.create_category(group_id=group.id, name="Courses")
+
+    await manager.update_group(replace(group, default_category_id=category.id))
+
+    assert (await manager.get_group(group.id)).default_category_id == category.id
+
+
+async def test_a_default_category_of_another_group_is_refused(
+    manager: SharedExpensesManager,
+):
+    """The id comes from the caller: a foreign key would take any in the house."""
+
+    mine = await make_group(manager, group_name="Appartement")
+    theirs = await make_group(manager, group_name="Ski")
+    theirs_category = await manager.create_category(group_id=theirs.id, name="Forfaits")
+
+    with pytest.raises(CategoryNotFoundError):
+        await manager.update_group(
+            replace(mine, default_category_id=theirs_category.id)
+        )
+
+    assert (await manager.get_group(mine.id)).default_category_id is None
+
+
+async def test_deleting_the_default_category_leaves_the_group(
+    manager: SharedExpensesManager,
+):
+    """It stops having a default, which is where it started. Nothing more."""
+
+    group = await make_group(manager)
+    category = await manager.create_category(group_id=group.id, name="Courses")
+
+    await manager.update_group(replace(group, default_category_id=category.id))
+    await manager.delete_category(category.id)
+
+    reloaded = await manager.get_group(group.id)
+
+    assert reloaded.name == "Appartement"
+    assert reloaded.default_category_id is None

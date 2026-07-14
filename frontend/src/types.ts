@@ -40,6 +40,8 @@ export interface Group {
   archived: boolean;
   created_at: string;
   split_rule: SplitRule | null;
+  /** The category a new expense starts on, if the group named one. */
+  default_category_id: string | null;
 }
 
 export interface Member {

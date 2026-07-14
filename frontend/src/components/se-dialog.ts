@@ -1,6 +1,9 @@
 import { LitElement, css, html } from "lit";
 import { customElement, property } from "lit/decorators.js";
 
+/** How long a phone keyboard takes to come up, near enough. */
+const KEYBOARD_DELAY = 300;
+
 /**
  * A modal dialog.
  *
@@ -22,6 +25,14 @@ export class SeDialog extends LitElement {
       display: block;
     }
 
+    /*
+     * Swallows the gesture as well as the light.
+     *
+     * touch-action: none because overscroll-behavior only holds where there is
+     * something to scroll: on a dialog shorter than the screen a flick went
+     * straight through to the page behind, which on a modal means moving
+     * something you cannot see. The content opts back in below.
+     */
     .scrim {
       position: fixed;
       inset: 0;
@@ -30,6 +41,7 @@ export class SeDialog extends LitElement {
       display: flex;
       align-items: flex-end;
       justify-content: center;
+      touch-action: none;
     }
 
     .surface {
@@ -43,7 +55,12 @@ export class SeDialog extends LitElement {
        * way round.
        */
       min-width: 0;
-      max-height: 92vh;
+      /*
+       * dvh, not vh: a keyboard shrinks the visible viewport but not vh, so the
+       * dialog stayed its full height and the field being typed into sat under
+       * the keyboard. dvh follows what is actually on screen.
+       */
+      max-height: 92dvh;
       display: flex;
       flex-direction: column;
       border-radius: 16px 16px 0 0;
@@ -75,9 +92,19 @@ export class SeDialog extends LitElement {
       border-radius: 50%;
     }
 
+    /*
+     * Scrolls on its own, and keeps it to itself.
+     *
+     * overscroll-behavior stops a flick that reaches the end of the dialog from
+     * carrying on into the page behind it — which, on a modal, means scrolling
+     * something you cannot even see.
+     */
     .content {
       padding: 16px;
       overflow-y: auto;
+      overscroll-behavior: contain;
+      /* The one place a finger may still scroll, and only up and down. */
+      touch-action: pan-y;
       flex: 1;
     }
 
@@ -134,12 +161,39 @@ export class SeDialog extends LitElement {
   public connectedCallback(): void {
     super.connectedCallback();
     window.addEventListener("keydown", this.handleKeydown);
+    this.addEventListener("focusin", this.keepInView);
   }
 
   public disconnectedCallback(): void {
     super.disconnectedCallback();
     window.removeEventListener("keydown", this.handleKeydown);
+    this.removeEventListener("focusin", this.keepInView);
   }
+
+  /**
+   * Scroll whatever was just focused back into view.
+   *
+   * A keyboard opening does not move the dialog, and the browser's own effort
+   * to reveal the field gives up at the first scrolling ancestor — which here
+   * is the dialog, inside a fixed scrim. So a field near the bottom ends up
+   * behind the keyboard, being typed into blind.
+   *
+   * Deferred, because at the moment focus lands the keyboard is not up yet and
+   * the viewport has not shrunk: scrolling now would aim at where the field
+   * already is. Centred rather than merely revealed, so the next field down is
+   * visible too.
+   */
+  private keepInView = (event: FocusEvent) => {
+    const target = event.target as HTMLElement | null;
+
+    if (!target?.scrollIntoView) {
+      return;
+    }
+
+    window.setTimeout(() => {
+      target.scrollIntoView({ block: "center", behavior: "smooth" });
+    }, KEYBOARD_DELAY);
+  };
 
   private close = () => {
     this.open = false;

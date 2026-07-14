@@ -32,6 +32,7 @@ def group_to_dict(group: Group) -> dict[str, Any]:
         "archived": group.archived,
         "created_at": group.created_at.isoformat(),
         "split_rule": rule_to_dict(group.split_rule),
+        "default_category_id": group.default_category_id,
     }
 
 

@@ -46,6 +46,7 @@ def modes_to_javascript(source: str) -> str:
 
     # Its interfaces and type aliases, which carry no behaviour.
     source = re.sub(r"export type Mode =[^;]*;", "", source)
+    source = re.sub(r"export type Unit =[^;]*;", "", source)
     source = re.sub(
         r"export const FULL_PERCENT = [^;]*;",
         "const FULL_PERCENT = 10000;",
@@ -57,6 +58,7 @@ def modes_to_javascript(source: str) -> str:
         r": SplitRule \| null",
         r": ModeState",
         r": Mode",
+        r": Unit",
         r": Set<string>",
         r": Record<string, number>",
         r": string\[\] \| null",

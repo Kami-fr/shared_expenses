@@ -35,11 +35,12 @@ export function describeRule(
   }
 
   if (mode === "exact") {
-    return localize("split_exact");
-  }
-
-  if (mode === "percent") {
-    return describePercent(rule, localize);
+    // Money or percent is not a mode any more, it is how the figures were
+    // typed. "60 / 40" says far more than the word "percentages" ever could,
+    // so a rule written that way says itself.
+    return Object.keys(rule.remainder?.percent ?? {}).length > 0
+      ? describePercent(rule, localize)
+      : localize("split_exact");
   }
 
   if (mode === "partial") {

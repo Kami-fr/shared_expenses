@@ -328,13 +328,25 @@ export class SeGroupPage extends LitElement {
         z-index: 4;
       }
 
+      /*
+       * Under the toolbar it belongs to, wherever the page has been scrolled.
+       *
+       * Fixed, not absolute: absolute pinned it 64px from the top of the host,
+       * which is as tall as the whole page — so once you had scrolled down, the
+       * menu opened somewhere above the screen and never showed. The toolbar it
+       * hangs from is sticky and always there, so this hangs from the viewport
+       * too.
+       */
       .menu {
-        position: absolute;
+        position: fixed;
         z-index: 5;
         top: 64px;
         left: 16px;
         right: 16px;
         max-width: 320px;
+        max-height: calc(100dvh - 96px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
         padding: 6px;
         background: var(--card-background-color, #fff);
         border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));

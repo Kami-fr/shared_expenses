@@ -30,6 +30,7 @@ export interface CreateGroupInput {
   color?: string | null;
   owner_name?: string | null;
   split_rule?: SplitRule | null;
+  default_category_id?: string | null;
 }
 
 export interface CreateExpenseInput {

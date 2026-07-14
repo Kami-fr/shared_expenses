@@ -27,4 +27,7 @@ class Group:
     created_at: datetime
 
     split_rule: SplitRule | None = None
+
+    default_category_id: str | None = None
+    """The category a new expense starts on. `None` means none in particular."""
     """Default split rule, used by expenses without a category."""

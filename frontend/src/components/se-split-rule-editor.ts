@@ -13,6 +13,7 @@ import {
   ruleFor,
   stateOf,
   type Mode,
+  type Unit,
 } from "../services/split-modes";
 import { sharedStyles } from "../styles/shared";
 import type { Member, SplitRule } from "../types";
@@ -27,7 +28,19 @@ const SAMPLE = 8542;
  * shared up front *and* exact figures on what is left — 10 shared, then 8 for
  * one and 4 for the other — so hiding it would take that away.
  */
-const MODES: Mode[] = ["equal", "exact", "percent", "partial", "custom"];
+/**
+ * The modes worth keeping as a lasting rule.
+ *
+ * `exact` is not one of them. A rule applies to amounts it has never seen, and
+ * "Antonin owes 20" makes every expense under 20 impossible to enter — the
+ * backend refuses it, rightly, because there is nothing left to take it out of.
+ * An envelope says nearly the same thing and caps itself: 20 shared on a 15
+ * expense is 7,50 each.
+ *
+ * It is still offered to a rule that already is one, so an old rule can be read
+ * and changed rather than silently rewritten.
+ */
+const LASTING: Mode[] = ["equal", "exact", "partial", "custom"];
 
 /**
  * Editor for a split rule.
@@ -58,10 +71,15 @@ export class SeSplitRuleEditor extends LitElement {
   /** Who pays, when previewing a real expense: the rest falls back to them. */
   @property({ type: String }) public payerId: string | null = null;
 
-  /** Skip the on/off toggle: a rule is always in force here. */
-  @property({ type: Boolean }) public required = false;
-
-  @state() private enabled = false;
+  /**
+   * What this rule defers to when it says nothing, if anything does.
+   *
+   * An expense falls back on its category, a category on the group. The group
+   * falls back on nobody: there, saying nothing *is* an equal split, so
+   * offering "default rule" would be offering the same thing twice under two
+   * names.
+   */
+  @property({ type: String }) public inherits?: "category" | "group";
 
   @state() private mode: Mode = "equal";
 
@@ -73,8 +91,11 @@ export class SeSplitRuleEditor extends LitElement {
   /** What each is down for, in `exact`. Empty means an equal share of it. */
   @state() private amounts: Record<string, string> = {};
 
-  /** What share each takes, in `percent`. Empty means an equal share of it. */
+  /** What share each takes, in percent. Empty means an equal share of it. */
   @state() private percents: Record<string, string> = {};
+
+  /** Which unit the figures of `exact` are typed in. */
+  @state() private unit: Unit = "money";
 
   /** Who takes what is left, in `partial`. Empty means whoever paid. */
   @state() private restTo = "";
@@ -131,6 +152,43 @@ export class SeSplitRuleEditor extends LitElement {
         width: 116px;
       }
 
+      .head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .units {
+        display: flex;
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        border-radius: 8px;
+        overflow: hidden;
+        flex: 0 0 auto;
+      }
+
+      .units button {
+        background: none;
+        border: none;
+        color: var(--secondary-text-color);
+        font-family: inherit;
+        font-size: 13px;
+        padding: 5px 12px;
+        cursor: pointer;
+      }
+
+      .units button[aria-pressed="true"] {
+        background: var(--primary-color, #03a9f4);
+        color: var(--text-primary-color, #fff);
+      }
+
+      /* An example, set apart from the rule it is an example of. */
+      .example {
+        font-size: 12px;
+        font-style: italic;
+        padding: 4px 0 6px;
+      }
+
       .total {
         display: flex;
         justify-content: space-between;
@@ -175,7 +233,6 @@ export class SeSplitRuleEditor extends LitElement {
   public connectedCallback(): void {
     super.connectedCallback();
 
-    this.enabled = this.required || this.rule !== null;
     this.mode = modeOf(this.rule);
 
     const state = stateOf(
@@ -188,6 +245,7 @@ export class SeSplitRuleEditor extends LitElement {
     this.envelopeInput = state.envelopeInput;
     this.amounts = state.amounts;
     this.percents = state.percents;
+    this.unit = state.unit;
     this.takers = state.takers;
     this.restTo = this.mode === "partial" ? state.restTo : "";
   }
@@ -220,22 +278,7 @@ export class SeSplitRuleEditor extends LitElement {
   }
 
   protected render() {
-    const translate = this.localize;
-
-    if (this.required) {
-      return this.renderPanel();
-    }
-
-    return html`
-      <label class="toggle">
-        <input type="checkbox" .checked=${this.enabled} @change=${this.toggle} />
-        <span class="label">${translate("split_rule_custom")}</span>
-      </label>
-
-      ${this.enabled
-        ? this.renderPanel()
-        : html`<div class="muted">${translate("split_rule_equal_hint")}</div>`}
-    `;
+    return this.renderPanel();
   }
 
   /** What the panel works on: the real expense, or a sample to stand for one. */
@@ -252,16 +295,16 @@ export class SeSplitRuleEditor extends LitElement {
         <se-select
           .label=${translate("split_how")}
           .value=${this.mode}
-          .options=${MODES.map((mode) => ({
+          .options=${this.offered().map((mode) => ({
             value: mode,
             label: translate(`split_${mode}`),
           }))}
           @value-changed=${(e: CustomEvent) => this.pick(e.detail.value as Mode)}
         ></se-select>
 
+        ${this.mode === "default" ? this.renderDefault() : nothing}
         ${this.mode === "equal" ? this.renderEqual(shares) : nothing}
         ${this.mode === "exact" ? this.renderExact(shares) : nothing}
-        ${this.mode === "percent" ? this.renderPercent(shares) : nothing}
         ${this.mode === "partial" ? this.renderPartial(shares) : nothing}
         ${this.mode === "custom" ? this.renderCustom(shares) : nothing}
         ${shares === null
@@ -271,11 +314,33 @@ export class SeSplitRuleEditor extends LitElement {
     `;
   }
 
+  /** What can be picked here, and what this rule already happens to be. */
+  private offered(): Mode[] {
+    const modes = this.inherits ? (["default", ...LASTING] as Mode[]) : [...LASTING];
+
+    return modes.includes(this.mode) ? modes : [...modes, this.mode];
+  }
+
+  /** Nothing to fill in: the rule is somebody else's. */
+  private renderDefault() {
+    return html`
+      <div>
+        <div class="muted">
+          ${this.localize(
+            this.inherits === "category" ? "default_from_category" : "default_from_group",
+          )}
+        </div>
+        <div class="muted example">${this.localize("split_default_example")}</div>
+      </div>
+    `;
+  }
+
   /** Tick who is in. What each pays shows next to them, live. */
   private renderEqual(shares: Record<string, number> | null) {
     return html`
       <div>
         <div class="muted">${this.localize("split_equal_hint")}</div>
+        <div class="muted example">${this.localize("split_equal_example")}</div>
         ${this.members.map(
           (member) => html`
             <div class="member-row">
@@ -287,43 +352,6 @@ export class SeSplitRuleEditor extends LitElement {
               ${this.renderAvatar(member)}
               <span class="name">${member.name}</span>
               <span class="share">${this.shareOf(shares, member.id)}</span>
-            </div>
-          `,
-        )}
-      </div>
-    `;
-  }
-
-  /** Type what each owes. An empty field takes an equal cut of what is left. */
-  private renderExact(shares: Record<string, number> | null) {
-    return html`
-      <div>
-        <div class="muted">${this.localize("split_exact_hint")}</div>
-        ${this.members.map(
-          (member) => html`
-            <div class="member-row">
-              <input
-                type="checkbox"
-                .checked=${this.participants.has(member.id)}
-                @change=${() => this.toggleParticipant(member.id)}
-              />
-              ${this.renderAvatar(member)}
-              <span class="name">${member.name}</span>
-              <!--
-                An empty field says what it would come to, in grey: that is
-                what a placeholder is for, and it is the answer to the only
-                question this mode raises — "so what do I pay, then?"
-              -->
-              <se-field
-                .value=${this.amounts[member.id] ?? ""}
-                .suffix=${this.currency}
-                .disabled=${!this.participants.has(member.id)}
-                decimal
-                placeholder=${this.shareOf(shares, member.id) ||
-                this.localize("split_the_rest_short")}
-                @value-changed=${(e: CustomEvent) =>
-                  this.setAmount(member.id, e.detail.value)}
-              ></se-field>
             </div>
           `,
         )}
@@ -332,19 +360,47 @@ export class SeSplitRuleEditor extends LitElement {
   }
 
   /**
-   * Type what share each owes. An empty field takes an equal cut of the rest.
+   * What each one owes, in money or as a share.
    *
-   * The running total is there because the one thing that goes wrong here is
-   * arithmetic: shares that do not reach a hundred leave money on nobody, and
-   * shares past it are not shares at all.
+   * One panel, one switch. "Antonin owes 5" and "Antonin owes 40%" are the same
+   * sentence about the same person; only the unit differs, and that is a switch,
+   * not a second thing to go and find in a list.
+   *
+   * They do behave apart — a share follows the amount, a figure does not — which
+   * is why the rule keeps them apart. That is the rule's business, not yours.
    */
-  private renderPercent(shares: Record<string, number> | null) {
+  private renderExact(shares: Record<string, number> | null) {
     const translate = this.localize;
+    const percent = this.unit === "percent";
     const total = this.percentTotal();
 
     return html`
       <div>
-        <div class="muted">${translate("split_percent_hint")}</div>
+        <div class="head">
+          <div>
+            <div class="muted">
+              ${translate(percent ? "split_percent_hint" : "split_exact_hint")}
+            </div>
+            <div class="muted example">
+              ${translate(percent ? "split_percent_example" : "split_exact_example")}
+            </div>
+          </div>
+          <div class="units" role="group">
+            <button
+              aria-pressed=${!percent}
+              @click=${() => this.setUnit("money")}
+            >
+              ${this.currency}
+            </button>
+            <button
+              aria-pressed=${percent}
+              @click=${() => this.setUnit("percent")}
+            >
+              %
+            </button>
+          </div>
+        </div>
+
         ${this.members.map(
           (member) => html`
             <div class="member-row">
@@ -355,31 +411,66 @@ export class SeSplitRuleEditor extends LitElement {
               />
               ${this.renderAvatar(member)}
               <span class="name">${member.name}</span>
-              <span class="share">${this.shareOf(shares, member.id)}</span>
+              ${percent
+                ? html`<span class="share">${this.shareOf(shares, member.id)}</span>`
+                : nothing}
+              <!--
+                In money, an empty field says in grey what it would come to:
+                that is what a placeholder is for, and it answers the only
+                question the mode raises. In percent the figure needs its own
+                column, the field being the share itself.
+              -->
               <se-field
-                .value=${this.percents[member.id] ?? ""}
-                .suffix=${"%"}
+                .value=${(percent ? this.percents : this.amounts)[member.id] ?? ""}
+                .suffix=${percent ? "%" : this.currency}
                 .disabled=${!this.participants.has(member.id)}
                 decimal
-                placeholder="—"
+                placeholder=${percent
+                  ? "—"
+                  : this.shareOf(shares, member.id) ||
+                    this.localize("split_the_rest_short")}
                 @value-changed=${(e: CustomEvent) =>
-                  this.setPercent(member.id, e.detail.value)}
+                  percent
+                    ? this.setPercent(member.id, e.detail.value)
+                    : this.setAmount(member.id, e.detail.value)}
               ></se-field>
             </div>
           `,
         )}
 
-        <div class="total">
-          <span class="muted">${translate("split_percent_total")}</span>
-          <strong class=${total > FULL_PERCENT ? "negative" : ""}>
-            ${(total / 100).toFixed(total % 100 === 0 ? 0 : 2)} %
-          </strong>
-        </div>
-        ${total > FULL_PERCENT
-          ? html`<div class="warn">${translate("split_percent_over")}</div>`
+        ${percent
+          ? html`
+              <div class="total">
+                <span class="muted">${translate("split_percent_total")}</span>
+                <strong class=${total > FULL_PERCENT ? "negative" : ""}>
+                  ${(total / 100).toFixed(total % 100 === 0 ? 0 : 2)} %
+                </strong>
+              </div>
+              ${total > FULL_PERCENT
+                ? html`<div class="warn">${translate("split_percent_over")}</div>`
+                : nothing}
+            `
           : nothing}
       </div>
     `;
+  }
+
+  /**
+   * Switch the unit, dropping what was typed in the other.
+   *
+   * 40 EUR is not 40%, and carrying the figures across would turn one into the
+   * other without a word — a different expense, silently.
+   */
+  private setUnit(unit: Unit) {
+    if (unit === this.unit) {
+      return;
+    }
+
+    this.unit = unit;
+    this.amounts = {};
+    this.percents = {};
+
+    this.emit();
   }
 
   /** What has been claimed so far, in hundredths of a percent. */
@@ -411,6 +502,7 @@ export class SeSplitRuleEditor extends LitElement {
 
     return html`
       <div>
+        <div class="muted example">${translate("split_partial_example")}</div>
         <se-field
           .label=${translate("split_shared_amount")}
           .value=${this.envelopeInput}
@@ -470,6 +562,7 @@ export class SeSplitRuleEditor extends LitElement {
     return html`
       <div>
         <div class="muted">${translate("split_custom_hint")}</div>
+        <div class="muted example">${translate("split_custom_example")}</div>
       </div>
 
       <se-field
@@ -627,12 +720,8 @@ export class SeSplitRuleEditor extends LitElement {
       this.amounts = {};
     }
 
-    if (mode !== "percent") {
+    if (mode !== "exact") {
       this.percents = {};
-    }
-
-    if (mode === "percent" && this.participants.size === 0) {
-      this.participants = new Set(this.members.map((member) => member.id));
     }
 
     // The amounts of `exact` are on the whole expense, those of `custom` on
@@ -661,11 +750,6 @@ export class SeSplitRuleEditor extends LitElement {
       this.restTo = "";
     }
 
-    this.emit();
-  }
-
-  private toggle(event: Event) {
-    this.enabled = (event.target as HTMLInputElement).checked;
     this.emit();
   }
 
@@ -714,15 +798,12 @@ export class SeSplitRuleEditor extends LitElement {
   }
 
   private build(): SplitRule | null {
-    if (!this.enabled) {
-      return null;
-    }
-
     return ruleFor(this.mode, {
       participants: this.participants,
       envelopeInput: this.envelopeInput,
       amounts: this.amounts,
       percents: this.percents,
+      unit: this.unit,
       restTo: this.restTo,
       takers: this.takers,
       memberIds: this.members.map((member) => member.id),

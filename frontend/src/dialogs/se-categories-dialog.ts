@@ -155,7 +155,12 @@ export class SeCategoriesDialog extends LitElement {
           .size=${34}
         ></se-icon>
         <div class="info">
-          <div class="name">${category.name}</div>
+          <div class="name">
+            ${category.name}
+            ${this.group.default_category_id === category.id
+              ? html`<span class="tag">${this.localize("default_category_tag")}</span>`
+              : nothing}
+          </div>
           <div class="muted">${this.describe(category)}</div>
         </div>
         <span class="chevron">›</span>
