@@ -25,7 +25,18 @@ import type {
 
 type Tab = "overview" | "expenses" | "settlements" | "members" | "categories";
 
-const RECENT_EXPENSES = 4;
+/**
+ * One thing that happened in the group, expense or payment alike.
+ *
+ * `at` is the date you typed, `addedAt` when it was actually entered. Both are
+ * needed: a date input carries no time, so everything on the same day shares
+ * one timestamp and would otherwise come out in no particular order.
+ */
+type Activity =
+  | { kind: "expense"; at: string; addedAt: string; expense: Expense }
+  | { kind: "payment"; at: string; addedAt: string; payment: Payment };
+
+const RECENT_ACTIVITY = 5;
 
 /** Detail of a group: balances, expenses and members. */
 @customElement("se-group-page")
@@ -336,6 +347,10 @@ export class SeGroupPage extends LitElement {
         font-family: inherit;
       }
 
+      .settled-amount {
+        color: var(--se-positive);
+      }
+
       .payer {
         font-size: 13px;
         margin-top: 2px;
@@ -616,20 +631,64 @@ export class SeGroupPage extends LitElement {
 
       <div class="card">
         <div class="section-head">
-          <h3>${translate("recent_expenses")}</h3>
-          ${this.expenses.length > RECENT_EXPENSES
+          <h3>${translate("recent_activity")}</h3>
+          ${this.activity().length > RECENT_ACTIVITY
             ? html`<button class="link" @click=${() => (this.tab = "expenses")}>
                 ${translate("see_all")}
               </button>`
             : nothing}
         </div>
-        ${this.expenses.length === 0
-          ? html`<div class="empty">${translate("no_expenses")}</div>`
-          : this.expenses
-              .slice(0, RECENT_EXPENSES)
-              .map((expense) => this.renderExpense(expense))}
+        ${this.renderActivity()}
       </div>
     `;
+  }
+
+  /**
+   * Everything that moved money, newest first.
+   *
+   * Expenses and payments are two halves of the same story: seeing them apart
+   * means never knowing whether a debt was already settled.
+   */
+  private activity(): Activity[] {
+    const entries: Activity[] = [
+      ...this.expenses.map(
+        (expense): Activity => ({
+          kind: "expense",
+          at: expense.expense_date,
+          addedAt: expense.created_at,
+          expense,
+        }),
+      ),
+      ...this.payments.map(
+        (payment): Activity => ({
+          kind: "payment",
+          at: payment.payment_date,
+          addedAt: payment.created_at,
+          payment,
+        }),
+      ),
+    ];
+
+    // Newest first, and within a single day the most recently entered first.
+    return entries.sort(
+      (a, b) => b.at.localeCompare(a.at) || b.addedAt.localeCompare(a.addedAt),
+    );
+  }
+
+  private renderActivity() {
+    const entries = this.activity();
+
+    if (entries.length === 0) {
+      return html`<div class="empty">${this.localize("no_activity")}</div>`;
+    }
+
+    return entries
+      .slice(0, RECENT_ACTIVITY)
+      .map((entry) =>
+        entry.kind === "expense"
+          ? this.renderExpense(entry.expense)
+          : this.renderPayment(entry.payment),
+      );
   }
 
   private renderSettlements() {
@@ -672,11 +731,16 @@ export class SeGroupPage extends LitElement {
         ></se-icon>
         <div class="info">
           <div class="title">${from?.name ?? "?"} → ${to?.name ?? "?"}</div>
-          <div class="muted">${formatDate(payment.payment_date, this.language)}</div>
+          <div class="muted">
+            ${formatDate(payment.payment_date, this.language)} ·
+            ${this.localize("a_settlement")}
+          </div>
         </div>
-        <span class="amount">
-          ${formatMoney(payment.amount, this.group!.currency, this.language)}
-        </span>
+        <div class="tail">
+          <span class="amount settled-amount">
+            ${formatMoney(payment.amount, this.group!.currency, this.language)}
+          </span>
+        </div>
       </div>
     `;
   }
@@ -983,6 +1047,14 @@ export class SeGroupPage extends LitElement {
       this.result = result;
     } catch (error) {
       this.error = errorMessage(error, this.localize);
+
+      // Deleted, or no longer ours: say so, rather than sitting on a dead end
+      // the panel would reopen at every visit.
+      if ((error as { code?: string })?.code === "group_not_found") {
+        this.dispatchEvent(
+          new CustomEvent("group-unavailable", { bubbles: true, composed: true }),
+        );
+      }
     } finally {
       this.loading = false;
     }

@@ -124,7 +124,9 @@ class ExpenseRepository(BaseRepository):
                 split_rule
             FROM expenses
             WHERE group_id = ?
-            ORDER BY expense_date DESC
+            -- A date input carries no time, so everything entered on the same
+            -- day shares one expense_date: created_at breaks the tie.
+            ORDER BY expense_date DESC, created_at DESC
             """,
             (group_id,),
         )

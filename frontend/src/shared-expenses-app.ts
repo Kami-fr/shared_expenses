@@ -23,6 +23,9 @@ export class SharedExpensesPanel extends LitElement {
 
   @state() private groupId?: string;
 
+  /** Whether the panel has already resolved where to open. */
+  private landed = false;
+
   private api?: SharedExpensesApi;
 
   public static styles = css`
@@ -69,6 +72,8 @@ export class SharedExpensesPanel extends LitElement {
           .groupId=${this.groupId}
           .language=${language}
           @navigate-back=${this.goToDashboard}
+          @group-selected=${this.handleGroupSelected}
+          @group-unavailable=${this.handleGroupUnavailable}
         ></se-group-page>
       `;
     }
@@ -82,16 +87,47 @@ export class SharedExpensesPanel extends LitElement {
     `;
   }
 
+  /**
+   * Go back to where you were.
+   *
+   * The URL always wins, so a link or the back button still lands where it
+   * points. Only an unqualified visit falls back to the last group opened.
+   */
   private syncFromRoute = () => {
     const path = this.route?.path ?? window.location.pathname;
     const match = /\/group\/([^/?#]+)/.exec(path);
 
-    this.groupId = match ? match[1] : undefined;
+    if (match) {
+      this.groupId = match[1];
+      return;
+    }
+
+    if (this.landed) {
+      // Already inside the panel: the dashboard is a deliberate choice now.
+      this.groupId = undefined;
+      return;
+    }
+
+    this.landed = true;
+
+    const remembered = readLastGroup();
+
+    if (remembered) {
+      this.groupId = remembered;
+      this.pushPath(`/group/${remembered}`);
+      return;
+    }
+
+    this.groupId = undefined;
   };
 
   private handleGroupSelected = (event: CustomEvent) => {
-    this.groupId = event.detail.groupId;
-    this.pushPath(`/group/${this.groupId}`);
+    const groupId: string = event.detail.groupId;
+
+    this.groupId = groupId;
+
+    rememberGroup(groupId);
+    this.pushPath(`/group/${groupId}`);
   };
 
   private goToDashboard = () => {
@@ -99,10 +135,54 @@ export class SharedExpensesPanel extends LitElement {
     this.pushPath("");
   };
 
+  /**
+   * The remembered group is gone, or no longer yours.
+   *
+   * Forget it and show the dashboard rather than reopening a dead end at every
+   * visit.
+   */
+  private handleGroupUnavailable = () => {
+    forgetGroup();
+    this.goToDashboard();
+  };
+
   private pushPath(suffix: string) {
     const prefix = this.route?.prefix ?? window.location.pathname.split("/")[1];
 
     history.pushState(null, "", `${prefix.startsWith("/") ? prefix : `/${prefix}`}${suffix}`);
+  }
+}
+
+/**
+ * The last group opened, remembered per browser.
+ *
+ * A display preference, not group data: it belongs to the device you are on,
+ * not to the household. Every access is guarded, as localStorage throws outright
+ * when a browser disables storage.
+ */
+const LAST_GROUP_KEY = "shared_expenses.last_group";
+
+function readLastGroup(): string | null {
+  try {
+    return window.localStorage.getItem(LAST_GROUP_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function rememberGroup(groupId: string): void {
+  try {
+    window.localStorage.setItem(LAST_GROUP_KEY, groupId);
+  } catch {
+    // Not being able to remember is not worth breaking the panel over.
+  }
+}
+
+function forgetGroup(): void {
+  try {
+    window.localStorage.removeItem(LAST_GROUP_KEY);
+  } catch {
+    // Same: losing the shortcut is harmless.
   }
 }
 

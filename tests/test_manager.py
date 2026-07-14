@@ -742,6 +742,52 @@ async def test_explicit_shares_still_carry_their_rule(manager: SharedExpensesMan
     assert await shares_of(manager, expense.id) == {owner.id: 8042, antonin.id: 500}
 
 
+async def test_expenses_of_one_day_come_back_newest_entered_first(
+    manager: SharedExpensesManager,
+):
+    """A date input carries no time: they all share one expense_date."""
+
+    group = await make_group(manager)
+    owner = await owner_of(manager, group.id)
+
+    for title in ("premiere", "deuxieme", "troisieme"):
+        await manager.create_expense(
+            group_id=group.id,
+            title=title,
+            amount=1000,
+            paid_by_member_id=owner.id,
+            expense_date=NOW,
+        )
+
+    expenses = await manager.list_expenses(group.id)
+
+    assert [e.title for e in expenses] == ["troisieme", "deuxieme", "premiere"]
+
+
+async def test_a_backdated_expense_stays_in_the_past(manager: SharedExpensesManager):
+    group = await make_group(manager)
+    owner = await owner_of(manager, group.id)
+
+    await manager.create_expense(
+        group_id=group.id,
+        title="aujourd'hui",
+        amount=1000,
+        paid_by_member_id=owner.id,
+        expense_date=NOW,
+    )
+    await manager.create_expense(
+        group_id=group.id,
+        title="le mois dernier",
+        amount=1000,
+        paid_by_member_id=owner.id,
+        expense_date=datetime(2026, 6, 1, 12, 0, tzinfo=UTC),
+    )
+
+    expenses = await manager.list_expenses(group.id)
+
+    assert [e.title for e in expenses] == ["aujourd'hui", "le mois dernier"]
+
+
 async def test_a_payment_to_oneself_is_refused(manager: SharedExpensesManager):
     group = await make_group(manager)
     owner = (await manager.list_group_members(group.id))[0]
