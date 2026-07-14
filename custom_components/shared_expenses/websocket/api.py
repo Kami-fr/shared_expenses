@@ -93,6 +93,11 @@ REMAINDER_SCHEMA = vol.Schema(
     {
         vol.Optional("members"): vol.Any(None, [cv.string]),
         vol.Optional("fixed"): {cv.string: int},
+        # In hundredths of a percent: 60% is 6000. Kept in step with
+        # `Remainder` and with `REMAINDER_KEYS` in helpers/splits.py — this
+        # schema is the door, and a field the model knows but the door does not
+        # is a field nobody can send.
+        vol.Optional("percent"): {cv.string: int},
     }
 )
 

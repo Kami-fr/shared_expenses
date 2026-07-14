@@ -192,11 +192,20 @@ export class SeExpenseDialog extends LitElement {
     };
   }
 
-  /** The rule of the category, then of the group, as the backend would pick. */
-  private defaultRule(): SplitRule | null {
+  /**
+   * What the editor opens on: the category's rule, then the group's.
+   *
+   * Never null. Nothing above saying anything means an equal split, and that is
+   * worth spelling out here — a null would read as "default rule", the one mode
+   * this dialog does not offer, because saving freezes the rule anyway.
+   */
+  private defaultRule(): SplitRule {
     const category = this.categories.find((c) => c.id === this.categoryId);
 
-    return category?.split_rule ?? this.group.split_rule ?? null;
+    return (
+      category?.split_rule ??
+      this.group.split_rule ?? { envelope: null, participants: null, remainder: {} }
+    );
   }
 
   /**
@@ -408,18 +417,23 @@ export class SeExpenseDialog extends LitElement {
   /**
    * The same editor the category rule uses, on the real amount.
    *
-   * Keyed on the category so picking one rebuilds it from that category's rule:
-   * the default fills the screen in, and stays yours to overwrite.
+   * Opened on the category's rule rather than on "default rule", and no such
+   * mode is offered here. Saving copies whatever is on screen onto the expense
+   * — it always did — so a rule that merely said "whatever the category says"
+   * was frozen at that instant anyway: change the category next month and this
+   * expense would not budge. Naming the deferral was a promise nothing kept.
+   *
+   * Keyed on the category, so picking one rebuilds the editor from its rule:
+   * the category fills the screen in, and it stays yours to overwrite.
    */
   private renderEditor(amount: number | null) {
     return keyed(
       this.categoryId,
       html`
         <se-split-rule-editor
-          inherits="category"
           .localize=${this.localize}
           .members=${this.members}
-          .rule=${this.rule}
+          .rule=${this.rule ?? this.defaultRule()}
           .currency=${this.group.currency}
           .language=${this.language}
           .amount=${amount}

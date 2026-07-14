@@ -185,7 +185,12 @@ export class SeCategoriesDialog extends LitElement {
           .size=${34}
         ></se-icon>
         <div class="info">
-          <div class="name">${this.localize("no_category")}</div>
+          <div class="name">
+            ${this.localize("no_category")}
+            ${this.group.default_category_id === null
+              ? html`<span class="tag">${this.localize("default_category_tag")}</span>`
+              : nothing}
+          </div>
           <div class="muted">
             ${describeRule(
               this.group.split_rule,

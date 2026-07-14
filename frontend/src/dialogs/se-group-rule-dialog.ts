@@ -1,4 +1,4 @@
-import { LitElement, html, nothing } from "lit";
+import { LitElement, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
 import "../components/se-button";
@@ -33,15 +33,46 @@ export class SeGroupRuleDialog extends LitElement {
 
   @state() private rule: SplitRule | null = null;
 
+  /** New expenses start with no category. */
+  @state() private isDefault = false;
+
   @state() private busy = false;
 
   @state() private error?: string;
 
-  public static styles = sharedStyles;
+  public static styles = [
+    sharedStyles,
+    css`
+      .switch {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+
+      .switch input {
+        width: 20px;
+        height: 20px;
+        accent-color: var(--primary-color, #03a9f4);
+      }
+
+      .switch input[disabled] {
+        cursor: default;
+      }
+
+      .hint {
+        font-size: 12px;
+        padding: 4px 0 0 32px;
+      }
+    `,
+  ];
 
   public connectedCallback(): void {
     super.connectedCallback();
+
     this.rule = this.group.split_rule;
+    this.isDefault = this.group.default_category_id === null;
   }
 
   protected render() {
@@ -55,6 +86,20 @@ export class SeGroupRuleDialog extends LitElement {
       >
         <div class="stack">
           ${this.error ? html`<div class="error">${this.error}</div>` : nothing}
+
+          <div>
+            <label class="switch">
+              <input
+                type="checkbox"
+                .checked=${this.isDefault}
+                ?disabled=${this.group.default_category_id === null}
+                @change=${(e: Event) =>
+                  (this.isDefault = (e.target as HTMLInputElement).checked)}
+              />
+              <span>${translate("default_category")}</span>
+            </label>
+            <div class="muted hint">${translate("default_category_hint")}</div>
+          </div>
 
           <div class="muted">${translate("no_category_rule_hint")}</div>
 
@@ -87,7 +132,14 @@ export class SeGroupRuleDialog extends LitElement {
     this.error = undefined;
 
     try {
-      await this.api.updateGroup(this.group.id, { split_rule: this.rule });
+      // Both live on the group, so they go together. Ticking this is the one
+      // way back to no category once another has taken it; unticking it would
+      // leave nothing chosen, which is the same thing, so it cannot be done —
+      // the box disables itself once it is on.
+      await this.api.updateGroup(this.group.id, {
+        split_rule: this.rule,
+        ...(this.isDefault ? { default_category_id: null } : {}),
+      });
 
       this.dispatchEvent(
         new CustomEvent("rule-saved", { bubbles: true, composed: true }),

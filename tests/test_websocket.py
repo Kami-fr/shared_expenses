@@ -440,3 +440,70 @@ async def test_a_malformed_message_never_reaches_the_manager(handler, payload):
 
     with pytest.raises(vol.Invalid):
         handler()._ws_schema(payload)
+
+#
+# The door and the model must agree
+#
+
+
+def test_the_schema_accepts_every_field_the_model_holds():
+    """The schema is the door, and it must know every field the model does.
+
+    A field the model holds but the door does not is a field nobody can send.
+    This is exactly how percentages shipped broken — added to the model, to the
+    reader and to both resolvers, and not to the voluptuous schema. Every
+    expense carrying a rule was refused with "extra keys not allowed", which
+    names the field but says nothing about why.
+    """
+
+    from custom_components.shared_expenses.helpers.splits import (
+        REMAINDER_KEYS,
+        RULE_KEYS,
+    )
+    from custom_components.shared_expenses.websocket.api import (
+        REMAINDER_SCHEMA,
+        SPLIT_RULE_SCHEMA,
+    )
+
+    def keys_of(schema) -> set[str]:
+        return {str(key.schema) for key in schema.schema}
+
+    assert keys_of(SPLIT_RULE_SCHEMA) == set(RULE_KEYS)
+    assert keys_of(REMAINDER_SCHEMA) == set(REMAINDER_KEYS)
+
+
+def test_the_schema_takes_what_the_panel_sends():
+    """Every shape the editor can write, through the real schema."""
+
+    from custom_components.shared_expenses.websocket.api import SPLIT_RULE_SCHEMA
+
+    # The panel always serialises the whole shape, empty maps and all.
+    written = [
+        {
+            "envelope": None,
+            "participants": None,
+            "remainder": {"members": None, "fixed": {}, "percent": {}},
+        },
+        {
+            "envelope": 0,
+            "participants": None,
+            "remainder": {"members": ["m1", "m2"], "fixed": {"m2": 500}, "percent": {}},
+        },
+        {
+            "envelope": 0,
+            "participants": None,
+            "remainder": {
+                "members": ["m1", "m2"],
+                "fixed": {},
+                "percent": {"m1": 6000, "m2": 4000},
+            },
+        },
+        {
+            "envelope": 1000,
+            "participants": ["m1", "m2"],
+            "remainder": {"members": ["m1"], "fixed": {}, "percent": {}},
+        },
+    ]
+
+    for rule in written:
+        SPLIT_RULE_SCHEMA(rule)

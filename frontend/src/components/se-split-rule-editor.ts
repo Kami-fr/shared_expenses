@@ -538,9 +538,15 @@ export class SeSplitRuleEditor extends LitElement {
             ? nothing
             : html`<span class="figure">(${this.money(left)})</span>`}
         </span>
+        <!--
+          "Whoever paid" only where nobody has yet. On an expense the payer is
+          picked two fields up, so the phrase names a person already on screen —
+          say their name. On a lasting rule it is the whole point: it applies to
+          expenses whose payer is not known and will not always be the same.
+        -->
         <se-select
-          .value=${this.restTo}
-          .placeholder=${translate("split_rest_payer")}
+          .value=${this.restTo || this.payerId || ""}
+          .placeholder=${this.payerId ? undefined : translate("split_rest_payer")}
           .options=${this.members.map((m) => ({ value: m.id, label: m.name }))}
           @value-changed=${(e: CustomEvent) => this.setRestTo(e.detail.value)}
         ></se-select>
