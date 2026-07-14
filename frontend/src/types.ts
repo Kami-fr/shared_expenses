@@ -31,10 +31,20 @@ export interface Group {
 
 export interface Member {
   id: string;
+  /** The Home Assistant account behind this member, or null if they have none. */
   user_id: string | null;
   name: string;
   color: string | null;
   created_at: string;
+}
+
+/** A Home Assistant account, as offered by the member picker. */
+export interface HaUser {
+  id: string;
+  name: string;
+  is_owner: boolean;
+  /** The member already backing this account, if it has one. */
+  member_id: string | null;
 }
 
 export interface GroupMember {

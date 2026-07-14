@@ -14,6 +14,7 @@ from ..manager import SharedExpensesManager
 from .api import (
     SHARE_SCHEMA,
     SPLIT_RULE_SCHEMA,
+    Scope,
     api_command,
     as_utc,
     shares_from_msg,
@@ -30,7 +31,7 @@ from .serializers import expense_to_dict, share_to_dict
     }
 )
 @websocket_api.async_response
-@api_command
+@api_command(Scope.GROUP)
 async def websocket_list_expenses(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
@@ -71,7 +72,7 @@ async def websocket_list_expenses(
     }
 )
 @websocket_api.async_response
-@api_command
+@api_command(Scope.EXPENSE)
 async def websocket_get_expense(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
@@ -102,7 +103,7 @@ async def websocket_get_expense(
     }
 )
 @websocket_api.async_response
-@api_command
+@api_command(Scope.GROUP)
 async def websocket_create_expense(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
@@ -150,7 +151,7 @@ async def websocket_create_expense(
     }
 )
 @websocket_api.async_response
-@api_command
+@api_command(Scope.EXPENSE)
 async def websocket_update_expense(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
@@ -199,7 +200,7 @@ async def websocket_update_expense(
     }
 )
 @websocket_api.async_response
-@api_command
+@api_command(Scope.EXPENSE)
 async def websocket_delete_expense(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
@@ -220,7 +221,7 @@ async def websocket_delete_expense(
     }
 )
 @websocket_api.async_response
-@api_command
+@api_command(Scope.GROUP)
 async def websocket_list_expense_shares(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,

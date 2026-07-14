@@ -11,7 +11,7 @@ from homeassistant.helpers import config_validation as cv
 import voluptuous as vol
 
 from ..manager import SharedExpensesManager
-from .api import SPLIT_RULE_SCHEMA, api_command, split_rule_from_msg
+from .api import SPLIT_RULE_SCHEMA, Scope, api_command, split_rule_from_msg
 from .serializers import category_to_dict
 
 
@@ -22,7 +22,7 @@ from .serializers import category_to_dict
     }
 )
 @websocket_api.async_response
-@api_command
+@api_command(Scope.GROUP)
 async def websocket_list_categories(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
@@ -50,7 +50,7 @@ async def websocket_list_categories(
     }
 )
 @websocket_api.async_response
-@api_command
+@api_command(Scope.GROUP)
 async def websocket_create_category(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
@@ -81,7 +81,7 @@ async def websocket_create_category(
     }
 )
 @websocket_api.async_response
-@api_command
+@api_command(Scope.CATEGORY)
 async def websocket_update_category(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
@@ -113,7 +113,7 @@ async def websocket_update_category(
     }
 )
 @websocket_api.async_response
-@api_command
+@api_command(Scope.CATEGORY)
 async def websocket_delete_category(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,

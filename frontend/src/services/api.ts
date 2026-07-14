@@ -13,6 +13,7 @@ import type {
   GroupBalances,
   GroupMember,
   GroupRole,
+  HaUser,
   HomeAssistant,
   Member,
   Payment,
@@ -90,9 +91,16 @@ export class SharedExpensesApi {
 
   // Members
 
-  public listMembers(groupId?: string, includeLeft = false): Promise<Member[]> {
+  /** The Home Assistant accounts a group can be built from. */
+  public listHaUsers(): Promise<HaUser[]> {
+    return this.call("list_ha_users");
+  }
+
+  // `groupId` is required: the backend refuses to list every member of the
+  // house, as that would leak the people of groups you have nothing to do with.
+  public listMembers(groupId: string, includeLeft = false): Promise<Member[]> {
     return this.call("list_members", {
-      ...(groupId ? { group_id: groupId } : {}),
+      group_id: groupId,
       include_left: includeLeft,
     });
   }
@@ -103,7 +111,9 @@ export class SharedExpensesApi {
 
   public createMember(input: {
     name: string;
-    group_id?: string;
+    group_id: string;
+    /** A Home Assistant account id, or nothing for someone without one. */
+    user_id?: string | null;
     color?: string | null;
     role?: GroupRole;
   }): Promise<Member> {

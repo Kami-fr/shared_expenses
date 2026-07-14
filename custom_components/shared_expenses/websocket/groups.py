@@ -12,7 +12,7 @@ import voluptuous as vol
 
 from ..const import DEFAULT_CURRENCY
 from ..manager import SharedExpensesManager
-from .api import SPLIT_RULE_SCHEMA, api_command, split_rule_from_msg
+from .api import SPLIT_RULE_SCHEMA, Scope, api_command, split_rule_from_msg
 from .serializers import balances_to_dict, group_to_dict
 
 
@@ -23,16 +23,19 @@ from .serializers import balances_to_dict, group_to_dict
     }
 )
 @websocket_api.async_response
-@api_command
+@api_command(Scope.NONE)
 async def websocket_list_groups(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
     manager: SharedExpensesManager,
 ) -> None:
-    """Return all groups."""
+    """Return the groups the connected account belongs to.
 
-    groups = await manager.list_groups()
+    Never `list_groups()`: a user must not learn that the others exist.
+    """
+
+    groups = await manager.list_user_groups(connection.user.id)
 
     if not msg["include_archived"]:
         groups = [group for group in groups if not group.archived]
@@ -47,7 +50,7 @@ async def websocket_list_groups(
     }
 )
 @websocket_api.async_response
-@api_command
+@api_command(Scope.GROUP)
 async def websocket_get_group(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
@@ -74,7 +77,7 @@ async def websocket_get_group(
     }
 )
 @websocket_api.async_response
-@api_command
+@api_command(Scope.NONE)
 async def websocket_create_group(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
@@ -112,7 +115,7 @@ async def websocket_create_group(
     }
 )
 @websocket_api.async_response
-@api_command
+@api_command(Scope.GROUP)
 async def websocket_update_group(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
@@ -147,7 +150,7 @@ async def websocket_update_group(
     }
 )
 @websocket_api.async_response
-@api_command
+@api_command(Scope.GROUP)
 async def websocket_archive_group(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
@@ -173,7 +176,7 @@ async def websocket_archive_group(
     }
 )
 @websocket_api.async_response
-@api_command
+@api_command(Scope.GROUP)
 async def websocket_delete_group(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
@@ -194,7 +197,7 @@ async def websocket_delete_group(
     }
 )
 @websocket_api.async_response
-@api_command
+@api_command(Scope.GROUP)
 async def websocket_get_balances(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,

@@ -13,34 +13,33 @@ import voluptuous as vol
 from ..exceptions import MemberNotFoundError
 from ..manager import SharedExpensesManager
 from ..models import GroupRole
-from .api import api_command
+from .api import Scope, api_command
 from .serializers import group_member_to_dict, member_to_dict
 
 
 @websocket_api.websocket_command(
     {
         vol.Required("type"): "shared_expenses/list_members",
-        vol.Optional("group_id"): cv.string,
+        # Required since the walling off: listing every member of the house
+        # would leak the people of groups the caller has nothing to do with.
+        vol.Required("group_id"): cv.string,
         vol.Optional("include_left", default=False): bool,
     }
 )
 @websocket_api.async_response
-@api_command
+@api_command(Scope.GROUP)
 async def websocket_list_members(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
     manager: SharedExpensesManager,
 ) -> None:
-    """Return the members of a group, or every member."""
+    """Return the members of a group."""
 
-    if (group_id := msg.get("group_id")) is None:
-        members = await manager.list_members()
-    else:
-        members = await manager.list_group_members(
-            group_id,
-            include_left=msg["include_left"],
-        )
+    members = await manager.list_group_members(
+        msg["group_id"],
+        include_left=msg["include_left"],
+    )
 
     connection.send_result(msg["id"], [member_to_dict(member) for member in members])
 
@@ -52,7 +51,7 @@ async def websocket_list_members(
     }
 )
 @websocket_api.async_response
-@api_command
+@api_command(Scope.GROUP)
 async def websocket_list_memberships(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
@@ -73,7 +72,9 @@ async def websocket_list_memberships(
     {
         vol.Required("type"): "shared_expenses/create_member",
         vol.Required("name"): cv.string,
-        vol.Optional("group_id"): cv.string,
+        # A member is always created into a group: a floating one serves nobody
+        # and would sit outside the walling off.
+        vol.Required("group_id"): cv.string,
         vol.Optional("user_id"): vol.Any(None, cv.string),
         vol.Optional("color"): vol.Any(None, cv.string),
         vol.Optional("role", default=GroupRole.MEMBER.value): vol.In(
@@ -82,29 +83,42 @@ async def websocket_list_memberships(
     }
 )
 @websocket_api.async_response
-@api_command
+@api_command(Scope.GROUP)
 async def websocket_create_member(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
     manager: SharedExpensesManager,
 ) -> None:
-    """Create a member, and add it to a group when one is given."""
+    """Add someone to a group.
 
-    if (group_id := msg.get("group_id")) is None:
-        member = await manager.create_member(
-            name=msg["name"],
-            user_id=msg.get("user_id"),
-            color=msg.get("color"),
-        )
-    else:
+    With a `user_id`, this attaches the Home Assistant account, reusing the
+    member it already has elsewhere rather than creating a second one. Without,
+    it creates someone who has no account and will never log in.
+    """
+
+    group_id = msg["group_id"]
+    role = GroupRole(msg["role"])
+
+    if (user_id := msg.get("user_id")) is None:
         member = await manager.create_group_member(
             group_id=group_id,
             name=msg["name"],
-            user_id=msg.get("user_id"),
             color=msg.get("color"),
-            role=GroupRole(msg["role"]),
+            role=role,
         )
+    else:
+        member = await manager.link_user(user_id=user_id, name=msg["name"])
+
+        if not any(
+            m.member_id == member.id and m.left_at is None
+            for m in await manager.list_group_memberships(group_id)
+        ):
+            await manager.add_member_to_group(
+                group_id=group_id,
+                member_id=member.id,
+                role=role,
+            )
 
     connection.send_result(msg["id"], member_to_dict(member))
 
@@ -118,7 +132,7 @@ async def websocket_create_member(
     }
 )
 @websocket_api.async_response
-@api_command
+@api_command(Scope.MEMBER)
 async def websocket_update_member(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
@@ -150,7 +164,7 @@ async def websocket_update_member(
     }
 )
 @websocket_api.async_response
-@api_command
+@api_command(Scope.GROUP)
 async def websocket_add_member_to_group(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
@@ -176,7 +190,7 @@ async def websocket_add_member_to_group(
     }
 )
 @websocket_api.async_response
-@api_command
+@api_command(Scope.GROUP)
 async def websocket_remove_member_from_group(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
@@ -207,7 +221,50 @@ async def websocket_remove_member_from_group(
     connection.send_result(msg["id"], None)
 
 
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "shared_expenses/list_ha_users",
+    }
+)
+@websocket_api.async_response
+@api_command(Scope.NONE)
+async def websocket_list_ha_users(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+    manager: SharedExpensesManager,
+) -> None:
+    """Return the Home Assistant accounts a group can be built from.
+
+    Home Assistant's own `config/auth/list` is admin only, but an ordinary
+    member has to compose their group, so this deliberately answers anyone
+    logged in. It exposes the names of the household accounts, and nothing else.
+    """
+
+    users = await hass.auth.async_get_users()
+
+    connection.send_result(
+        msg["id"],
+        [
+            {
+                "id": user.id,
+                "name": user.name,
+                "is_owner": user.is_owner,
+                # Whether this account already has a member, so the panel can
+                # tell an account to attach from one already in the house.
+                "member_id": getattr(
+                    await manager.get_member_for_user(user.id), "id", None
+                ),
+            }
+            for user in users
+            # Skip Home Assistant's own machinery: those are not people.
+            if user.is_active and not user.system_generated
+        ],
+    )
+
+
 COMMANDS = (
+    websocket_list_ha_users,
     websocket_list_members,
     websocket_list_memberships,
     websocket_create_member,

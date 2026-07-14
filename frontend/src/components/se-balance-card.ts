@@ -133,16 +133,18 @@ export class SeBalanceCard extends LitElement {
       return html`<div class="settled muted">${this.localize("balance_settled")}</div>`;
     }
 
-    // The face-off only tells the truth when the whole group is two people.
-    if (this.balances.length === 2) {
-      return this.renderDuel();
+    // Two people owing each other is the whole story, so face them off. Judged
+    // on the non-zero balances rather than the member count: a member who left
+    // with nothing outstanding is still listed, and must not spoil the duel.
+    if (active.length === 2) {
+      return this.renderDuel(active);
     }
 
     return html`<div>${active.map((balance) => this.renderRow(balance))}</div>`;
   }
 
-  private renderDuel() {
-    const sorted = [...this.balances].sort((a, b) => b.amount - a.amount);
+  private renderDuel(active: Balance[]) {
+    const sorted = [...active].sort((a, b) => b.amount - a.amount);
 
     return html`
       <div class="duel">

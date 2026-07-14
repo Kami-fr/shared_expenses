@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 import pytest
 
 from custom_components.shared_expenses.exceptions import (
+    CannotRemoveOwnerError,
     GroupArchivedError,
     GroupNotFoundError,
     InvalidExpenseError,
@@ -469,6 +470,139 @@ async def test_deleting_an_expense_clears_its_shares_and_balances(
     result = await manager.get_balances(group.id)
 
     assert set(result.balances.values()) == {0}
+
+
+async def test_the_schema_is_migrated_to_the_latest_version(database: Database):
+    cursor = await database.connection.execute("SELECT version FROM schema_version")
+    version = (await cursor.fetchone())["version"]
+    await cursor.close()
+
+    assert version == 3
+
+
+async def test_a_home_assistant_account_maps_to_one_member(
+    manager: SharedExpensesManager,
+):
+    """The unique index is what stops the same person existing twice."""
+
+    first = await manager.link_user(user_id="ha-1", name="Stephane")
+    second = await manager.link_user(user_id="ha-1", name="Stephane again")
+
+    assert first.id == second.id
+    assert second.name == "Stephane"
+
+
+async def test_members_without_an_account_can_pile_up(manager: SharedExpensesManager):
+    """NULL user_id must not collide: they are the people outside the house."""
+
+    first = await manager.create_member(name="Clara")
+    second = await manager.create_member(name="Marc")
+
+    assert first.id != second.id
+    assert first.user_id is None and second.user_id is None
+
+
+async def test_a_user_only_sees_their_own_groups(manager: SharedExpensesManager):
+    mine = await make_group(manager, group_name="Appartement", owner_user_id="ha-1")
+    await make_group(manager, group_name="Vacances", owner_user_id="ha-2")
+
+    groups = await manager.list_user_groups("ha-1")
+
+    assert [group.name for group in groups] == ["Appartement"]
+    assert await manager.is_group_member(mine.id, "ha-1") is True
+
+
+async def test_a_stranger_sees_nothing(manager: SharedExpensesManager):
+    await make_group(manager, owner_user_id="ha-1")
+
+    assert await manager.list_user_groups("ha-nobody") == []
+
+
+async def test_leaving_a_group_hides_it(manager: SharedExpensesManager):
+    group = await make_group(manager, owner_user_id="ha-1")
+    antonin = await manager.link_user(user_id="ha-2", name="Antonin")
+    await manager.add_member_to_group(group_id=group.id, member_id=antonin.id)
+
+    assert [g.name for g in await manager.list_user_groups("ha-2")] == ["Appartement"]
+
+    membership = next(
+        m
+        for m in await manager.list_group_memberships(group.id)
+        if m.member_id == antonin.id
+    )
+    await manager.remove_member_from_group(membership)
+
+    assert await manager.list_user_groups("ha-2") == []
+    assert await manager.is_group_member(group.id, "ha-2") is False
+
+
+async def test_an_unauthorised_group_looks_like_a_missing_one(
+    manager: SharedExpensesManager,
+):
+    """Telling the two apart would leak that the group exists."""
+
+    group = await make_group(manager, owner_user_id="ha-1")
+
+    with pytest.raises(GroupNotFoundError):
+        await manager.ensure_group_member(group.id, "ha-2")
+
+    with pytest.raises(GroupNotFoundError):
+        await manager.ensure_group_member("does-not-exist", "ha-1")
+
+    await manager.ensure_group_member(group.id, "ha-1")
+
+
+async def test_a_member_without_an_account_grants_no_access(
+    manager: SharedExpensesManager,
+):
+    group = await make_group(manager, owner_user_id="ha-1")
+    await manager.create_group_member(group_id=group.id, name="Clara")
+
+    assert await manager.list_user_groups("ha-1") != []
+    assert await manager.is_group_member(group.id, "ha-nobody") is False
+
+
+async def test_the_owner_cannot_leave_their_own_group(manager: SharedExpensesManager):
+    """Otherwise the group would be stranded with nobody able to open it."""
+
+    group = await make_group(manager, owner_user_id="ha-1")
+
+    membership = (await manager.list_group_memberships(group.id))[0]
+
+    with pytest.raises(CannotRemoveOwnerError):
+        await manager.remove_member_from_group(membership)
+
+    assert [g.name for g in await manager.list_user_groups("ha-1")] == ["Appartement"]
+
+
+async def test_anyone_but_the_owner_can_leave(manager: SharedExpensesManager):
+    group = await make_group(manager, owner_user_id="ha-1")
+    antonin = await manager.link_user(user_id="ha-2", name="Antonin")
+    await manager.add_member_to_group(group_id=group.id, member_id=antonin.id)
+
+    membership = next(
+        m
+        for m in await manager.list_group_memberships(group.id)
+        if m.member_id == antonin.id
+    )
+    await manager.remove_member_from_group(membership)
+
+    assert await manager.list_user_groups("ha-2") == []
+
+
+async def test_an_archived_group_stays_visible_to_its_members(
+    manager: SharedExpensesManager,
+):
+    """Archiving freezes a group; it must not hide it."""
+
+    group = await make_group(manager, owner_user_id="ha-1")
+
+    await manager.archive_group(group.id)
+
+    groups = await manager.list_user_groups("ha-1")
+
+    assert [g.name for g in groups] == ["Appartement"]
+    assert groups[0].archived is True
 
 
 async def test_a_payment_to_oneself_is_refused(manager: SharedExpensesManager):

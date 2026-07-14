@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Coroutine, Sequence
 from datetime import UTC, datetime
+from enum import Enum
 from functools import wraps
 from typing import Any
 
@@ -15,6 +16,7 @@ import voluptuous as vol
 
 from ..const import DOMAIN
 from ..exceptions import (
+    CannotRemoveOwnerError,
     CategoryNotFoundError,
     ExpenseNotFoundError,
     GroupArchivedError,
@@ -46,6 +48,23 @@ CommandHandler = Callable[
 ERROR_NOT_LOADED = "not_loaded"
 ERROR_UNKNOWN = "unknown_error"
 
+
+class Scope(Enum):
+    """What a command reaches for, and therefore what to check before running.
+
+    Each value names the field carrying the identifier: the caller must be an
+    active member of the group that identifier belongs to.
+    """
+
+    NONE = "none"
+    """Reaches nothing group-bound. The caller only has to be logged in."""
+
+    GROUP = "group_id"
+    MEMBER = "member_id"
+    EXPENSE = "expense_id"
+    CATEGORY = "category_id"
+    PAYMENT = "payment_id"
+
 # Error codes are part of the contract with the frontend: they are declared
 # here rather than derived from the class names, so that they survive a rename.
 ERROR_CODES: dict[type[SharedExpensesError], str] = {
@@ -53,6 +72,7 @@ ERROR_CODES: dict[type[SharedExpensesError], str] = {
     GroupArchivedError: "group_archived",
     MemberNotFoundError: "member_not_found",
     MemberAlreadyInGroupError: "member_already_in_group",
+    CannotRemoveOwnerError: "cannot_remove_owner",
     CategoryNotFoundError: "category_not_found",
     ExpenseNotFoundError: "expense_not_found",
     InvalidExpenseError: "invalid_expense",
@@ -79,33 +99,103 @@ SPLIT_RULE_SCHEMA = vol.Schema(
 )
 
 
-def api_command(func: CommandHandler) -> websocket_api.AsyncWebSocketCommandHandler:
-    """Resolve the manager and turn business errors into WebSocket errors."""
+def api_command(
+    scope: Scope,
+) -> Callable[[CommandHandler], websocket_api.AsyncWebSocketCommandHandler]:
+    """Resolve the manager, authorize the caller, and map business errors.
 
-    @wraps(func)
-    async def handler(
-        hass: HomeAssistant,
-        connection: websocket_api.ActiveConnection,
-        msg: dict[str, Any],
-    ) -> None:
-        """Handle a command."""
+    Every command states what it reaches for, so that walling the panel off is
+    a property of this decorator rather than of each handler remembering to
+    check. `Scope.NONE` is the explicit way out, not the default.
+    """
 
-        manager = _get_manager(hass)
+    def decorate(func: CommandHandler) -> websocket_api.AsyncWebSocketCommandHandler:
+        @wraps(func)
+        async def handler(
+            hass: HomeAssistant,
+            connection: websocket_api.ActiveConnection,
+            msg: dict[str, Any],
+        ) -> None:
+            """Handle a command."""
 
-        if manager is None:
-            connection.send_error(
-                msg["id"],
-                ERROR_NOT_LOADED,
-                "The Shared Expenses integration is not loaded.",
-            )
-            return
+            manager = _get_manager(hass)
+
+            if manager is None:
+                connection.send_error(
+                    msg["id"],
+                    ERROR_NOT_LOADED,
+                    "The Shared Expenses integration is not loaded.",
+                )
+                return
+
+            try:
+                await _authorize(manager, connection, msg, scope)
+
+                await func(hass, connection, msg, manager)
+            except SharedExpensesError as err:
+                connection.send_error(msg["id"], error_code(err), _message(err))
+
+        return handler
+
+    return decorate
+
+
+async def _authorize(
+    manager: SharedExpensesManager,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+    scope: Scope,
+) -> None:
+    """Refuse a caller reaching outside the groups they belong to.
+
+    Every refusal wears the not-found error of the thing asked for: telling
+    "exists but not yours" apart from "does not exist" would leak it.
+    """
+
+    if scope is Scope.NONE:
+        return
+
+    user_id = connection.user.id
+
+    if scope is Scope.GROUP:
+        await manager.ensure_group_member(msg["group_id"], user_id)
+        return
+
+    if scope is Scope.MEMBER:
+        await manager.ensure_shares_group(msg["member_id"], user_id)
+        return
+
+    if scope is Scope.EXPENSE:
+        expense = await manager.get_expense(msg["expense_id"])
 
         try:
-            await func(hass, connection, msg, manager)
-        except SharedExpensesError as err:
-            connection.send_error(msg["id"], error_code(err), _message(err))
+            await manager.ensure_group_member(expense.group_id, user_id)
+        except GroupNotFoundError as err:
+            raise ExpenseNotFoundError(msg["expense_id"]) from err
 
-    return handler
+        return
+
+    if scope is Scope.CATEGORY:
+        category = await manager.get_category(msg["category_id"])
+
+        try:
+            await manager.ensure_group_member(category.group_id, user_id)
+        except GroupNotFoundError as err:
+            raise CategoryNotFoundError(msg["category_id"]) from err
+
+        return
+
+    if scope is Scope.PAYMENT:
+        payment = await manager.get_payment(msg["payment_id"])
+
+        try:
+            await manager.ensure_group_member(payment.group_id, user_id)
+        except GroupNotFoundError as err:
+            raise PaymentNotFoundError(msg["payment_id"]) from err
+
+        return
+
+    raise RuntimeError(f"Unhandled authorization scope: {scope}")
 
 
 def error_code(err: SharedExpensesError) -> str:

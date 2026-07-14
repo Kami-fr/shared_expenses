@@ -22,6 +22,20 @@ _COLUMNS = """
     split_rule
 """
 
+# `members` also carries id, name, color and created_at, so a join needs the
+# columns spelled out or SQLite refuses them as ambiguous.
+_JOINED_COLUMNS = """
+    groups.id,
+    groups.name,
+    groups.description,
+    groups.currency,
+    groups.icon,
+    groups.color,
+    groups.archived,
+    groups.created_at,
+    groups.split_rule
+"""
+
 
 class GroupRepository(BaseRepository):
     """Repository for managing groups."""
@@ -92,6 +106,51 @@ class GroupRepository(BaseRepository):
         await cursor.close()
 
         return [self._from_row(row) for row in rows]
+
+    async def list_by_user(self, user_id: str) -> list[Group]:
+        """Return the groups a Home Assistant account is an active member of.
+
+        This is what walls the panel off: a user never learns that the other
+        groups exist.
+        """
+
+        cursor = await self._connection.execute(
+            f"""
+            SELECT DISTINCT {_JOINED_COLUMNS}
+            FROM groups
+            INNER JOIN group_members ON group_members.group_id = groups.id
+            INNER JOIN members ON members.id = group_members.member_id
+            WHERE members.user_id = ? AND group_members.left_at IS NULL
+            ORDER BY groups.name
+            """,
+            (user_id,),
+        )
+
+        rows = await cursor.fetchall()
+        await cursor.close()
+
+        return [self._from_row(row) for row in rows]
+
+    async def is_member(self, group_id: str, user_id: str) -> bool:
+        """Return whether an account is an active member of a group."""
+
+        cursor = await self._connection.execute(
+            """
+            SELECT 1
+            FROM group_members
+            INNER JOIN members ON members.id = group_members.member_id
+            WHERE group_members.group_id = ?
+              AND members.user_id = ?
+              AND group_members.left_at IS NULL
+            LIMIT 1
+            """,
+            (group_id, user_id),
+        )
+
+        row = await cursor.fetchone()
+        await cursor.close()
+
+        return row is not None
 
     async def update(self, group: Group) -> None:
         """Update a group."""

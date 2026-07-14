@@ -11,7 +11,7 @@ from homeassistant.helpers import config_validation as cv
 import voluptuous as vol
 
 from ..manager import SharedExpensesManager
-from .api import api_command, as_utc
+from .api import Scope, api_command, as_utc
 from .serializers import payment_to_dict
 
 
@@ -22,7 +22,7 @@ from .serializers import payment_to_dict
     }
 )
 @websocket_api.async_response
-@api_command
+@api_command(Scope.GROUP)
 async def websocket_list_payments(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
@@ -51,7 +51,7 @@ async def websocket_list_payments(
     }
 )
 @websocket_api.async_response
-@api_command
+@api_command(Scope.GROUP)
 async def websocket_create_payment(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
@@ -84,7 +84,7 @@ async def websocket_create_payment(
     }
 )
 @websocket_api.async_response
-@api_command
+@api_command(Scope.PAYMENT)
 async def websocket_update_payment(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
@@ -118,7 +118,7 @@ async def websocket_update_payment(
     }
 )
 @websocket_api.async_response
-@api_command
+@api_command(Scope.PAYMENT)
 async def websocket_delete_payment(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,

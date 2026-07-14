@@ -39,6 +39,14 @@ class MemberAlreadyInGroupError(SharedExpensesError):
     """Member already belongs to the group."""
 
 
+class CannotRemoveOwnerError(SharedExpensesError):
+    """The owner cannot leave their own group.
+
+    Access to a group comes from being a member of it, so letting the owner out
+    would strand the group with nobody able to open it.
+    """
+
+
 #
 # Categories
 #

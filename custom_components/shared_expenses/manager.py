@@ -7,6 +7,7 @@ from dataclasses import replace
 from datetime import UTC, datetime
 
 from .exceptions import (
+    CannotRemoveOwnerError,
     CategoryNotFoundError,
     ExpenseNotFoundError,
     GroupArchivedError,
@@ -123,9 +124,34 @@ class SharedExpensesManager:
         return group
 
     async def list_groups(self) -> list[Group]:
-        """Return all groups."""
+        """Return all groups, whoever asks.
+
+        Prefer `list_user_groups`: the panel must never show a group the
+        connected account does not belong to.
+        """
 
         return await self._database.group_repository.list_all()
+
+    async def list_user_groups(self, user_id: str) -> list[Group]:
+        """Return the groups a Home Assistant account is an active member of."""
+
+        return await self._database.group_repository.list_by_user(user_id)
+
+    async def is_group_member(self, group_id: str, user_id: str) -> bool:
+        """Return whether an account is an active member of a group."""
+
+        return await self._database.group_repository.is_member(group_id, user_id)
+
+    async def ensure_group_member(self, group_id: str, user_id: str) -> None:
+        """Refuse an account that is not an active member of the group.
+
+        Raises `GroupNotFoundError` rather than a dedicated error on purpose: a
+        user must not be able to tell an existing group they cannot see from one
+        that does not exist.
+        """
+
+        if not await self.is_group_member(group_id, user_id):
+            raise GroupNotFoundError(group_id)
 
     async def update_group(self, group: Group) -> None:
         """Update a group."""
@@ -196,6 +222,36 @@ class SharedExpensesManager:
         """Return all members."""
 
         return await self._database.member_repository.list_all()
+
+    async def get_member_for_user(self, user_id: str) -> Member | None:
+        """Return the member backing a Home Assistant account, if any."""
+
+        return await self._database.member_repository.get_by_user_id(user_id)
+
+    async def ensure_shares_group(self, member_id: str, user_id: str) -> None:
+        """Refuse an account that shares no active group with the member."""
+
+        shares = await self._database.member_repository.shares_group_with_user(
+            member_id,
+            user_id,
+        )
+
+        if not shares:
+            raise MemberNotFoundError(member_id)
+
+    async def link_user(self, *, user_id: str, name: str) -> Member:
+        """Return the member of a Home Assistant account, creating it once.
+
+        A Home Assistant account maps to exactly one member, so this is how the
+        panel turns a picked account into someone a group can hold.
+        """
+
+        existing = await self.get_member_for_user(user_id)
+
+        if existing is not None:
+            return existing
+
+        return await self.create_member(name=name, user_id=user_id)
 
     async def list_group_members(
         self,
@@ -309,7 +365,14 @@ class SharedExpensesManager:
         return member
 
     async def remove_member_from_group(self, group_member: GroupMember) -> None:
-        """Mark a member as having left the group."""
+        """Mark a member as having left the group.
+
+        The owner stays: access comes from membership, so letting them out would
+        strand the group with nobody able to open it. Archive it instead.
+        """
+
+        if group_member.role is GroupRole.OWNER:
+            raise CannotRemoveOwnerError(group_member.member_id)
 
         await self._database.group_member_repository.update(
             replace(group_member, left_at=datetime.now(UTC)),

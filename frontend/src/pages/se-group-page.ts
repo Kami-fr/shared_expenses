@@ -40,7 +40,16 @@ export class SeGroupPage extends LitElement {
 
   @state() private group?: Group;
 
+  /** Members still in the group: who can be picked for anything new. */
   @state() private members: Member[] = [];
+
+  /**
+   * Members including those who left.
+   *
+   * Only for putting a name on the past: someone who left keeps their old
+   * expenses, and may still owe money. They must never be offered as a payer.
+   */
+  @state() private pastMembers: Member[] = [];
 
   @state() private categories: Category[] = [];
 
@@ -63,6 +72,8 @@ export class SeGroupPage extends LitElement {
   @state() private editedCategory?: Category;
 
   @state() private editedExpense?: Expense;
+
+  @state() private busy = false;
 
   public static styles = [
     sharedStyles,
@@ -173,6 +184,23 @@ export class SeGroupPage extends LitElement {
         padding: 12px 16px 4px;
       }
 
+      .archived-tag {
+        font-size: 11px;
+        text-transform: uppercase;
+        color: var(--secondary-text-color);
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        border-radius: 4px;
+        padding: 1px 5px;
+      }
+
+      .banner {
+        background: var(--secondary-background-color, #f1f1f1);
+        color: var(--secondary-text-color);
+        border-radius: var(--se-radius);
+        padding: 12px 16px;
+        font-size: 13px;
+      }
+
       .section-head {
         display: flex;
         align-items: center;
@@ -239,7 +267,18 @@ export class SeGroupPage extends LitElement {
         <div class="header">
           <button class="back" @click=${this.goBack} aria-label=${translate("back")}>‹</button>
           <h1>${this.group.name}</h1>
+          ${this.group.archived
+            ? html`<span class="archived-tag">${translate("archived")}</span>`
+            : nothing}
+          <span class="spacer"></span>
+          <se-button variant="text" ?disabled=${this.busy} @click=${this.toggleArchive}>
+            ${this.group.archived ? translate("restore") : translate("archive")}
+          </se-button>
         </div>
+
+        ${this.group.archived
+          ? html`<div class="banner">${translate("archived_hint")}</div>`
+          : nothing}
 
         ${this.error ? html`<div class="error">${this.error}</div>` : nothing}
 
@@ -293,7 +332,7 @@ export class SeGroupPage extends LitElement {
       <se-balance-card
         .localize=${this.localize}
         .balances=${this.result?.balances ?? []}
-        .members=${this.members}
+        .members=${this.pastMembers}
         .currency=${this.group!.currency}
         .language=${this.language}
       ></se-balance-card>
@@ -567,7 +606,12 @@ export class SeGroupPage extends LitElement {
               (member) => html`
                 <div class="item">
                   ${this.renderAvatar(member.name, member.id)}
-                  <div class="info"><div class="title">${member.name}</div></div>
+                  <div class="info">
+                    <div class="title">${member.name}</div>
+                    ${member.user_id === null
+                      ? html`<div class="muted">${translate("no_account")}</div>`
+                      : nothing}
+                  </div>
                 </div>
               `,
             )}
@@ -649,22 +693,24 @@ export class SeGroupPage extends LitElement {
         .localize=${this.localize}
         .groupId=${this.groupId}
         @dialog-cancelled=${this.closeDialog}
-        @member-created=${this.handleChanged}
+        @members-changed=${this.handleChanged}
       ></se-member-dialog>
     `;
   }
 
+  /** Looks among past members too: an old expense still needs a name on it. */
   private memberById(id: string): Member | undefined {
-    return this.members.find((member) => member.id === id);
+    return this.pastMembers.find((member) => member.id === id);
   }
 
   private async load() {
     this.error = undefined;
 
     try {
-      const [group, members, categories, expenses, payments, result] =
+      const [group, members, pastMembers, categories, expenses, payments, result] =
         await Promise.all([
           this.api.getGroup(this.groupId),
+          this.api.listMembers(this.groupId),
           this.api.listMembers(this.groupId, true),
           this.api.listCategories(this.groupId),
           this.api.listExpenses(this.groupId),
@@ -674,6 +720,7 @@ export class SeGroupPage extends LitElement {
 
       this.group = group;
       this.members = members;
+      this.pastMembers = pastMembers;
       this.categories = categories;
       this.expenses = expenses;
       this.payments = payments;
@@ -710,6 +757,24 @@ export class SeGroupPage extends LitElement {
   private handleChanged = () => {
     this.closeDialog();
     void this.load();
+  };
+
+  /** Archiving is reversible and freezes the group: no confirmation needed. */
+  private toggleArchive = async () => {
+    if (!this.group) {
+      return;
+    }
+
+    this.busy = true;
+    this.error = undefined;
+
+    try {
+      this.group = await this.api.archiveGroup(this.group.id, !this.group.archived);
+    } catch (error) {
+      this.error = errorMessage(error, this.localize);
+    } finally {
+      this.busy = false;
+    }
   };
 
   private goBack = () => {

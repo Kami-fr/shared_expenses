@@ -82,6 +82,58 @@ class MemberRepository(BaseRepository):
 
         return [self._from_row(row) for row in rows]
 
+    async def get_by_user_id(self, user_id: str) -> Member | None:
+        """Return the member backing a Home Assistant account."""
+
+        cursor = await self._connection.execute(
+            """
+            SELECT
+                id,
+                user_id,
+                name,
+                color,
+                created_at
+            FROM members
+            WHERE user_id = ?
+            """,
+            (user_id,),
+        )
+
+        row = await cursor.fetchone()
+        await cursor.close()
+
+        if row is None:
+            return None
+
+        return self._from_row(row)
+
+    async def shares_group_with_user(self, member_id: str, user_id: str) -> bool:
+        """Return whether an account and a member share an active group.
+
+        This is what lets someone edit a member: you may only touch people you
+        actually share a group with.
+        """
+
+        cursor = await self._connection.execute(
+            """
+            SELECT 1
+            FROM group_members AS theirs
+            INNER JOIN group_members AS mine
+                ON mine.group_id = theirs.group_id AND mine.left_at IS NULL
+            INNER JOIN members AS me ON me.id = mine.member_id
+            WHERE theirs.member_id = ?
+              AND theirs.left_at IS NULL
+              AND me.user_id = ?
+            LIMIT 1
+            """,
+            (member_id, user_id),
+        )
+
+        row = await cursor.fetchone()
+        await cursor.close()
+
+        return row is not None
+
     async def list_by_group(
         self,
         group_id: str,
