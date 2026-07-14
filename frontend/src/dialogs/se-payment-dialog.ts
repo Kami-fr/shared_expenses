@@ -17,7 +17,7 @@ import {
 } from "../services/format";
 import { errorMessage, type Localizer } from "../services/localize";
 import { sharedStyles } from "../styles/shared";
-import type { Group, Member, Payment, Settlement } from "../types";
+import type { Group, Member, Payment, PaymentKind, Settlement } from "../types";
 
 /**
  * Dialog recording or correcting a payment.
@@ -40,8 +40,18 @@ export class SePaymentDialog extends LitElement {
   /** Pre-fills the dialog from a suggested reimbursement. */
   @property({ attribute: false }) public settlement?: Settlement;
 
+  /** What the dialog opens on. A debt, when the plus was dragged for one. */
+  @property({ type: String }) public initialKind: PaymentKind = "reimbursement";
+
   @property({ type: String }) public language = "en";
 
+  /**
+   * Whoever is out of pocket, whichever kind this is.
+   *
+   * On a reimbursement they settled up; on a debt they lent. The two read as
+   * opposites and store the same, which is the one thing to hold on to here:
+   * the fields swap round on screen, the model never does.
+   */
   @state() private fromMember = "";
 
   @state() private toMember = "";
@@ -56,6 +66,8 @@ export class SePaymentDialog extends LitElement {
 
   @state() private confirmingDelete = false;
 
+  @state() private kind: PaymentKind = "reimbursement";
+
   public static styles = sharedStyles;
 
   public connectedCallback(): void {
@@ -66,8 +78,11 @@ export class SePaymentDialog extends LitElement {
       this.toMember = this.payment.to_member_id;
       this.amountInput = centsToInput(this.payment.amount);
       this.date = isoToDateInput(this.payment.payment_date);
+      this.kind = this.payment.kind;
       return;
     }
+
+    this.kind = this.initialKind;
 
     if (this.settlement) {
       this.fromMember = this.settlement.from_member_id;
@@ -86,7 +101,11 @@ export class SePaymentDialog extends LitElement {
     const translate = this.localize;
     const amount = parseMoney(this.amountInput);
     const options = this.members.map((member) => ({ value: member.id, label: member.name }));
-    const heading = this.payment ? translate("edit_payment") : translate("new_payment");
+    const debt = this.kind === "debt";
+
+    const heading = this.payment
+      ? translate(debt ? "edit_debt" : "edit_payment")
+      : translate(debt ? "new_debt" : "new_payment");
 
     return html`
       <se-dialog open heading=${heading} @dialog-closed=${this.cancel}>
@@ -94,17 +113,38 @@ export class SePaymentDialog extends LitElement {
           ${this.error ? html`<div class="error">${this.error}</div>` : nothing}
 
           <se-select
-            .label=${translate("from_member")}
-            .value=${this.fromMember}
+            .label=${translate("kind_label")}
+            .value=${this.kind}
+            .options=${[
+              { value: "reimbursement", label: translate("kind_reimbursement") },
+              { value: "debt", label: translate("kind_debt") },
+            ]}
+            @value-changed=${(e: CustomEvent) => (this.kind = e.detail.value)}
+          ></se-select>
+
+          <!--
+            The fields swap round, the model does not. A debt names who owes
+            first, because that is the sentence; whoever is owed is stored as
+            the payer either way, being the one out of pocket.
+          -->
+          <se-select
+            .label=${translate(debt ? "debt_who_owes" : "from_member")}
+            .value=${debt ? this.toMember : this.fromMember}
             .options=${options}
-            @value-changed=${(e: CustomEvent) => (this.fromMember = e.detail.value)}
+            @value-changed=${(e: CustomEvent) =>
+              debt
+                ? (this.toMember = e.detail.value)
+                : (this.fromMember = e.detail.value)}
           ></se-select>
 
           <se-select
-            .label=${translate("to_member")}
-            .value=${this.toMember}
+            .label=${translate(debt ? "debt_to_whom" : "to_member")}
+            .value=${debt ? this.fromMember : this.toMember}
             .options=${options}
-            @value-changed=${(e: CustomEvent) => (this.toMember = e.detail.value)}
+            @value-changed=${(e: CustomEvent) =>
+              debt
+                ? (this.fromMember = e.detail.value)
+                : (this.toMember = e.detail.value)}
           ></se-select>
 
           <se-field
@@ -147,7 +187,11 @@ export class SePaymentDialog extends LitElement {
 
         ${this.confirmingDelete
           ? html`<div slot="banner" class="warning">
-              ${translate("confirm_delete_payment")}
+              ${translate(
+                this.kind === "debt"
+                  ? "confirm_delete_debt"
+                  : "confirm_delete_payment",
+              )}
             </div>`
           : nothing}
 
@@ -211,6 +255,7 @@ export class SePaymentDialog extends LitElement {
             to_member_id: this.toMember,
             amount,
             payment_date: dateToIso(this.date),
+            kind: this.kind,
           })
         : await this.api.createPayment({
             group_id: this.group.id,
@@ -218,6 +263,7 @@ export class SePaymentDialog extends LitElement {
             to_member_id: this.toMember,
             amount,
             payment_date: dateToIso(this.date),
+            kind: this.kind,
           });
 
       this.dispatchEvent(

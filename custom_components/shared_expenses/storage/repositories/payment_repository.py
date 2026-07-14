@@ -6,7 +6,7 @@ from datetime import datetime
 
 import aiosqlite
 
-from ...models import Payment
+from ...models import Payment, PaymentKind
 from .base_repository import BaseRepository
 
 _COLUMNS = """
@@ -17,7 +17,8 @@ _COLUMNS = """
     to_member_id,
     amount,
     payment_date,
-    created_at
+    created_at,
+    kind
 """
 
 
@@ -37,9 +38,10 @@ class PaymentRepository(BaseRepository):
                 to_member_id,
                 amount,
                 payment_date,
-                created_at
+                created_at,
+                kind
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 payment.id,
@@ -50,6 +52,7 @@ class PaymentRepository(BaseRepository):
                 payment.amount,
                 payment.payment_date.isoformat(),
                 payment.created_at.isoformat(),
+                str(payment.kind),
             ),
         )
 
@@ -102,7 +105,8 @@ class PaymentRepository(BaseRepository):
                 from_member_id = ?,
                 to_member_id = ?,
                 amount = ?,
-                payment_date = ?
+                payment_date = ?,
+                kind = ?
             WHERE id = ?
             """,
             (
@@ -111,6 +115,7 @@ class PaymentRepository(BaseRepository):
                 payment.to_member_id,
                 payment.amount,
                 payment.payment_date.isoformat(),
+                str(payment.kind),
                 payment.id,
             ),
         )
@@ -139,4 +144,5 @@ class PaymentRepository(BaseRepository):
             amount=row["amount"],
             payment_date=datetime.fromisoformat(row["payment_date"]),
             created_at=datetime.fromisoformat(row["created_at"]),
+            kind=PaymentKind(row["kind"]),
         )

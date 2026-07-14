@@ -13,6 +13,7 @@ from custom_components.shared_expenses.exceptions import (
     CategoryNotFoundError,
     GroupArchivedError,
     GroupNotFoundError,
+    InvalidExchangeRateError,
     InvalidExpenseError,
     InvalidExpenseSharesError,
     InvalidPaymentError,
@@ -22,6 +23,7 @@ from custom_components.shared_expenses.manager import SharedExpensesManager
 from custom_components.shared_expenses.models import (
     ExpenseShare,
     GroupRole,
+    PaymentKind,
     Remainder,
     SplitRule,
 )
@@ -854,49 +856,6 @@ async def test_a_non_positive_payment_is_refused(manager: SharedExpensesManager)
         )
 
 
-async def test_an_expense_in_another_currency_is_refused(
-    manager: SharedExpensesManager,
-):
-    """Nothing converts, so 100 USD would settle against 100 EUR."""
-
-    group = await make_group(manager, currency="EUR")
-    owner = await owner_of(manager, group.id)
-
-    with pytest.raises(InvalidExpenseError):
-        await manager.create_expense(
-            group_id=group.id,
-            title="Diner",
-            amount=10000,
-            currency="USD",
-            paid_by_member_id=owner.id,
-            expense_date=NOW,
-        )
-
-    assert await manager.list_expenses(group.id) == []
-
-
-async def test_an_expense_cannot_be_edited_into_another_currency(
-    manager: SharedExpensesManager,
-):
-    """The way in is guarded; the way round it must be too."""
-
-    group = await make_group(manager, currency="EUR")
-    owner = await owner_of(manager, group.id)
-
-    expense = await manager.create_expense(
-        group_id=group.id,
-        title="Diner",
-        amount=10000,
-        paid_by_member_id=owner.id,
-        expense_date=NOW,
-    )
-
-    with pytest.raises(InvalidExpenseError):
-        await manager.update_expense(replace(expense, currency="USD"))
-
-    assert (await manager.get_expense(expense.id)).currency == "EUR"
-
-
 async def test_the_group_currency_is_what_an_expense_gets(
     manager: SharedExpensesManager,
 ):
@@ -1177,3 +1136,372 @@ async def test_deleting_the_default_category_leaves_the_group(
 
     assert reloaded.name == "Appartement"
     assert reloaded.default_category_id is None
+
+async def test_an_expense_in_another_currency_converts(manager: SharedExpensesManager):
+    """100 USD at 0.87681 is 87,68 EUR, and that is what the group counts."""
+
+    group = await make_group(manager, currency="EUR")
+    antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
+    owner = await owner_of(manager, group.id)
+
+    expense = await manager.create_expense(
+        group_id=group.id,
+        title="Diner a New York",
+        amount=10_000,
+        currency="USD",
+        paid_by_member_id=owner.id,
+        expense_date=NOW,
+        exchange_rate=876_810,
+    )
+
+    # What was handed over at the till, kept as it was.
+    assert expense.amount == 10_000
+    assert expense.currency == "USD"
+
+    # And the same money, in the currency the group keeps its books in.
+    assert expense.converted_amount == 8_768
+    assert expense.exchange_rate == 876_810
+
+    # The shares are in the group's currency and add up to the converted total.
+    shares = await shares_of(manager, expense.id)
+
+    assert sum(shares.values()) == 8_768
+    assert shares == {owner.id: 4_384, antonin.id: 4_384}
+
+
+async def test_a_converted_expense_settles_against_a_local_one(
+    manager: SharedExpensesManager,
+):
+    """The whole point of converting at all.
+
+    Before, 100 USD cleared 100 EUR and left two people thinking they were
+    square.
+    """
+
+    group = await make_group(manager, currency="EUR")
+    antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
+    owner = await owner_of(manager, group.id)
+
+    # Stephane pays 100 USD, worth 87,68 EUR.
+    await manager.create_expense(
+        group_id=group.id,
+        title="Diner",
+        amount=10_000,
+        currency="USD",
+        paid_by_member_id=owner.id,
+        expense_date=NOW,
+        exchange_rate=876_810,
+    )
+
+    # Antonin pays 100 EUR.
+    await manager.create_expense(
+        group_id=group.id,
+        title="Courses",
+        amount=10_000,
+        paid_by_member_id=antonin.id,
+        expense_date=NOW,
+    )
+
+    result = await manager.get_balances(group.id)
+
+    # Each bore half of both: (87,68 + 100) / 2 = 93,84 each.
+    # Stephane put in 87,68 and bore 93,84, so he owes 6,16.
+    # Antonin put in 100,00 and bore 93,84, so he is owed 6,16.
+    assert result.balances == {owner.id: -616, antonin.id: 616}
+    assert sum(result.balances.values()) == 0
+
+
+async def test_the_group_currency_needs_no_rate(manager: SharedExpensesManager):
+    """The overwhelming case: nothing to fetch, nothing to convert."""
+
+    group = await make_group(manager, currency="EUR")
+    owner = await owner_of(manager, group.id)
+
+    expense = await manager.create_expense(
+        group_id=group.id,
+        title="Courses",
+        amount=8_542,
+        currency="EUR",
+        paid_by_member_id=owner.id,
+        expense_date=NOW,
+    )
+
+    assert expense.converted_amount == expense.amount
+    assert expense.exchange_rate == 1_000_000
+    assert expense.rate_as_of is None
+
+
+async def test_editing_a_converted_expense_keeps_its_rate(
+    manager: SharedExpensesManager,
+):
+    """What someone owes was settled on the day they were owed it.
+
+    Re-pricing an old expense at today's rate on every save would rewrite the
+    past, quietly, every time somebody fixed a typo in its title.
+    """
+
+    group = await make_group(manager, currency="EUR")
+    await manager.create_group_member(group_id=group.id, name="Antonin")
+    owner = await owner_of(manager, group.id)
+
+    expense = await manager.create_expense(
+        group_id=group.id,
+        title="Diner",
+        amount=10_000,
+        currency="USD",
+        paid_by_member_id=owner.id,
+        expense_date=NOW,
+        exchange_rate=876_810,
+    )
+
+    # A typo in the title, nothing else. No rate given, and no network here:
+    # the expense's own rate is what it keeps.
+    await manager.update_expense(replace(expense, title="Diner a New York"))
+
+    reloaded = await manager.get_expense(expense.id)
+
+    assert reloaded.title == "Diner a New York"
+    assert reloaded.exchange_rate == 876_810
+    assert reloaded.converted_amount == 8_768
+
+
+async def test_an_amount_edited_is_reconverted_at_the_same_rate(
+    manager: SharedExpensesManager,
+):
+    group = await make_group(manager, currency="EUR")
+    await manager.create_group_member(group_id=group.id, name="Antonin")
+    owner = await owner_of(manager, group.id)
+
+    expense = await manager.create_expense(
+        group_id=group.id,
+        title="Diner",
+        amount=10_000,
+        currency="USD",
+        paid_by_member_id=owner.id,
+        expense_date=NOW,
+        exchange_rate=876_810,
+    )
+
+    await manager.update_expense(replace(expense, amount=20_000))
+
+    reloaded = await manager.get_expense(expense.id)
+
+    assert reloaded.converted_amount == 17_536
+    assert reloaded.exchange_rate == 876_810
+
+
+async def test_an_implausible_rate_is_refused(manager: SharedExpensesManager):
+    """A typo in a rate turns 5 EUR into a fortune."""
+
+    group = await make_group(manager, currency="EUR")
+    owner = await owner_of(manager, group.id)
+
+    with pytest.raises(InvalidExchangeRateError):
+        await manager.create_expense(
+            group_id=group.id,
+            title="Diner",
+            amount=10_000,
+            currency="USD",
+            paid_by_member_id=owner.id,
+            expense_date=NOW,
+            exchange_rate=0,
+        )
+
+async def test_a_debt_is_written_down_and_owed(manager: SharedExpensesManager):
+    """"Michel owes 46,25 to Dupont", said with what the model already had.
+
+    A debt and a reimbursement are the same movement of money: `from` is
+    whoever is out of pocket. On a debt that is the lender, so Dupont is `from`
+    and Michel ends up owing him.
+    """
+
+    group = await make_group(manager, owner_name="Dupont")
+    michel = await manager.create_group_member(group_id=group.id, name="Michel")
+    dupont = next(
+        m for m in await manager.list_group_members(group.id) if m.name == "Dupont"
+    )
+
+    payment = await manager.create_payment(
+        group_id=group.id,
+        from_member_id=dupont.id,
+        to_member_id=michel.id,
+        amount=4625,
+        payment_date=NOW,
+        kind=PaymentKind.DEBT,
+    )
+
+    assert payment.kind is PaymentKind.DEBT
+
+    result = await manager.get_balances(group.id)
+
+    assert result.balances == {dupont.id: 4625, michel.id: -4625}
+
+    # And the way out of it is the reimbursement it suggests.
+    transfers = [
+        (s.from_member_id, s.to_member_id, s.amount) for s in result.settlements
+    ]
+
+    assert transfers == [(michel.id, dupont.id, 4625)]
+
+
+async def test_a_debt_weighs_the_same_as_a_reimbursement(
+    manager: SharedExpensesManager,
+):
+    """The kind is read, never reckoned with.
+
+    Both are one movement of money; only the words differ. A balance that
+    treated them apart would be counting the label instead of the cash.
+    """
+
+    group = await make_group(manager, owner_name="Dupont")
+    michel = await manager.create_group_member(group_id=group.id, name="Michel")
+    dupont = next(
+        m for m in await manager.list_group_members(group.id) if m.name == "Dupont"
+    )
+
+    await manager.create_payment(
+        group_id=group.id,
+        from_member_id=dupont.id,
+        to_member_id=michel.id,
+        amount=4625,
+        payment_date=NOW,
+        kind=PaymentKind.DEBT,
+    )
+
+    # Michel pays it back. Same two people, the other way round.
+    await manager.create_payment(
+        group_id=group.id,
+        from_member_id=michel.id,
+        to_member_id=dupont.id,
+        amount=4625,
+        payment_date=NOW,
+    )
+
+    result = await manager.get_balances(group.id)
+
+    assert result.balances == {dupont.id: 0, michel.id: 0}
+    assert result.settlements == []
+
+
+async def test_a_payment_is_a_reimbursement_unless_told_otherwise(
+    manager: SharedExpensesManager,
+):
+    group = await make_group(manager)
+    antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
+    owner = await owner_of(manager, group.id)
+
+    payment = await manager.create_payment(
+        group_id=group.id,
+        from_member_id=antonin.id,
+        to_member_id=owner.id,
+        amount=1000,
+        payment_date=NOW,
+    )
+
+    assert payment.kind is PaymentKind.REIMBURSEMENT
+
+
+async def test_shares_are_given_in_what_was_paid(manager: SharedExpensesManager):
+    """Exactly what the expense dialog posts, and it used to be refused.
+
+    The dialog resolves the split on the amount as typed and sends the figures
+    it showed, so a 100 USD dinner split in two arrives as 50 and 50 -- dollars,
+    the currency of the field the editor sits under. They were checked against
+    the converted total, 87,68, which 100 has no way of adding up to: every
+    expense in another currency was rejected out of hand.
+    """
+
+    group = await make_group(manager, currency="EUR")
+    antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
+    owner = await owner_of(manager, group.id)
+
+    expense = await manager.create_expense(
+        group_id=group.id,
+        title="Diner a New York",
+        amount=10_000,
+        currency="USD",
+        paid_by_member_id=owner.id,
+        expense_date=NOW,
+        exchange_rate=876_810,
+        shares=[share_input(owner.id, 5_000), share_input(antonin.id, 5_000)],
+    )
+
+    # Halves of the dollars, stored as halves of the euros they came to.
+    shares = await shares_of(manager, expense.id)
+
+    assert shares == {owner.id: 4_384, antonin.id: 4_384}
+    assert sum(shares.values()) == expense.converted_amount
+
+
+async def test_an_exact_share_is_in_what_was_paid(manager: SharedExpensesManager):
+    """"Antonin owes 20" on a New York dinner is twenty dollars.
+
+    The editor sits under a field reading USD, so that is what its figures mean.
+    Twenty of those dollars is 17,54 to a group counting in euros.
+    """
+
+    group = await make_group(manager, currency="EUR")
+    antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
+    owner = await owner_of(manager, group.id)
+
+    expense = await manager.create_expense(
+        group_id=group.id,
+        title="Diner a New York",
+        amount=10_000,
+        currency="USD",
+        paid_by_member_id=owner.id,
+        expense_date=NOW,
+        exchange_rate=876_810,
+        split_rule=SplitRule(
+            envelope=0,
+            remainder=Remainder(
+                fixed={antonin.id: 2_000},
+                members=(antonin.id, owner.id),
+            ),
+        ),
+    )
+
+    shares = await shares_of(manager, expense.id)
+
+    assert shares[antonin.id] == 1_754
+    assert sum(shares.values()) == expense.converted_amount == 8_768
+
+    # And the rule reads back in the currency it was typed in, beside the
+    # amount it was typed against.
+    assert expense.split_rule.remainder.fixed[antonin.id] == 2_000
+
+
+async def test_editing_a_foreign_expense_reapportions_its_shares(
+    manager: SharedExpensesManager,
+):
+    """The other half of the trip: the update path converts the same way.
+
+    The dialog reopens on the dollars it stored, so it sends dollars back.
+    """
+
+    group = await make_group(manager, currency="EUR")
+    antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
+    owner = await owner_of(manager, group.id)
+
+    expense = await manager.create_expense(
+        group_id=group.id,
+        title="Diner a New York",
+        amount=10_000,
+        currency="USD",
+        paid_by_member_id=owner.id,
+        expense_date=NOW,
+        exchange_rate=876_810,
+    )
+
+    # The bill was 200 dollars, not 100, and it is still split down the middle.
+    await manager.update_expense(
+        replace(expense, amount=20_000),
+        shares=[share_input(owner.id, 10_000), share_input(antonin.id, 10_000)],
+    )
+
+    reloaded = await manager.get_expense(expense.id)
+    shares = await shares_of(manager, expense.id)
+
+    assert reloaded.converted_amount == 17_536
+    assert sum(shares.values()) == 17_536
+    assert shares == {owner.id: 8_768, antonin.id: 8_768}

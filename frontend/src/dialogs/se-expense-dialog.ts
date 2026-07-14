@@ -3,6 +3,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import { keyed } from "lit/directives/keyed.js";
 
 import "../components/se-button";
+import "../components/se-currency-field";
 import "../components/se-dialog";
 import "../components/se-entity-history";
 import "../components/se-field";
@@ -18,6 +19,7 @@ import {
   today,
 } from "../services/format";
 import { errorMessage, type Localizer } from "../services/localize";
+import { CURRENCIES, RATE_ONE } from "../services/currency";
 import { resolveShares } from "../services/splits";
 import { sharedStyles } from "../styles/shared";
 import type { Category, Expense, Group, Member, SplitRule } from "../types";
@@ -75,6 +77,12 @@ export class SeExpenseDialog extends LitElement {
   /** The description field is showing. Hidden until asked for, or filled. */
   @state() private showDescription = false;
 
+  /** What it was paid in. The group's, unless said otherwise. */
+  @state() private currency = "";
+
+  /** The rate to convert at, in millionths. Null: not settled, cannot save. */
+  @state() private rate: number | null = null;
+
   public static styles = [
     sharedStyles,
     css`
@@ -95,6 +103,26 @@ export class SeExpenseDialog extends LitElement {
         .pair {
           grid-template-columns: minmax(0, 1fr);
         }
+      }
+
+      /*
+       * Slotted into the amount field, so it is styled from here and has to
+       * pass for part of that field rather than a control parked next to it:
+       * no frame, no fill, and the muted colour a written suffix had.
+       */
+      .currency {
+        background: none;
+        border: none;
+        outline: none;
+        color: var(--secondary-text-color);
+        font-size: 14px;
+        font-family: inherit;
+        cursor: pointer;
+        padding: 0;
+      }
+
+      .currency:focus-visible {
+        color: var(--primary-color, #03a9f4);
       }
 
       .split-head {
@@ -151,6 +179,9 @@ export class SeExpenseDialog extends LitElement {
         ? preferred!
         : "";
 
+      this.currency = this.group.currency;
+      this.rate = RATE_ONE;
+
       return;
     }
 
@@ -166,6 +197,9 @@ export class SeExpenseDialog extends LitElement {
     // whoever joined since stays out of it.
     this.rule = this.expense.split_rule ?? this.ruleFromStoredShares();
     this.showDescription = this.description !== "";
+
+    this.currency = this.expense.currency;
+    this.rate = this.expense.exchange_rate;
   }
 
   /**
@@ -251,12 +285,33 @@ export class SeExpenseDialog extends LitElement {
             <se-field
               .label=${translate("amount")}
               .value=${this.amountInput}
-              .suffix=${this.group.currency}
               required
               decimal
               placeholder="85,42"
               @value-changed=${(e: CustomEvent) => (this.amountInput = e.detail.value)}
-            ></se-field>
+            >
+              <!--
+                Where the currency was only ever written, it is now chosen. It
+                belongs against the figure it qualifies: a number and its unit
+                are one thing, and putting the unit somewhere else was asking
+                people to go looking for it.
+              -->
+              <select
+                slot="suffix"
+                class="currency"
+                .value=${this.currency}
+                aria-label=${translate("currency_label")}
+                @change=${this.pickCurrency}
+              >
+                ${this.currencies().map(
+                  (code) => html`
+                    <option value=${code} ?selected=${code === this.currency}>
+                      ${code}
+                    </option>
+                  `,
+                )}
+              </select>
+            </se-field>
 
             <se-field
               .label=${translate("date")}
@@ -282,6 +337,19 @@ export class SeExpenseDialog extends LitElement {
               @value-changed=${this.pickCategory}
             ></se-select>
           </div>
+
+          <!-- Shows itself only when there is a rate to settle. -->
+          <se-currency-field
+            .api=${this.api}
+            .localize=${this.localize}
+            .groupId=${this.group.id}
+            .groupCurrency=${this.group.currency}
+            .currency=${this.currency}
+            .on=${this.date}
+            .amount=${amount}
+            .language=${this.language}
+            @rate-changed=${this.handleRate}
+          ></se-currency-field>
 
           ${this.showDescription
             ? html`
@@ -344,7 +412,7 @@ export class SeExpenseDialog extends LitElement {
         </se-button>
         <se-button
           slot="actions"
-          ?disabled=${this.busy || !this.isValid(amount)}
+          ?disabled=${this.busy || !this.canSave(amount)}
           @click=${this.submit}
         >
           ${this.expense ? translate("save") : translate("create")}
@@ -405,7 +473,7 @@ export class SeExpenseDialog extends LitElement {
               <span class="who">
                 ${member.name}
                 <strong>
-                  ${formatMoney(shares[member.id], this.group.currency, this.language)}
+                  ${formatMoney(shares[member.id], this.currency, this.language)}
                 </strong>
               </span>
             `,
@@ -434,7 +502,7 @@ export class SeExpenseDialog extends LitElement {
           .localize=${this.localize}
           .members=${this.members}
           .rule=${this.rule ?? this.defaultRule()}
-          .currency=${this.group.currency}
+          .currency=${this.currency || this.group.currency}
           .language=${this.language}
           .amount=${amount}
           .payerId=${this.paidBy}
@@ -451,6 +519,35 @@ export class SeExpenseDialog extends LitElement {
     this.rule = null;
   };
 
+  /** Every currency a rate can be had for, and the group's, which may not be. */
+  private currencies(): string[] {
+    const known = new Set([...CURRENCIES, this.group.currency, this.currency]);
+
+    return [...known].sort();
+  }
+
+  /**
+   * Change what the expense was paid in.
+   *
+   * The rate goes with it. Until the new one lands the expense cannot be saved
+   * — which is the point: keeping the old currency's rate would convert the
+   * amount by a number that has nothing to do with it.
+   */
+  private pickCurrency = (event: Event) => {
+    this.currency = (event.target as HTMLSelectElement).value;
+    this.rate = this.currency === this.group.currency ? RATE_ONE : null;
+  };
+
+  /**
+   * Whether the expense can be saved.
+   *
+   * A foreign currency with no rate cannot: the backend would refuse it, and a
+   * button that sends something doomed is worse than one that waits.
+   */
+  private canSave(amount: number | null): boolean {
+    return this.isValid(amount) && this.rate !== null;
+  }
+
   private isValid(amount: number | null): boolean {
     if (this.expenseTitle.trim() === "" || amount === null || amount <= 0) {
       return false;
@@ -464,6 +561,12 @@ export class SeExpenseDialog extends LitElement {
     // the amounts fit and that the shares add up.
     return this.resolved(amount) !== null;
   }
+
+  /** The currency field settled on something, or on nothing. */
+  private handleRate = (event: CustomEvent) => {
+    this.currency = event.detail.currency;
+    this.rate = event.detail.rate;
+  };
 
   private cancel = () => {
     this.dispatchEvent(
@@ -499,6 +602,12 @@ export class SeExpenseDialog extends LitElement {
       })),
       // The shares are the truth, but the rule has to travel with them, or
       // reopening the expense could only ever spell the amounts back out.
+      currency: this.currency || this.group.currency,
+      // The rate the panel showed and had accepted, so that what was agreed to
+      // on screen is what lands in the balances.
+      ...(this.rate !== null && this.rate !== RATE_ONE
+        ? { exchange_rate: this.rate }
+        : {}),
       split_rule: this.rule ?? this.defaultRule(),
     };
 

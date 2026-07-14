@@ -2,6 +2,7 @@
 
 from .entities import (
     Category,
+    ExchangeRate,
     Expense,
     ExpenseShare,
     FieldChange,
@@ -13,10 +14,17 @@ from .entities import (
     Revision,
     SplitRule,
 )
-from .enums import GroupRole, RevisionAction, RevisionEntity
+from .enums import (
+    GroupRole,
+    PaymentKind,
+    RateSource,
+    RevisionAction,
+    RevisionEntity,
+)
 
 __all__ = [
     "Category",
+    "ExchangeRate",
     "Expense",
     "ExpenseShare",
     "FieldChange",
@@ -25,6 +33,8 @@ __all__ = [
     "GroupRole",
     "Member",
     "Payment",
+    "PaymentKind",
+    "RateSource",
     "Remainder",
     "Revision",
     "RevisionAction",

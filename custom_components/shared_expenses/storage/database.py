@@ -12,6 +12,7 @@ from homeassistant.core import HomeAssistant
 from ..const import DATABASE_NAME
 from .migrations import initialize_database
 from .repositories.category_repository import CategoryRepository
+from .repositories.exchange_rate_repository import ExchangeRateRepository
 from .repositories.expense_repository import ExpenseRepository
 from .repositories.group_member_repository import GroupMemberRepository
 from .repositories.group_repository import GroupRepository
@@ -41,6 +42,17 @@ class Database:
         self._expense_repository: ExpenseRepository | None = None
         self._payment_repository: PaymentRepository | None = None
         self._revision_repository: RevisionRepository | None = None
+        self._exchange_rate_repository: ExchangeRateRepository | None = None
+
+    @property
+    def hass(self) -> HomeAssistant:
+        """Return the Home Assistant instance this database belongs to.
+
+        The manager needs it for one thing: Home Assistant's own HTTP session,
+        which is what a rate is fetched over.
+        """
+
+        return self._hass
 
     @property
     def connection(self) -> aiosqlite.Connection:
@@ -98,6 +110,13 @@ class Database:
         assert self._revision_repository is not None
         return self._revision_repository
 
+    @property
+    def exchange_rate_repository(self) -> ExchangeRateRepository:
+        """Return the exchange rate repository."""
+
+        assert self._exchange_rate_repository is not None
+        return self._exchange_rate_repository
+
     async def initialize(self) -> None:
         """Initialize the database."""
 
@@ -124,6 +143,7 @@ class Database:
         self._expense_repository = ExpenseRepository(self.connection)
         self._payment_repository = PaymentRepository(self.connection)
         self._revision_repository = RevisionRepository(self.connection)
+        self._exchange_rate_repository = ExchangeRateRepository(self.connection)
 
     @asynccontextmanager
     async def transaction(self) -> AsyncIterator[None]:

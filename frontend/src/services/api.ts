@@ -7,6 +7,7 @@
 
 import type {
   Category,
+  ExchangeRate,
   Expense,
   ExpenseShare,
   Group,
@@ -18,6 +19,7 @@ import type {
   HomeAssistant,
   Member,
   Payment,
+  PaymentKind,
   Revision,
   SplitRule,
 } from "../types";
@@ -47,16 +49,25 @@ export interface CreateExpenseInput {
   shares?: Array<{ member_id: string; amount: number }>;
   /** Rule applied to this expense only. */
   split_rule?: SplitRule | null;
+  /**
+   * The rate to convert at, in millionths.
+   *
+   * Sent when the panel has shown one and had it accepted, so that what was
+   * agreed to on screen is what gets stored. Left out, the manager finds one.
+   */
+  exchange_rate?: number;
 }
 
 export interface CreatePaymentInput {
   group_id: string;
+  /** Whoever is out of pocket: they paid, or they lent. */
   from_member_id: string;
   to_member_id: string;
   /** In cents. */
   amount: number;
   payment_date: string;
   description?: string | null;
+  kind?: PaymentKind;
 }
 
 export class SharedExpensesApi {
@@ -230,6 +241,50 @@ export class SharedExpensesApi {
 
   public deletePayment(paymentId: string): Promise<null> {
     return this.call("delete_payment", { payment_id: paymentId });
+  }
+
+  // Exchange rates
+
+  /**
+   * The rate for a pair on a day.
+   *
+   * Answers from the source, or from what is cached, or with the last known
+   * one — `stale` and `as_of` say which. Throws `exchange_rate_unavailable`
+   * only when nothing is known and nothing can be reached, and then a rate has
+   * to be typed.
+   *
+   * `groupId` is required so the wall applies: rates are public knowledge, but
+   * who asks for them is not.
+   */
+  public getExchangeRate(
+    groupId: string,
+    base: string,
+    quote: string,
+    on: string,
+  ): Promise<ExchangeRate> {
+    return this.call("get_exchange_rate", {
+      group_id: groupId,
+      base,
+      quote,
+      on,
+    });
+  }
+
+  /** Record a rate by hand. It becomes the last known one for the pair. */
+  public setExchangeRate(
+    groupId: string,
+    base: string,
+    quote: string,
+    on: string,
+    rate: number,
+  ): Promise<ExchangeRate> {
+    return this.call("set_exchange_rate", {
+      group_id: groupId,
+      base,
+      quote,
+      on,
+      rate,
+    });
   }
 
   // Statistics

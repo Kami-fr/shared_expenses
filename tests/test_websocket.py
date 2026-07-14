@@ -507,3 +507,61 @@ def test_the_schema_takes_what_the_panel_sends():
 
     for rule in written:
         SPLIT_RULE_SCHEMA(rule)
+
+
+async def test_a_foreign_expense_goes_through_the_real_command(
+    loaded: FakeHass,
+    household: dict[str, Any],
+    manager: SharedExpensesManager,
+):
+    """The whole message the panel sends, against the schema it has to pass.
+
+    A rate is given rather than fetched, so nothing here reaches the network:
+    the point is the shape of the message and what the split comes to, not the
+    day's price of a dollar.
+    """
+
+    connection = FakeConnection(MINE)
+    owner = household["my_owner"]
+    other = await manager.create_group_member(
+        group_id=household["mine"].id,
+        name="Antonin",
+    )
+
+    await call(
+        loaded,
+        connection,
+        expenses.websocket_create_expense,
+        {
+            "type": "shared_expenses/create_expense",
+            "group_id": household["mine"].id,
+            "title": "Diner a New York",
+            "amount": 10_000,
+            "currency": "USD",
+            "exchange_rate": 876_810,
+            "paid_by_member_id": owner.id,
+            "expense_date": NOW.isoformat(),
+            "shares": [
+                {"member_id": owner.id, "amount": 5_000},
+                {"member_id": other.id, "amount": 5_000},
+            ],
+        },
+    )
+
+    assert connection.errors == {}
+
+    expense = connection.results[1]
+
+    # Kept as it was handed over, and counted as what it cost the group.
+    assert expense["amount"] == 10_000
+    assert expense["currency"] == "USD"
+    assert expense["converted_amount"] == 8_768
+
+    # And the halves of the dollars are halves of the euros.
+    shares = {
+        share.member_id: share.amount
+        for share in await manager.list_expense_shares(household["mine"].id)
+        if share.expense_id == expense["id"]
+    }
+
+    assert shares == {owner.id: 4_384, other.id: 4_384}

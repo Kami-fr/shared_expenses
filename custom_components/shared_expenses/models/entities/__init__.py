@@ -1,6 +1,7 @@
 """Shared Expenses entities."""
 
 from .category import Category
+from .exchange_rate import ExchangeRate
 from .expense import Expense
 from .expense_share import ExpenseShare
 from .group import Group
@@ -12,6 +13,7 @@ from .split_rule import Remainder, SplitRule
 
 __all__ = [
     "Category",
+    "ExchangeRate",
     "Expense",
     "ExpenseShare",
     "FieldChange",

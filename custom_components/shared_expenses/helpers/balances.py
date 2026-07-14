@@ -46,7 +46,10 @@ def compute_balances(
         balances[member_id] = balances.get(member_id, 0) + amount
 
     for expense in expenses:
-        add(expense.paid_by_member_id, expense.amount)
+        # What it cost the group, not what was handed over at the till: an
+        # expense in another currency is only comparable once converted, and
+        # the shares below are in the group's currency already.
+        add(expense.paid_by_member_id, expense.converted_amount)
 
     for share in shares:
         add(share.member_id, -share.amount)

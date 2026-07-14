@@ -85,3 +85,20 @@ class PaymentNotFoundError(SharedExpensesError):
 
 class InvalidPaymentError(SharedExpensesError):
     """Payment is invalid."""
+
+
+#
+# Currencies
+#
+
+
+class InvalidExchangeRateError(SharedExpensesError):
+    """Exchange rate is missing, malformed or not plausible."""
+
+
+class ExchangeRateUnavailableError(SharedExpensesError):
+    """No rate could be had for this pair, from anywhere.
+
+    Raised only when the source is unreachable *and* nothing was ever cached:
+    the panel then has to ask for one by hand, which is the only honest way out.
+    """

@@ -14,6 +14,7 @@ from . import (
     groups,
     members,
     payments,
+    rates,
     revisions,
     statistics,
 )
@@ -24,6 +25,7 @@ COMMANDS = (
     *categories.COMMANDS,
     *expenses.COMMANDS,
     *payments.COMMANDS,
+    *rates.COMMANDS,
     *revisions.COMMANDS,
     *statistics.COMMANDS,
 )

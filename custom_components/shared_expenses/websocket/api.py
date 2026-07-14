@@ -18,9 +18,11 @@ from ..const import DOMAIN
 from ..exceptions import (
     CannotRemoveOwnerError,
     CategoryNotFoundError,
+    ExchangeRateUnavailableError,
     ExpenseNotFoundError,
     GroupArchivedError,
     GroupNotFoundError,
+    InvalidExchangeRateError,
     InvalidExpenseError,
     InvalidExpenseSharesError,
     InvalidPaymentError,
@@ -80,6 +82,8 @@ ERROR_CODES: dict[type[SharedExpensesError], str] = {
     InvalidSplitRuleError: "invalid_split_rule",
     PaymentNotFoundError: "payment_not_found",
     InvalidPaymentError: "invalid_payment",
+    InvalidExchangeRateError: "invalid_exchange_rate",
+    ExchangeRateUnavailableError: "exchange_rate_unavailable",
 }
 
 SHARE_SCHEMA = vol.Schema(

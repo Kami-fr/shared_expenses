@@ -29,6 +29,7 @@ def make_expense(expense_id: str, payer: str, amount: int) -> Expense:
         paid_by_member_id=payer,
         expense_date=NOW,
         created_at=NOW,
+        converted_amount=amount,
     )
 
 

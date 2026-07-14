@@ -92,6 +92,8 @@ export class SeField extends LitElement {
           @input=${this.handleInput}
         />
         ${this.suffix ? html`<span class="suffix">${this.suffix}</span>` : nothing}
+        <!-- For a suffix that does something, where a word would sit. -->
+        <slot name="suffix"></slot>
       </div>
       ${this.helper ? html`<div class="helper">${this.helper}</div>` : nothing}
     `;

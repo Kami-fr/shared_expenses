@@ -96,8 +96,16 @@ export interface Expense {
   category_id: string | null;
   title: string;
   description: string | null;
+  /** What was handed over at the till, in the cents of `currency`. */
   amount: number;
+  /** What it was paid in. Not always the group's. */
   currency: string;
+  /** The same money in the group's currency: what every figure is in. */
+  converted_amount: number;
+  /** The rate applied, in millionths. 0.87681 is 876810. Frozen. */
+  exchange_rate: number;
+  /** The day the rate is from, or null when nothing was converted. */
+  rate_as_of: string | null;
   paid_by_member_id: string;
   expense_date: string;
   created_at: string;
@@ -110,12 +118,23 @@ export interface Expense {
   split_rule: SplitRule | null;
 }
 
+/**
+ * Why money moved between two members.
+ *
+ * Both move the balances the same way, `from` being whoever is out of pocket.
+ * Read, never reckoned with.
+ */
+export type PaymentKind = "reimbursement" | "debt";
+
 export interface Payment {
   id: string;
   group_id: string;
   description: string | null;
+  /** Whoever is out of pocket: they paid, or they lent. */
   from_member_id: string;
+  /** Whoever received it, or owes it. */
   to_member_id: string;
+  kind: PaymentKind;
   amount: number;
   payment_date: string;
   created_at: string;
@@ -171,6 +190,24 @@ export interface GroupStatistics {
   years: number[];
 }
 
+/** What one currency was worth in another, on a given day. */
+export interface ExchangeRate {
+  base: string;
+  quote: string;
+  /** In millionths: 0.87681 is 876810. */
+  rate: number;
+  /** The day it is really from. A Sunday carries Friday's. */
+  as_of: string;
+  source: "ecb" | "manual";
+  /**
+   * Whether this is not the day that was asked for.
+   *
+   * The whole reason this is not just a number: a rate from another day is
+   * worth having, but only if whoever is offered it can see that and say no.
+   */
+  stale: boolean;
+}
+
 /** One field of one thing, before and after, in stored values. */
 export interface FieldChange {
   field: string;
@@ -210,6 +247,8 @@ export type ErrorCode =
   | "invalid_split_rule"
   | "payment_not_found"
   | "invalid_payment"
+  | "invalid_exchange_rate"
+  | "exchange_rate_unavailable"
   | "not_loaded"
   | "unknown_error";
 

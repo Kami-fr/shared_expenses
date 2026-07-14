@@ -100,6 +100,9 @@ async def websocket_get_expense(
         vol.Optional("description"): vol.Any(None, cv.string),
         vol.Optional("shares"): [SHARE_SCHEMA],
         vol.Optional("split_rule"): vol.Any(None, SPLIT_RULE_SCHEMA),
+        # In millionths. Sent when the panel has shown a rate and had it
+        # accepted; left out, the manager finds one itself.
+        vol.Optional("exchange_rate"): int,
     }
 )
 @websocket_api.async_response
@@ -128,6 +131,7 @@ async def websocket_create_expense(
         description=msg.get("description"),
         shares=shares_from_msg(msg),
         split_rule=split_rule_from_msg(msg),
+        exchange_rate=msg.get("exchange_rate"),
         actor_user_id=connection.user.id,
     )
 
@@ -149,6 +153,9 @@ async def websocket_create_expense(
         vol.Optional("description"): vol.Any(None, cv.string),
         vol.Optional("shares"): [SHARE_SCHEMA],
         vol.Optional("split_rule"): vol.Any(None, SPLIT_RULE_SCHEMA),
+        # In millionths. Sent when the panel has shown a rate and had it
+        # accepted; left out, the manager finds one itself.
+        vol.Optional("exchange_rate"): int,
     }
 )
 @websocket_api.async_response
@@ -187,6 +194,7 @@ async def websocket_update_expense(
         updated,
         shares_from_msg(msg),
         split_rule=split_rule_from_msg(msg),
+        exchange_rate=msg.get("exchange_rate"),
         actor_user_id=connection.user.id,
     )
 

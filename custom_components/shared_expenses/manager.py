@@ -4,11 +4,16 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
+import aiohttp
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
+from .clients.frankfurter import fetch_rate
 from .exceptions import (
     CannotRemoveOwnerError,
     CategoryNotFoundError,
+    ExchangeRateUnavailableError,
     ExpenseNotFoundError,
     GroupArchivedError,
     GroupNotFoundError,
@@ -21,11 +26,13 @@ from .exceptions import (
 )
 from .helpers import revisions
 from .helpers.balances import GroupBalances, compute_balances, simplify_settlements
+from .helpers.currency import RATE_ONE, apportion, convert, validate_rate
 from .helpers.ids import new_id
 from .helpers.splits import resolve_shares
 from .helpers.statistics import GroupStatistics, compute_statistics
 from .models import (
     Category,
+    ExchangeRate,
     Expense,
     ExpenseShare,
     FieldChange,
@@ -34,6 +41,8 @@ from .models import (
     GroupRole,
     Member,
     Payment,
+    PaymentKind,
+    RateSource,
     Revision,
     RevisionAction,
     RevisionEntity,
@@ -469,9 +478,15 @@ class SharedExpensesManager:
         amount: int,
         payment_date: datetime,
         description: str | None = None,
+        kind: PaymentKind = PaymentKind.REIMBURSEMENT,
         actor_user_id: str | None = None,
     ) -> Payment:
-        """Create a payment."""
+        """Create a payment.
+
+        `from_member_id` is whoever is out of pocket, whichever kind this is: on
+        a reimbursement they settled up, on a debt they lent. The balances treat
+        the two identically, because they are the same movement of money.
+        """
 
         await self._get_active_group(group_id)
 
@@ -493,6 +508,7 @@ class SharedExpensesManager:
             amount=amount,
             payment_date=payment_date,
             created_at=datetime.now(UTC),
+            kind=kind,
         )
 
         async with self._database.transaction():
@@ -608,6 +624,7 @@ class SharedExpensesManager:
         description: str | None = None,
         shares: Sequence[ExpenseShare] | None = None,
         split_rule: SplitRule | None = None,
+        exchange_rate: int | None = None,
         actor_user_id: str | None = None,
     ) -> Expense:
         """Create an expense and its shares.
@@ -622,16 +639,25 @@ class SharedExpensesManager:
         if amount <= 0:
             raise InvalidExpenseError("An expense amount must be positive.")
 
-        _validate_currency(currency, group)
-
         await self.get_member(paid_by_member_id)
 
         category = await self._get_group_category(group_id, category_id)
+
+        paid_in = (currency or group.currency).upper()
+
+        converted, rate, rate_as_of = await self._convert(
+            amount=amount,
+            paid_in=paid_in,
+            group=group,
+            on=expense_date.date(),
+            given_rate=exchange_rate,
+        )
 
         amounts, effective_rule = await self._resolve_amounts(
             group=group,
             category=category,
             amount=amount,
+            converted=converted,
             payer_id=paid_by_member_id,
             shares=shares,
             split_rule=split_rule,
@@ -646,11 +672,14 @@ class SharedExpensesManager:
             title=title,
             description=description,
             amount=amount,
-            currency=currency if currency is not None else group.currency,
+            currency=paid_in,
             paid_by_member_id=paid_by_member_id,
             expense_date=expense_date,
             created_at=now,
             split_rule=effective_rule,
+            converted_amount=converted,
+            exchange_rate=rate,
+            rate_as_of=rate_as_of,
         )
 
         built = _build_shares(expense.id, amounts, now)
@@ -707,6 +736,7 @@ class SharedExpensesManager:
         shares: Sequence[ExpenseShare] | None = None,
         *,
         split_rule: SplitRule | None = None,
+        exchange_rate: int | None = None,
         actor_user_id: str | None = None,
     ) -> None:
         """Update an expense and replace its shares."""
@@ -725,8 +755,6 @@ class SharedExpensesManager:
         if expense.amount <= 0:
             raise InvalidExpenseError("An expense amount must be positive.")
 
-        _validate_currency(expense.currency, group)
-
         await self.get_member(expense.paid_by_member_id)
 
         category = await self._get_group_category(
@@ -734,16 +762,35 @@ class SharedExpensesManager:
             expense.category_id,
         )
 
+        paid_in = expense.currency.upper()
+
+        converted, rate, rate_as_of = await self._convert(
+            amount=expense.amount,
+            paid_in=paid_in,
+            group=group,
+            on=expense.expense_date.date(),
+            given_rate=exchange_rate,
+            known=previous,
+        )
+
         amounts, effective_rule = await self._resolve_amounts(
             group=group,
             category=category,
             amount=expense.amount,
+            converted=converted,
             payer_id=expense.paid_by_member_id,
             shares=shares,
             split_rule=split_rule,
         )
 
-        updated = replace(expense, split_rule=effective_rule)
+        updated = replace(
+            expense,
+            currency=paid_in,
+            split_rule=effective_rule,
+            converted_amount=converted,
+            exchange_rate=rate,
+            rate_as_of=rate_as_of,
+        )
         built = _build_shares(expense.id, amounts, datetime.now(UTC))
 
         changes = revisions.diff(before, revisions.expense_state(updated, built))
@@ -791,6 +838,113 @@ class SharedExpensesManager:
                 actor_user_id=actor_user_id,
                 changes=revisions.deletion(state),
             )
+
+    #
+    # ------------------------------------------------------------------
+    # Exchange rates
+    # ------------------------------------------------------------------
+    #
+
+    async def get_exchange_rate(
+        self,
+        *,
+        base: str,
+        quote: str,
+        on: date,
+    ) -> ExchangeRate:
+        """Return the rate for a pair on a day, fetching it if need be.
+
+        In order: what is already known for that day, then the source, then the
+        most recent thing known for that pair — whatever its age. The caller is
+        told which it got, and how old, so it can say so rather than pass a
+        month-old rate off as today's.
+
+        Raises `ExchangeRateUnavailableError` only when all three come up empty,
+        which is the one case where somebody has to type a rate in.
+        """
+
+        base = base.upper()
+        quote = quote.upper()
+
+        if base == quote:
+            return ExchangeRate(
+                id=new_id(),
+                base=base,
+                quote=quote,
+                rate=RATE_ONE,
+                as_of=on,
+                source=RateSource.ECB,
+                created_at=datetime.now(UTC),
+            )
+
+        known = await self._database.exchange_rate_repository.get(base, quote, on)
+
+        if known is not None:
+            return known
+
+        try:
+            rate, as_of = await fetch_rate(self._session(), base, quote, on)
+        except ExchangeRateUnavailableError:
+            # The source is out of reach. The last rate known is worth far more
+            # than a refusal — as long as its date goes with it, which it does.
+            latest = await self._database.exchange_rate_repository.latest(base, quote)
+
+            if latest is None:
+                raise
+
+            return latest
+
+        stored = ExchangeRate(
+            id=new_id(),
+            base=base,
+            quote=quote,
+            rate=validate_rate(rate),
+            as_of=as_of,
+            source=RateSource.ECB,
+            created_at=datetime.now(UTC),
+        )
+
+        await self._database.exchange_rate_repository.upsert(stored)
+
+        return stored
+
+    async def set_exchange_rate(
+        self,
+        *,
+        base: str,
+        quote: str,
+        on: date,
+        rate: int,
+    ) -> ExchangeRate:
+        """Record a rate somebody typed, and hand it back.
+
+        It becomes the last known one for that pair, so the next expense finds
+        it even if the source is still down. A later fetch that succeeds for the
+        same day replaces it: it was only ever standing in.
+        """
+
+        stored = ExchangeRate(
+            id=new_id(),
+            base=base.upper(),
+            quote=quote.upper(),
+            rate=validate_rate(rate),
+            as_of=on,
+            source=RateSource.MANUAL,
+            created_at=datetime.now(UTC),
+        )
+
+        await self._database.exchange_rate_repository.upsert(stored)
+
+        return stored
+
+    def _session(self) -> aiohttp.ClientSession:
+        """Home Assistant's own HTTP session.
+
+        Never one of ours: it is pooled, closed with Home Assistant, and set up
+        the way Home Assistant wants it.
+        """
+
+        return async_get_clientsession(self._database.hass)
 
     #
     # ------------------------------------------------------------------
@@ -937,17 +1091,76 @@ class SharedExpensesManager:
 
         return category
 
+    async def _convert(
+        self,
+        *,
+        amount: int,
+        paid_in: str,
+        group: Group,
+        on: date,
+        given_rate: int | None,
+        known: Expense | None = None,
+    ) -> tuple[int, int, date | None]:
+        """Return the amount in the group's currency, the rate, and its day.
+
+        The rate comes from whoever knows best, in order: the caller, who has
+        just shown it on screen and had it accepted; the expense as it already
+        stood, so re-saving one does not silently re-price it at today's rate;
+        then the source.
+        """
+
+        if paid_in == group.currency.upper():
+            return amount, RATE_ONE, None
+
+        if given_rate is not None:
+            rate = validate_rate(given_rate)
+
+            return convert(amount, rate), rate, on
+
+        # Editing an expense that already converted: keep its rate. What
+        # someone owes was settled on the day they were owed it.
+        if (
+            known is not None
+            and known.currency.upper() == paid_in
+            and known.rate_as_of is not None
+        ):
+            return (
+                convert(amount, known.exchange_rate),
+                known.exchange_rate,
+                known.rate_as_of,
+            )
+
+        found = await self.get_exchange_rate(
+            base=paid_in,
+            quote=group.currency,
+            on=on,
+        )
+
+        return convert(amount, found.rate), found.rate, found.as_of
+
     async def _resolve_amounts(
         self,
         *,
         group: Group,
         category: Category | None,
         amount: int,
+        converted: int,
         payer_id: str,
         shares: Sequence[ExpenseShare] | None,
         split_rule: SplitRule | None,
     ) -> tuple[dict[str, int], SplitRule | None]:
-        """Return what each member owes, and the rule to remember it by."""
+        """Return what each member owes, and the rule to remember it by.
+
+        The split is settled in `amount`, the currency the expense was paid in:
+        that is the figure the panel puts the editor under, so "Antonin owes 20"
+        on a New York dinner means twenty dollars, and a rule kept on the
+        expense reads back against the amount it sits beside.
+
+        What comes back is in the group's currency, because that is what the
+        balances count and what the shares are stored as. The two are the same
+        money and, in the usual case of a group spending its own currency, the
+        same number.
+        """
 
         rule = split_rule
 
@@ -969,6 +1182,9 @@ class SharedExpensesManager:
                 member_ids=member_ids,
                 rule=rule,
             )
+
+        if converted != amount:
+            amounts = apportion(amounts, converted)
 
         return amounts, _pin_members(rule, payer_id, member_ids)
 
@@ -1017,26 +1233,6 @@ def _validate_payment(
 
     if from_member_id == to_member_id:
         raise InvalidPaymentError("A member cannot pay themselves.")
-
-
-def _validate_currency(currency: str | None, group: Group) -> None:
-    """Refuse an expense in a currency the group does not keep its books in.
-
-    Balances and statistics add amounts up as plain integers, because that is
-    what they are: cents. Nothing anywhere converts. A 100 USD expense in a EUR
-    group would therefore settle against a 100 EUR one and leave two people
-    thinking they were square.
-
-    Refused rather than converted: a rate belongs to a day, needs a source, and
-    changes what someone owes after the fact. Refused rather than silently
-    rewritten to the group's currency, too — that turns a 100 USD dinner into a
-    100 EUR one, which is the same wrong number with nobody told.
-    """
-
-    if currency is not None and currency != group.currency:
-        raise InvalidExpenseError(
-            f"An expense of this group must be in {group.currency}, not {currency}."
-        )
 
 
 def _explicit_amounts(shares: Sequence[ExpenseShare], amount: int) -> dict[str, int]:

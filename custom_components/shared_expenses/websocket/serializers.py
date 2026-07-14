@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 from ..helpers.balances import GroupBalances, Settlement
@@ -9,6 +10,7 @@ from ..helpers.splits import rule_to_dict
 from ..helpers.statistics import GroupStatistics
 from ..models import (
     Category,
+    ExchangeRate,
     Expense,
     ExpenseShare,
     Group,
@@ -97,6 +99,13 @@ def expense_to_dict(
         "paid_by_member_id": expense.paid_by_member_id,
         "expense_date": expense.expense_date.isoformat(),
         "created_at": expense.created_at.isoformat(),
+        # What it cost the group, which is what every figure in the panel is in.
+        # `amount` and `currency` are what was handed over at the till.
+        "converted_amount": expense.converted_amount,
+        "exchange_rate": expense.exchange_rate,
+        "rate_as_of": (
+            None if expense.rate_as_of is None else expense.rate_as_of.isoformat()
+        ),
         "split_rule": rule_to_dict(expense.split_rule),
     }
 
@@ -130,6 +139,7 @@ def payment_to_dict(payment: Payment) -> dict[str, Any]:
         "amount": payment.amount,
         "payment_date": payment.payment_date.isoformat(),
         "created_at": payment.created_at.isoformat(),
+        "kind": str(payment.kind),
     }
 
 
@@ -177,6 +187,24 @@ def revision_to_dict(revision: Revision) -> dict[str, Any]:
             for change in revision.changes
         ],
         "at": revision.at.isoformat(),
+    }
+
+
+def rate_to_dict(rate: ExchangeRate, *, asked_for: date) -> dict[str, Any]:
+    """Return the serialized form of an exchange rate.
+
+    `stale` is the whole reason this is not just a number. A rate from another
+    day is worth having — far more than a refusal — but only if whoever is
+    offered it can see that it is not today's and say no.
+    """
+
+    return {
+        "base": rate.base,
+        "quote": rate.quote,
+        "rate": rate.rate,
+        "as_of": rate.as_of.isoformat(),
+        "source": str(rate.source),
+        "stale": rate.as_of != asked_for,
     }
 
 

@@ -82,16 +82,18 @@ def compute_statistics(
     consumed: dict[str, int] = {}
 
     for expense in kept:
+        # Everything here is in the group's currency: a total mixing 100 USD
+        # with 100 EUR is not a total of anything.
+        cost = expense.converted_amount
+
         by_category[expense.category_id] = (
-            by_category.get(expense.category_id, 0) + expense.amount
+            by_category.get(expense.category_id, 0) + cost
         )
 
         month = f"{expense.expense_date.year:04d}-{expense.expense_date.month:02d}"
-        by_month[month] = by_month.get(month, 0) + expense.amount
+        by_month[month] = by_month.get(month, 0) + cost
 
-        paid[expense.paid_by_member_id] = (
-            paid.get(expense.paid_by_member_id, 0) + expense.amount
-        )
+        paid[expense.paid_by_member_id] = paid.get(expense.paid_by_member_id, 0) + cost
 
     for share in shares:
         # The shares of every expense of the group arrive together; only those
@@ -102,7 +104,7 @@ def compute_statistics(
         consumed[share.member_id] = consumed.get(share.member_id, 0) + share.amount
 
     return GroupStatistics(
-        total=sum(expense.amount for expense in kept),
+        total=sum(expense.converted_amount for expense in kept),
         # Biggest first: a ranking is the question being asked of a breakdown.
         by_category=tuple(
             CategoryTotal(category_id=category_id, total=total)

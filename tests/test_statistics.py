@@ -18,7 +18,15 @@ def expense(
     payer: str = "m1",
     category: str | None = None,
     date: datetime = NOW,
+    converted: int | None = None,
 ) -> Expense:
+    """Build an expense.
+
+    `converted` is what it cost the group, which is what the statistics count.
+    It defaults to the amount, the expense then being in the group's own
+    currency — the overwhelming case.
+    """
+
     return Expense(
         id=expense_id,
         group_id="g1",
@@ -30,6 +38,7 @@ def expense(
         paid_by_member_id=payer,
         expense_date=date,
         created_at=NOW,
+        converted_amount=amount if converted is None else converted,
         split_rule=None,
     )
 
@@ -154,6 +163,26 @@ def test_a_share_of_nothing_is_not_a_member_of_the_breakdown():
     result = compute_statistics(expenses=expenses, shares=shares)
 
     assert [m.member_id for m in result.by_member] == ["m1"]
+
+
+def test_the_group_currency_is_what_counts_not_the_till():
+    """A total mixing 100 USD with 100 EUR is not a total of anything.
+
+    Found by a test: the balances counted `amount` while the shares were
+    converted, so both members came out owed 6,16 and the balances summed to
+    12,32 instead of zero. Nothing crashed — the figures were simply wrong.
+    """
+
+    expenses = [
+        # 100 USD, worth 87,68 EUR on the day.
+        expense("e1", 10_000, converted=8_768),
+        expense("e2", 10_000),
+    ]
+
+    result = compute_statistics(expenses=expenses, shares=[])
+
+    assert result.total == 18_768
+    assert [(m.member_id, m.paid) for m in result.by_member] == [("m1", 18_768)]
 
 
 #

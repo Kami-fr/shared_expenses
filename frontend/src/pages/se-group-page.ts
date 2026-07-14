@@ -195,6 +195,13 @@ export class SeGroupPage extends LitElement {
         font-weight: 500;
       }
 
+      .converted {
+        display: block;
+        font-size: 12px;
+        color: var(--secondary-text-color);
+        font-variant-numeric: tabular-nums;
+      }
+
       /*
        * A row you can press. Only the button's own borders go: a blanket
        * "border: none" would take the payer's colour with them, .item carrying
@@ -758,26 +765,44 @@ export class SeGroupPage extends LitElement {
     );
   }
 
+  /**
+   * A payment, said the way its kind reads.
+   *
+   * The two are one movement of money and differ only in words, so the words
+   * are the whole job here: a debt shown as "Dupont → Michel" reads as Dupont
+   * having paid, which is true of a loan and nonsense for a debt somebody is
+   * only writing down.
+   */
   private renderPayment(payment: Payment) {
     const from = this.memberById(payment.from_member_id);
     const to = this.memberById(payment.to_member_id);
+    const debt = payment.kind === "debt";
+
+    // Whose money left, as everywhere: on a debt, the one who lent it.
+    const colour = from?.color ?? colorFor(payment.from_member_id);
 
     return html`
       <button
         class="item item-button"
-        style=${`border-left-color:${from?.color ?? colorFor(payment.from_member_id)}`}
+        style=${`border-left-color:${colour}`}
         @click=${() => this.openPayment(undefined, payment)}
       >
         <se-icon
-          icon="mdi:swap-horizontal"
-          fallback="⇄"
-          .color=${from?.color ?? colorFor(payment.from_member_id)}
+          icon=${debt ? "mdi:hand-coin-outline" : "mdi:swap-horizontal"}
+          fallback=${debt ? "→" : "⇄"}
+          .color=${colour}
           .size=${40}
         ></se-icon>
         <div class="info">
-          <div class="title">${from?.name ?? "?"} → ${to?.name ?? "?"}</div>
+          <div class="title">
+            ${debt
+              ? html`${to?.name ?? "?"} ${this.localize("owes_to")} ${from?.name ?? "?"}`
+              : html`${from?.name ?? "?"} → ${to?.name ?? "?"}`}
+          </div>
           <!-- Where an expense shows its category: same grid, same reading. -->
-          <div class="muted">${this.localize("a_settlement")}</div>
+          <div class="muted">
+            ${this.localize(debt ? "a_debt" : "a_settlement")}
+          </div>
           <div class="muted">
             ${formatDayDate(payment.payment_date, this.language)}
           </div>
@@ -795,7 +820,6 @@ export class SeGroupPage extends LitElement {
 
 
   private renderExpense(expense: Expense) {
-    const translate = this.localize;
     const payer = this.memberById(expense.paid_by_member_id);
     const category = this.categories.find((c) => c.id === expense.category_id);
 
@@ -817,9 +841,12 @@ export class SeGroupPage extends LitElement {
               ? html`<span class="note">${expense.description}</span>`
               : nothing}
           </div>
-          <div class="muted">
-            ${category ? category.name : translate("no_category")}
-          </div>
+          <!--
+            Nothing where there is no category. "No category" is a fact about
+            the form, not about the shop: it named an absence, on every row that
+            had one, and said nothing anybody needed.
+          -->
+          ${category ? html`<div class="muted">${category.name}</div>` : nothing}
           <div class="muted">
             ${formatDayDate(expense.expense_date, this.language)}
           </div>
@@ -828,6 +855,20 @@ export class SeGroupPage extends LitElement {
           <span class="amount">
             ${formatMoney(expense.amount, expense.currency, this.language)}
           </span>
+          <!--
+            What it weighs in the group, under what was handed over at the till.
+            Both, because both are true and neither answers the other: 100 USD
+            is what was paid, 87,68 EUR is what it costs whoever shares it.
+          -->
+          ${expense.currency === this.group!.currency
+            ? nothing
+            : html`<span class="converted">
+                ${formatMoney(
+                  expense.converted_amount,
+                  this.group!.currency,
+                  this.language,
+                )}
+              </span>`}
           ${this.renderParticipants(expense)}
         </div>
       </button>

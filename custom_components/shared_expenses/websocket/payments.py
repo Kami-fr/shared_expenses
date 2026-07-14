@@ -11,6 +11,7 @@ from homeassistant.helpers import config_validation as cv
 import voluptuous as vol
 
 from ..manager import SharedExpensesManager
+from ..models import PaymentKind
 from .api import Scope, api_command, as_utc
 from .serializers import payment_to_dict
 
@@ -48,6 +49,7 @@ async def websocket_list_payments(
         vol.Required("amount"): int,
         vol.Required("payment_date"): cv.datetime,
         vol.Optional("description"): vol.Any(None, cv.string),
+        vol.Optional("kind"): vol.In([str(k) for k in PaymentKind]),
     }
 )
 @websocket_api.async_response
@@ -67,6 +69,7 @@ async def websocket_create_payment(
         amount=msg["amount"],
         payment_date=as_utc(msg["payment_date"]),
         description=msg.get("description"),
+        kind=PaymentKind(msg.get("kind", PaymentKind.REIMBURSEMENT)),
         actor_user_id=connection.user.id,
     )
 
@@ -82,6 +85,7 @@ async def websocket_create_payment(
         vol.Optional("amount"): int,
         vol.Optional("payment_date"): cv.datetime,
         vol.Optional("description"): vol.Any(None, cv.string),
+        vol.Optional("kind"): vol.In([str(k) for k in PaymentKind]),
     }
 )
 @websocket_api.async_response
@@ -104,6 +108,9 @@ async def websocket_update_payment(
 
     if "payment_date" in msg:
         changes["payment_date"] = as_utc(msg["payment_date"])
+
+    if "kind" in msg:
+        changes["kind"] = PaymentKind(msg["kind"])
 
     updated = replace(payment, **changes)
 

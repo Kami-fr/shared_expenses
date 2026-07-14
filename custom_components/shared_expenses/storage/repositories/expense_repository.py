@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 import aiosqlite
 
+from ...helpers.currency import RATE_ONE
 from ...helpers.splits import rule_from_json, rule_to_json
 from ...models import Expense, ExpenseShare
 from .base_repository import BaseRepository
@@ -34,9 +35,12 @@ class ExpenseRepository(BaseRepository):
                 paid_by_member_id,
                 expense_date,
                 created_at,
-                split_rule
+                split_rule,
+                converted_amount,
+                exchange_rate,
+                rate_as_of
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 expense.id,
@@ -50,6 +54,9 @@ class ExpenseRepository(BaseRepository):
                 expense.expense_date.isoformat(),
                 expense.created_at.isoformat(),
                 rule_to_json(expense.split_rule),
+                expense.converted_amount,
+                expense.exchange_rate,
+                None if expense.rate_as_of is None else expense.rate_as_of.isoformat(),
             ),
         )
 
@@ -90,7 +97,10 @@ class ExpenseRepository(BaseRepository):
                 paid_by_member_id,
                 expense_date,
                 created_at,
-                split_rule
+                split_rule,
+                converted_amount,
+                exchange_rate,
+                rate_as_of
             FROM expenses
             WHERE id = ?
             """,
@@ -121,7 +131,10 @@ class ExpenseRepository(BaseRepository):
                 paid_by_member_id,
                 expense_date,
                 created_at,
-                split_rule
+                split_rule,
+                converted_amount,
+                exchange_rate,
+                rate_as_of
             FROM expenses
             WHERE group_id = ?
             -- A date input carries no time, so everything entered on the same
@@ -203,7 +216,10 @@ class ExpenseRepository(BaseRepository):
                 currency = ?,
                 paid_by_member_id = ?,
                 expense_date = ?,
-                split_rule = ?
+                split_rule = ?,
+                converted_amount = ?,
+                exchange_rate = ?,
+                rate_as_of = ?
             WHERE id = ?
             """,
             (
@@ -215,6 +231,9 @@ class ExpenseRepository(BaseRepository):
                 expense.paid_by_member_id,
                 expense.expense_date.isoformat(),
                 rule_to_json(expense.split_rule),
+                expense.converted_amount,
+                expense.exchange_rate,
+                None if expense.rate_as_of is None else expense.rate_as_of.isoformat(),
                 expense.id,
             ),
         )
@@ -287,4 +306,15 @@ class ExpenseRepository(BaseRepository):
             expense_date=datetime.fromisoformat(row["expense_date"]),
             created_at=datetime.fromisoformat(row["created_at"]),
             split_rule=rule_from_json(row["split_rule"]),
+            # Older rows predate the column; the migration filled them in, and
+            # this is the belt to that pair of braces. An expense whose
+            # converted amount went missing would silently weigh nothing in
+            # every balance it appears in.
+            converted_amount=row["converted_amount"] or row["amount"],
+            exchange_rate=row["exchange_rate"] or RATE_ONE,
+            rate_as_of=(
+                None
+                if row["rate_as_of"] is None
+                else date.fromisoformat(row["rate_as_of"])
+            ),
         )

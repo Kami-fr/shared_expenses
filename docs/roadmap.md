@@ -10,14 +10,14 @@
 - [x] SQLite
 - [x] Domain models
 - [x] Repositories
-- [x] Versioned migrations (up to `schema_v5`: history)
+- [x] Versioned migrations (up to `schema_v8`: the kind of a payment)
 
 ## Sprint 3 — Business logic
 
 - [x] Groups, members, categories
 - [x] Expenses and shares
 - [x] Payments
-- [x] Split rules (fixed amounts, capped envelope, surplus to the payer)
+- [x] Split rules: an envelope shared equally, then the rest by exact amounts or percentages
 - [x] Balances and simplified reimbursements
 
 ## Sprint 4 — API and panel
@@ -32,12 +32,18 @@
 - [x] Unit tests for the helpers
 - [x] Manager tests against SQLite
 - [x] Panel tests binding the real Home Assistant signatures
-- [ ] WebSocket tests
+- [x] WebSocket tests
 
-  `pytest-homeassistant-custom-component` cannot be installed on Windows:
-  it pulls in `homeassistant.runner`, which imports the Unix-only `fcntl`,
-  and its pytest11 entry point then breaks collection of every test. Needs a
-  Linux environment, or CI only.
+  Done **without** `pytest-homeassistant-custom-component`, which cannot be
+  installed on Windows: it pulls in `homeassistant.runner`, which imports the
+  Unix-only `fcntl`, and its pytest11 entry point then breaks collection of
+  every test. The tests drive the real handlers, decorators and voluptuous
+  schemas directly instead. What they lose is the transport; what they keep is
+  everything this integration actually wrote — which is where the bugs were.
+
+- [x] Parity harnesses: the split resolver and the currency conversion, each
+      existing twice and checked against the other on generated cases. Each
+      harness has a test that sabotages one side, to prove it can still fail.
 
 - [ ] Frontend tests
 
@@ -54,8 +60,21 @@
 - [x] History of every change to an expense or a reimbursement
 - [x] Group journal, holding what deletions took away
 
+## Sprint 8 — Statistics
+
+- [x] Totals, by category and by month, and what of it was yours
+- [x] Pie and bar charts, drawn as SVG by hand: the Home Assistant CSP blocks
+      every external script, so a charting library was never on the table
+- [x] Reimbursements left out throughout — moving money between members is not
+      spending
+
+## Sprint 9 — Currencies
+
+- [x] An expense in another currency, converted once on the way in
+- [x] Rates from [Frankfurter](https://frankfurter.dev), free and needing no key
+- [x] The rate frozen on the expense, and always overridable by hand
+- [x] A debt written down as one, next to reimbursements
+
 ## Later
 
-- [ ] Statistics
-- [ ] Percentage and weighted splits
-- [ ] Surplus to a member other than the payer
+- [ ] Weighted splits (by shares, rather than by amount or percentage)
