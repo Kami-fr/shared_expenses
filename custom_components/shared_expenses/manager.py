@@ -559,7 +559,7 @@ class SharedExpensesManager:
 
         category = await self._get_group_category(group_id, category_id)
 
-        amounts = await self._resolve_amounts(
+        amounts, effective_rule = await self._resolve_amounts(
             group=group,
             category=category,
             amount=amount,
@@ -581,6 +581,7 @@ class SharedExpensesManager:
             paid_by_member_id=paid_by_member_id,
             expense_date=expense_date,
             created_at=now,
+            split_rule=effective_rule,
         )
 
         async with self._database.transaction():
@@ -645,7 +646,7 @@ class SharedExpensesManager:
             expense.category_id,
         )
 
-        amounts = await self._resolve_amounts(
+        amounts, effective_rule = await self._resolve_amounts(
             group=group,
             category=category,
             amount=expense.amount,
@@ -656,7 +657,7 @@ class SharedExpensesManager:
 
         async with self._database.transaction():
             await self._database.expense_repository.update(
-                expense,
+                replace(expense, split_rule=effective_rule),
                 _build_shares(expense.id, amounts, datetime.now(UTC)),
             )
 
@@ -740,11 +741,8 @@ class SharedExpensesManager:
         payer_id: str,
         shares: Sequence[ExpenseShare] | None,
         split_rule: SplitRule | None,
-    ) -> dict[str, int]:
-        """Return the amount owed by each member, in cents."""
-
-        if shares is not None:
-            return _explicit_amounts(shares, amount)
+    ) -> tuple[dict[str, int], SplitRule | None]:
+        """Return what each member owes, and the rule to remember it by."""
 
         rule = split_rule
 
@@ -755,13 +753,50 @@ class SharedExpensesManager:
             rule = group.split_rule
 
         members = await self._database.member_repository.list_by_group(group.id)
+        member_ids = [member.id for member in members]
 
-        return resolve_shares(
-            amount=amount,
-            payer_id=payer_id,
-            member_ids=[member.id for member in members],
-            rule=rule,
-        )
+        if shares is not None:
+            amounts = _explicit_amounts(shares, amount)
+        else:
+            amounts = resolve_shares(
+                amount=amount,
+                payer_id=payer_id,
+                member_ids=member_ids,
+                rule=rule,
+            )
+
+        return amounts, _pin_members(rule, payer_id, member_ids)
+
+
+def _pin_members(
+    rule: SplitRule | None,
+    payer_id: str,
+    member_ids: list[str],
+) -> SplitRule | None:
+    """Spell out the members a rule applies to, before storing it.
+
+    A rule saying "everyone" would pull in whoever joins later, and re-resolving
+    it would no longer give back the stored shares. Naming the members freezes
+    the expense to the people who were actually part of it.
+    """
+
+    if rule is None:
+        return None
+
+    return replace(
+        rule,
+        participants=(
+            tuple(member_ids) if rule.participants is None else rule.participants
+        ),
+        remainder=replace(
+            rule.remainder,
+            members=(
+                (payer_id,)
+                if rule.remainder.members is None
+                else rule.remainder.members
+            ),
+        ),
+    )
 
 
 def _validate_payment(

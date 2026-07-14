@@ -6,6 +6,7 @@ from datetime import datetime
 
 import aiosqlite
 
+from ...helpers.splits import rule_from_json, rule_to_json
 from ...models import Expense, ExpenseShare
 from .base_repository import BaseRepository
 
@@ -32,9 +33,10 @@ class ExpenseRepository(BaseRepository):
                 currency,
                 paid_by_member_id,
                 expense_date,
-                created_at
+                created_at,
+                split_rule
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 expense.id,
@@ -47,6 +49,7 @@ class ExpenseRepository(BaseRepository):
                 expense.paid_by_member_id,
                 expense.expense_date.isoformat(),
                 expense.created_at.isoformat(),
+                rule_to_json(expense.split_rule),
             ),
         )
 
@@ -86,7 +89,8 @@ class ExpenseRepository(BaseRepository):
                 currency,
                 paid_by_member_id,
                 expense_date,
-                created_at
+                created_at,
+                split_rule
             FROM expenses
             WHERE id = ?
             """,
@@ -116,7 +120,8 @@ class ExpenseRepository(BaseRepository):
                 currency,
                 paid_by_member_id,
                 expense_date,
-                created_at
+                created_at,
+                split_rule
             FROM expenses
             WHERE group_id = ?
             ORDER BY expense_date DESC
@@ -195,7 +200,8 @@ class ExpenseRepository(BaseRepository):
                 amount = ?,
                 currency = ?,
                 paid_by_member_id = ?,
-                expense_date = ?
+                expense_date = ?,
+                split_rule = ?
             WHERE id = ?
             """,
             (
@@ -206,6 +212,7 @@ class ExpenseRepository(BaseRepository):
                 expense.currency,
                 expense.paid_by_member_id,
                 expense.expense_date.isoformat(),
+                rule_to_json(expense.split_rule),
                 expense.id,
             ),
         )
@@ -277,4 +284,5 @@ class ExpenseRepository(BaseRepository):
             paid_by_member_id=row["paid_by_member_id"],
             expense_date=datetime.fromisoformat(row["expense_date"]),
             created_at=datetime.fromisoformat(row["created_at"]),
+            split_rule=rule_from_json(row["split_rule"]),
         )

@@ -12,21 +12,30 @@ from custom_components.shared_expenses.helpers.splits import (
     rule_to_dict,
     rule_to_json,
 )
-from custom_components.shared_expenses.models import RemainderTarget, SplitRule
+from custom_components.shared_expenses.models import Remainder, SplitRule
 
 STEPHANE = "member-stephane"
 ANTONIN = "member-antonin"
 CLARA = "member-clara"
 
-EVERYONE = [STEPHANE, ANTONIN, CLARA]
-PAIR = [STEPHANE, ANTONIN]
+EVERYONE = (STEPHANE, ANTONIN, CLARA)
+PAIR = (STEPHANE, ANTONIN)
 
 
-def test_no_rule_splits_equally():
+def test_no_rule_splits_everything_equally():
     assert resolve_shares(amount=1000, payer_id=STEPHANE, member_ids=PAIR) == {
         STEPHANE: 500,
         ANTONIN: 500,
     }
+
+
+def test_an_empty_rule_is_the_equal_split():
+    assert resolve_shares(
+        amount=1000,
+        payer_id=STEPHANE,
+        member_ids=PAIR,
+        rule=SplitRule(),
+    ) == {STEPHANE: 500, ANTONIN: 500}
 
 
 def test_extra_cents_go_to_the_first_members():
@@ -36,80 +45,103 @@ def test_extra_cents_go_to_the_first_members():
     assert sum(shares.values()) == 1000
 
 
-def test_capped_envelope_sends_the_surplus_to_the_payer():
-    """The reference case: 85,42 EUR with 10 EUR shared, the rest to the payer."""
+def test_the_reference_case():
+    """85,42 EUR, 10 EUR shared between two, the rest to whoever paid."""
 
     shares = resolve_shares(
         amount=8542,
         payer_id=STEPHANE,
-        member_ids=PAIR,
-        rule=SplitRule(cap=1000, remainder=RemainderTarget.PAYER),
+        member_ids=EVERYONE,
+        rule=SplitRule(envelope=1000, participants=(STEPHANE, ANTONIN)),
     )
 
     assert shares == {STEPHANE: 8042, ANTONIN: 500}
 
 
-def test_cap_applies_to_the_whole_envelope_not_to_each_member():
+def test_the_remainder_can_be_spelled_out_member_by_member():
+    """Michel and Andre: 12 and 14 out of the 26 left."""
+
+    shares = resolve_shares(
+        amount=2600,
+        payer_id=STEPHANE,
+        member_ids=PAIR,
+        rule=SplitRule(
+            envelope=0,
+            remainder=Remainder(
+                members=PAIR,
+                fixed={STEPHANE: 1200, ANTONIN: 1400},
+            ),
+        ),
+    )
+
+    assert shares == {STEPHANE: 1200, ANTONIN: 1400}
+
+
+def test_the_remainder_is_shared_between_the_members_named():
     shares = resolve_shares(
         amount=8542,
         payer_id=STEPHANE,
-        member_ids=PAIR,
-        rule=SplitRule(cap=1000),
+        member_ids=EVERYONE,
+        rule=SplitRule(
+            envelope=1000,
+            participants=(STEPHANE, ANTONIN),
+            remainder=Remainder(members=(STEPHANE, ANTONIN)),
+        ),
     )
 
-    assert shares[ANTONIN] == 500
+    assert shares == {STEPHANE: 4271, ANTONIN: 4271}
 
 
-def test_cap_above_the_amount_has_no_effect():
+def test_a_remainder_mixes_amounts_and_equal_shares():
+    shares = resolve_shares(
+        amount=3000,
+        payer_id=STEPHANE,
+        member_ids=EVERYONE,
+        rule=SplitRule(
+            envelope=0,
+            remainder=Remainder(members=EVERYONE, fixed={CLARA: 1000}),
+        ),
+    )
+
+    assert shares == {CLARA: 1000, STEPHANE: 1000, ANTONIN: 1000}
+
+
+def test_an_envelope_above_the_amount_leaves_no_remainder():
     assert resolve_shares(
         amount=1000,
         payer_id=STEPHANE,
         member_ids=PAIR,
-        rule=SplitRule(cap=99999),
+        rule=SplitRule(envelope=99999),
     ) == {STEPHANE: 500, ANTONIN: 500}
 
 
-def test_fixed_amounts_are_taken_before_the_split():
-    shares = resolve_shares(
-        amount=10000,
-        payer_id=STEPHANE,
-        member_ids=EVERYONE,
-        rule=SplitRule(participants=(STEPHANE, ANTONIN), fixed={CLARA: 2000}),
-    )
-
-    assert shares == {CLARA: 2000, STEPHANE: 4000, ANTONIN: 4000}
-
-
-def test_fixed_amounts_combine_with_a_cap():
-    shares = resolve_shares(
-        amount=10000,
-        payer_id=STEPHANE,
-        member_ids=EVERYONE,
-        rule=SplitRule(participants=(STEPHANE, ANTONIN), fixed={CLARA: 2000}, cap=3000),
-    )
-
-    assert shares == {CLARA: 2000, STEPHANE: 6500, ANTONIN: 1500}
-    assert sum(shares.values()) == 10000
-
-
-def test_a_participant_can_also_have_a_fixed_amount():
-    shares = resolve_shares(
-        amount=3000,
-        payer_id=STEPHANE,
-        member_ids=PAIR,
-        rule=SplitRule(participants=PAIR, fixed={STEPHANE: 1000}),
-    )
-
-    assert shares == {STEPHANE: 2000, ANTONIN: 1000}
-
-
-def test_no_participant_sends_everything_to_the_payer():
+def test_an_envelope_of_zero_sends_everything_to_the_remainder():
     assert resolve_shares(
         amount=5000,
         payer_id=STEPHANE,
         member_ids=PAIR,
-        rule=SplitRule(participants=()),
+        rule=SplitRule(envelope=0),
     ) == {STEPHANE: 5000}
+
+
+def test_no_participant_sends_the_envelope_to_the_remainder():
+    assert resolve_shares(
+        amount=5000,
+        payer_id=STEPHANE,
+        member_ids=PAIR,
+        rule=SplitRule(envelope=1000, participants=()),
+    ) == {STEPHANE: 5000}
+
+
+def test_a_member_can_be_in_both_the_envelope_and_the_remainder():
+    shares = resolve_shares(
+        amount=3000,
+        payer_id=STEPHANE,
+        member_ids=PAIR,
+        rule=SplitRule(envelope=1000, participants=PAIR),
+    )
+
+    assert shares == {STEPHANE: 500 + 2000, ANTONIN: 500}
 
 
 def test_zero_shares_are_dropped():
@@ -117,19 +149,20 @@ def test_zero_shares_are_dropped():
         amount=5000,
         payer_id=STEPHANE,
         member_ids=EVERYONE,
-        rule=SplitRule(participants=(STEPHANE,), fixed={CLARA: 0}),
+        rule=SplitRule(envelope=0),
     )
 
-    assert shares == {STEPHANE: 5000}
+    assert CLARA not in shares
+    assert ANTONIN not in shares
 
 
 def test_shares_always_add_up_to_the_amount():
-    for amount in range(1, 200):
+    for amount in range(1, 300):
         shares = resolve_shares(
             amount=amount,
             payer_id=STEPHANE,
             member_ids=EVERYONE,
-            rule=SplitRule(cap=7),
+            rule=SplitRule(envelope=7, participants=(STEPHANE, ANTONIN)),
         )
 
         assert sum(shares.values()) == amount
@@ -151,6 +184,16 @@ def test_an_empty_group_is_refused():
         resolve_shares(amount=1000, payer_id=STEPHANE, member_ids=[])
 
 
+def test_a_negative_envelope_is_refused():
+    with pytest.raises(InvalidSplitRuleError):
+        resolve_shares(
+            amount=1000,
+            payer_id=STEPHANE,
+            member_ids=PAIR,
+            rule=SplitRule(envelope=-1),
+        )
+
+
 def test_an_unknown_participant_is_refused():
     with pytest.raises(InvalidSplitRuleError):
         resolve_shares(
@@ -161,28 +204,73 @@ def test_an_unknown_participant_is_refused():
         )
 
 
-def test_fixed_amounts_above_the_expense_are_refused():
+def test_an_unknown_remainder_member_is_refused():
     with pytest.raises(InvalidSplitRuleError):
         resolve_shares(
             amount=1000,
             payer_id=STEPHANE,
             member_ids=PAIR,
-            rule=SplitRule(fixed={ANTONIN: 5000}),
+            rule=SplitRule(envelope=0, remainder=Remainder(members=("stranger",))),
         )
 
 
-def test_a_negative_fixed_amount_is_refused():
+def test_remainder_amounts_above_what_is_left_are_refused():
     with pytest.raises(InvalidSplitRuleError):
         resolve_shares(
             amount=1000,
             payer_id=STEPHANE,
             member_ids=PAIR,
-            rule=SplitRule(fixed={ANTONIN: -100}),
+            rule=SplitRule(
+                envelope=0,
+                remainder=Remainder(members=PAIR, fixed={ANTONIN: 5000}),
+            ),
+        )
+
+
+def test_remainder_amounts_that_do_not_add_up_are_refused():
+    """Everyone named carries an amount, so they must cover what is left."""
+
+    with pytest.raises(InvalidSplitRuleError):
+        resolve_shares(
+            amount=1000,
+            payer_id=STEPHANE,
+            member_ids=PAIR,
+            rule=SplitRule(
+                envelope=0,
+                remainder=Remainder(members=PAIR, fixed={STEPHANE: 100, ANTONIN: 100}),
+            ),
+        )
+
+
+def test_a_negative_remainder_amount_is_refused():
+    with pytest.raises(InvalidSplitRuleError):
+        resolve_shares(
+            amount=1000,
+            payer_id=STEPHANE,
+            member_ids=PAIR,
+            rule=SplitRule(
+                envelope=0,
+                remainder=Remainder(members=PAIR, fixed={ANTONIN: -100}),
+            ),
+        )
+
+
+def test_nobody_taking_the_remainder_is_refused():
+    with pytest.raises(InvalidSplitRuleError):
+        resolve_shares(
+            amount=1000,
+            payer_id=STEPHANE,
+            member_ids=PAIR,
+            rule=SplitRule(envelope=0, remainder=Remainder(members=())),
         )
 
 
 def test_json_round_trip():
-    rule = SplitRule(participants=(STEPHANE,), fixed={ANTONIN: 250}, cap=1000)
+    rule = SplitRule(
+        envelope=1000,
+        participants=(STEPHANE,),
+        remainder=Remainder(members=PAIR, fixed={ANTONIN: 250}),
+    )
 
     assert rule_from_json(rule_to_json(rule)) == rule
 
@@ -203,11 +291,6 @@ def test_invalid_json_is_refused():
         rule_from_json("{not json")
 
 
-def test_an_unknown_remainder_target_is_refused():
-    with pytest.raises(InvalidSplitRuleError):
-        rule_from_dict({"remainder": "somebody_else"})
-
-
 def test_a_boolean_is_not_an_amount():
     with pytest.raises(InvalidSplitRuleError):
-        rule_from_dict({"fixed": {STEPHANE: True}})
+        rule_from_dict({"envelope": True})

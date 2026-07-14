@@ -7,7 +7,7 @@ import json
 from typing import Any
 
 from ..exceptions import InvalidSplitRuleError
-from ..models import RemainderTarget, SplitRule
+from ..models import Remainder, SplitRule
 
 
 def resolve_shares(
@@ -19,9 +19,9 @@ def resolve_shares(
 ) -> dict[str, int]:
     """Resolve a split rule into absolute shares in cents.
 
-    `member_ids` is the pool of members the expense may be split between,
-    usually the active members of the group. A `None` rule splits the whole
-    amount equally between that pool.
+    `member_ids` is the pool the expense may be split between, usually the
+    active members of the group. A `None` rule splits the whole amount equally
+    between that pool.
 
     The returned mapping only contains non-zero shares and always adds up to
     `amount`.
@@ -40,41 +40,24 @@ def resolve_shares(
 
     rule = rule if rule is not None else SplitRule()
 
-    _ensure_known(rule.fixed, pool, "fixed")
-
-    if any(value < 0 for value in rule.fixed.values()):
-        raise InvalidSplitRuleError("Fixed amounts cannot be negative.")
-
-    if rule.cap is not None and rule.cap < 0:
-        raise InvalidSplitRuleError("Cap cannot be negative.")
-
-    distributable = amount - sum(rule.fixed.values())
-
-    if distributable < 0:
-        raise InvalidSplitRuleError("Fixed amounts exceed the expense amount.")
-
-    participants = _resolve_participants(rule, pool)
-
-    envelope = distributable
-
-    if rule.cap is not None:
-        envelope = min(envelope, rule.cap)
+    envelope = _envelope(rule, amount)
+    participants = _participants(rule, pool)
 
     if not participants:
         envelope = 0
 
-    shares: dict[str, int] = {
-        member_id: amount for member_id, amount in rule.fixed.items()
-    }
+    shares = _distribute(envelope, participants)
 
-    for member_id, share in _distribute(envelope, participants).items():
-        shares[member_id] = shares.get(member_id, 0) + share
+    left = amount - envelope
 
-    surplus = distributable - envelope
-
-    if surplus:
-        target = _remainder_member(rule, payer_id)
-        shares[target] = shares.get(target, 0) + surplus
+    if left > 0:
+        for member_id, share in _resolve_remainder(
+            rule.remainder,
+            left,
+            payer_id,
+            pool,
+        ).items():
+            shares[member_id] = shares.get(member_id, 0) + share
 
     resolved = {
         member_id: value for member_id, value in shares.items() if value != 0
@@ -86,6 +69,97 @@ def resolve_shares(
     return resolved
 
 
+def _envelope(rule: SplitRule, amount: int) -> int:
+    """Return the amount shared equally.
+
+    No envelope means the whole expense: the plain equal split.
+    """
+
+    if rule.envelope is None:
+        return amount
+
+    if rule.envelope < 0:
+        raise InvalidSplitRuleError("The shared amount cannot be negative.")
+
+    return min(rule.envelope, amount)
+
+
+def _participants(rule: SplitRule, pool: tuple[str, ...]) -> tuple[str, ...]:
+    """Return the members sharing the envelope."""
+
+    if rule.participants is None:
+        return pool
+
+    participants = tuple(dict.fromkeys(rule.participants))
+
+    _ensure_known(participants, pool, "participant")
+
+    return participants
+
+
+def _resolve_remainder(
+    remainder: Remainder,
+    left: int,
+    payer_id: str,
+    pool: tuple[str, ...],
+) -> dict[str, int]:
+    """Return what each member owes out of what the envelope left behind.
+
+    Same shape as the envelope, one level down: a member with an amount takes
+    exactly that, the others share what is still left equally.
+    """
+
+    _ensure_known(remainder.fixed, pool, "remainder")
+
+    if any(value < 0 for value in remainder.fixed.values()):
+        raise InvalidSplitRuleError("A remainder amount cannot be negative.")
+
+    members = remainder.members
+
+    if members is None:
+        # Nobody named: the one who paid carries what is left.
+        members = (payer_id,)
+    else:
+        members = tuple(dict.fromkeys(members))
+
+        _ensure_known(members, pool, "remainder")
+
+    if not members:
+        raise InvalidSplitRuleError("Nobody takes the remainder.")
+
+    fixed = {
+        member_id: value
+        for member_id, value in remainder.fixed.items()
+        if member_id in members
+    }
+
+    fixed_total = sum(fixed.values())
+
+    if fixed_total > left:
+        raise InvalidSplitRuleError("The remainder amounts exceed what is left.")
+
+    sharing = tuple(member_id for member_id in members if member_id not in fixed)
+
+    shares = dict(fixed)
+
+    if not sharing:
+        if fixed_total != left:
+            raise InvalidSplitRuleError(
+                "The remainder amounts do not add up to what is left."
+            )
+
+        return shares
+
+    for member_id, share in _distribute(left - fixed_total, sharing).items():
+        shares[member_id] = shares.get(member_id, 0) + share
+
+    return shares
+
+
+RULE_KEYS = frozenset({"envelope", "participants", "remainder"})
+REMAINDER_KEYS = frozenset({"members", "fixed"})
+
+
 def rule_from_dict(data: Mapping[str, Any] | None) -> SplitRule | None:
     """Create a split rule from its serialized form."""
 
@@ -95,35 +169,38 @@ def rule_from_dict(data: Mapping[str, Any] | None) -> SplitRule | None:
     if not isinstance(data, Mapping):
         raise InvalidSplitRuleError("A split rule must be an object.")
 
-    participants = data.get("participants")
+    _ensure_no_stray_keys(data, RULE_KEYS, "split rule")
 
-    if participants is not None:
-        if not isinstance(participants, Sequence) or isinstance(participants, str):
-            raise InvalidSplitRuleError("Participants must be a list of member ids.")
+    envelope = data.get("envelope")
 
-        participants = tuple(str(member_id) for member_id in participants)
+    return SplitRule(
+        envelope=None if envelope is None else _as_int(envelope),
+        participants=_members_from(data.get("participants")),
+        remainder=_remainder_from_dict(data.get("remainder")),
+    )
+
+
+def _remainder_from_dict(data: Any) -> Remainder:
+    """Create the remainder of a rule from its serialized form."""
+
+    if data is None:
+        return Remainder()
+
+    if not isinstance(data, Mapping):
+        raise InvalidSplitRuleError("A remainder must be an object.")
+
+    _ensure_no_stray_keys(data, REMAINDER_KEYS, "remainder")
 
     fixed_data = data.get("fixed") or {}
 
     if not isinstance(fixed_data, Mapping):
-        raise InvalidSplitRuleError("Fixed amounts must be an object.")
+        raise InvalidSplitRuleError("Remainder amounts must be an object.")
 
-    fixed = {str(member_id): _as_int(value) for member_id, value in fixed_data.items()}
-
-    cap = data.get("cap")
-
-    remainder = data.get("remainder", RemainderTarget.PAYER)
-
-    try:
-        remainder = RemainderTarget(remainder)
-    except ValueError as err:
-        raise InvalidSplitRuleError(f"Unknown remainder target: {remainder}") from err
-
-    return SplitRule(
-        participants=participants,
-        fixed=fixed,
-        cap=None if cap is None else _as_int(cap),
-        remainder=remainder,
+    return Remainder(
+        members=_members_from(data.get("members")),
+        fixed={
+            str(member_id): _as_int(value) for member_id, value in fixed_data.items()
+        },
     )
 
 
@@ -134,12 +211,18 @@ def rule_to_dict(rule: SplitRule | None) -> dict[str, Any] | None:
         return None
 
     return {
+        "envelope": rule.envelope,
         "participants": (
             list(rule.participants) if rule.participants is not None else None
         ),
-        "fixed": dict(rule.fixed),
-        "cap": rule.cap,
-        "remainder": rule.remainder.value,
+        "remainder": {
+            "members": (
+                list(rule.remainder.members)
+                if rule.remainder.members is not None
+                else None
+            ),
+            "fixed": dict(rule.remainder.fixed),
+        },
     }
 
 
@@ -166,26 +249,37 @@ def rule_to_json(rule: SplitRule | None) -> str | None:
     return json.dumps(rule_to_dict(rule), separators=(",", ":"))
 
 
-def _resolve_participants(rule: SplitRule, pool: tuple[str, ...]) -> tuple[str, ...]:
-    """Return the members sharing the envelope."""
+def _ensure_no_stray_keys(
+    data: Mapping[str, Any],
+    known: frozenset[str],
+    label: str,
+) -> None:
+    """Refuse a shape this reader does not understand.
 
-    if rule.participants is None:
-        return pool
+    A rule written by an older version carries keys that no longer mean
+    anything. Ignoring them would quietly resolve to a rule nobody wrote, and
+    silently wrong money is worse than a visible error.
+    """
 
-    participants = tuple(dict.fromkeys(rule.participants))
+    stray = sorted(set(data) - known)
 
-    _ensure_known(participants, pool, "participant")
+    if stray:
+        raise InvalidSplitRuleError(
+            f"Unknown {label} field: {', '.join(stray)}. "
+            "This rule was written by another version."
+        )
 
-    return participants
 
+def _members_from(value: Any) -> tuple[str, ...] | None:
+    """Return a list of member ids, or None when unset."""
 
-def _remainder_member(rule: SplitRule, payer_id: str) -> str:
-    """Return the member receiving the surplus left above the cap."""
+    if value is None:
+        return None
 
-    if rule.remainder is RemainderTarget.PAYER:
-        return payer_id
+    if not isinstance(value, Sequence) or isinstance(value, str):
+        raise InvalidSplitRuleError("Expected a list of member ids.")
 
-    raise InvalidSplitRuleError(f"Unsupported remainder target: {rule.remainder}")
+    return tuple(str(member_id) for member_id in value)
 
 
 def _distribute(amount: int, member_ids: Sequence[str]) -> dict[str, int]:

@@ -8,9 +8,10 @@ from .entities import (
     GroupMember,
     Member,
     Payment,
+    Remainder,
     SplitRule,
 )
-from .enums import GroupRole, RemainderTarget
+from .enums import GroupRole
 
 __all__ = [
     "Category",
@@ -21,6 +22,6 @@ __all__ = [
     "GroupRole",
     "Member",
     "Payment",
-    "RemainderTarget",
+    "Remainder",
     "SplitRule",
 ]

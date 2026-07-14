@@ -6,15 +6,21 @@
 
 export type GroupRole = "owner" | "admin" | "member";
 
+/** Who takes what is left once the envelope is shared. */
+export interface Remainder {
+  /** Members taking part. `null` or absent means the payer alone. */
+  members?: string[] | null;
+  /** Amounts owed by specific members out of the remainder. */
+  fixed?: Record<string, number>;
+}
+
 export interface SplitRule {
+  /** Amount shared equally. `null` or absent means the whole expense. */
+  envelope?: number | null;
   /** Members sharing the envelope. `null` means every active group member. */
-  participants: string[] | null;
-  /** Amounts assigned to specific members before distribution. */
-  fixed: Record<string, number>;
-  /** Upper bound of the shared envelope. `null` means no cap. */
-  cap: number | null;
-  /** Where the surplus above the cap goes. */
-  remainder: "payer";
+  participants?: string[] | null;
+  /** Who takes what the envelope left behind. */
+  remainder?: Remainder;
 }
 
 export interface Group {
@@ -87,6 +93,12 @@ export interface Expense {
   expense_date: string;
   created_at: string;
   shares?: ExpenseShare[];
+  /**
+   * The rule that produced the shares, with its members spelled out.
+   *
+   * Only to reopen the dialog as it was filled in. The shares stay the truth.
+   */
+  split_rule: SplitRule | null;
 }
 
 export interface Payment {

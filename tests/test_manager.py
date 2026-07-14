@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 
 import pytest
 
+from custom_components.shared_expenses.const import DATABASE_VERSION
 from custom_components.shared_expenses.exceptions import (
     CannotRemoveOwnerError,
     GroupArchivedError,
@@ -246,7 +247,7 @@ async def test_the_category_rule_applies_to_its_expenses(
     courses = await manager.create_category(
         group_id=group.id,
         name="Courses",
-        split_rule=SplitRule(cap=1000),
+        split_rule=SplitRule(envelope=1000),
     )
 
     expense = await manager.create_expense(
@@ -262,7 +263,7 @@ async def test_the_category_rule_applies_to_its_expenses(
 
 
 async def test_the_group_rule_applies_without_category(manager: SharedExpensesManager):
-    group = await make_group(manager, split_rule=SplitRule(cap=1000))
+    group = await make_group(manager, split_rule=SplitRule(envelope=1000))
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
     owner = await owner_of(manager, group.id)
 
@@ -285,7 +286,7 @@ async def test_an_explicit_rule_beats_the_category_rule(manager: SharedExpensesM
     courses = await manager.create_category(
         group_id=group.id,
         name="Courses",
-        split_rule=SplitRule(cap=1000),
+        split_rule=SplitRule(envelope=1000),
     )
 
     expense = await manager.create_expense(
@@ -303,7 +304,7 @@ async def test_an_explicit_rule_beats_the_category_rule(manager: SharedExpensesM
 
 async def test_a_split_rule_survives_sqlite(manager: SharedExpensesManager):
     group = await make_group(manager)
-    rule = SplitRule(participants=("a",), fixed={"b": 250}, cap=1000)
+    rule = SplitRule(envelope=1000, participants=("a",))
 
     category = await manager.create_category(
         group_id=group.id,
@@ -477,7 +478,7 @@ async def test_the_schema_is_migrated_to_the_latest_version(database: Database):
     version = (await cursor.fetchone())["version"]
     await cursor.close()
 
-    assert version == 3
+    assert version == DATABASE_VERSION
 
 
 async def test_a_home_assistant_account_maps_to_one_member(
@@ -603,6 +604,93 @@ async def test_an_archived_group_stays_visible_to_its_members(
 
     assert [g.name for g in groups] == ["Appartement"]
     assert groups[0].archived is True
+
+
+async def test_an_expense_remembers_the_rule_it_was_filled_in_with(
+    manager: SharedExpensesManager,
+):
+    group = await make_group(manager)
+    await manager.create_group_member(group_id=group.id, name="Antonin")
+    owner = await owner_of(manager, group.id)
+
+    expense = await manager.create_expense(
+        group_id=group.id,
+        title="Courses",
+        amount=8542,
+        paid_by_member_id=owner.id,
+        expense_date=NOW,
+        split_rule=SplitRule(envelope=1000),
+    )
+
+    reloaded = await manager.get_expense(expense.id)
+
+    assert reloaded.split_rule is not None
+    assert reloaded.split_rule.envelope == 1000
+
+
+async def test_a_stored_rule_names_its_members(manager: SharedExpensesManager):
+    """"Everyone" would pull in whoever joins later."""
+
+    group = await make_group(manager)
+    antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
+    owner = await owner_of(manager, group.id)
+
+    expense = await manager.create_expense(
+        group_id=group.id,
+        title="Courses",
+        amount=8542,
+        paid_by_member_id=owner.id,
+        expense_date=NOW,
+        split_rule=SplitRule(envelope=1000),
+    )
+
+    rule = (await manager.get_expense(expense.id)).split_rule
+
+    assert set(rule.participants) == {owner.id, antonin.id}
+    assert rule.remainder.members == (owner.id,)
+
+
+async def test_a_new_member_stays_out_of_a_past_expense(
+    manager: SharedExpensesManager,
+):
+    """Someone joining must not be pulled into what happened before them."""
+
+    from custom_components.shared_expenses.helpers.splits import resolve_shares
+
+    group = await make_group(manager)
+    antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
+    owner = await owner_of(manager, group.id)
+
+    expense = await manager.create_expense(
+        group_id=group.id,
+        title="Courses",
+        amount=8542,
+        paid_by_member_id=owner.id,
+        expense_date=NOW,
+        split_rule=SplitRule(envelope=1000),
+    )
+
+    stored = await shares_of(manager, expense.id)
+
+    assert stored == {owner.id: 8042, antonin.id: 500}
+
+    clara = await manager.create_group_member(group_id=group.id, name="Clara")
+
+    # Reopening re-resolves the remembered rule against the group as it is now.
+    rule = (await manager.get_expense(expense.id)).split_rule
+    members = [m.id for m in await manager.list_group_members(group.id)]
+
+    assert clara.id in members
+
+    replayed = resolve_shares(
+        amount=8542,
+        payer_id=owner.id,
+        member_ids=members,
+        rule=rule,
+    )
+
+    assert replayed == stored
+    assert clara.id not in replayed
 
 
 async def test_a_payment_to_oneself_is_refused(manager: SharedExpensesManager):

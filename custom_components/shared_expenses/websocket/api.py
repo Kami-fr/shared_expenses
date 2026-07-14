@@ -89,12 +89,19 @@ SHARE_SCHEMA = vol.Schema(
     }
 )
 
+REMAINDER_SCHEMA = vol.Schema(
+    {
+        vol.Optional("members"): vol.Any(None, [cv.string]),
+        vol.Optional("fixed"): {cv.string: int},
+    }
+)
+
 SPLIT_RULE_SCHEMA = vol.Schema(
     {
+        # `None` means the whole expense is shared equally.
+        vol.Optional("envelope"): vol.Any(None, int),
         vol.Optional("participants"): vol.Any(None, [cv.string]),
-        vol.Optional("fixed"): {cv.string: int},
-        vol.Optional("cap"): vol.Any(None, int),
-        vol.Optional("remainder"): cv.string,
+        vol.Optional("remainder"): REMAINDER_SCHEMA,
     }
 )
 

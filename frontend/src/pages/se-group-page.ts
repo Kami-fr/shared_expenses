@@ -485,15 +485,16 @@ export class SeGroupPage extends LitElement {
 
   /** Summarize a split rule in one line, for the category list. */
   private describeRule(category: Category): string {
-    const rule = category.split_rule;
+    const envelope = category.split_rule?.envelope;
 
-    if (!rule || rule.cap === null) {
+    // No envelope means the whole expense is shared: the plain equal split.
+    if (envelope == null) {
       return this.localize("rule_equal");
     }
 
-    const cap = formatMoney(rule.cap, this.group!.currency, this.language);
+    const shared = formatMoney(envelope, this.group!.currency, this.language);
 
-    return `${this.localize("rule_capped")} ${cap}`;
+    return `${this.localize("rule_shares")} ${shared}`;
   }
 
   private renderSettlement(settlement: Settlement) {

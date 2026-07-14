@@ -94,6 +94,7 @@ def expense_to_dict(
         "paid_by_member_id": expense.paid_by_member_id,
         "expense_date": expense.expense_date.isoformat(),
         "created_at": expense.created_at.isoformat(),
+        "split_rule": rule_to_dict(expense.split_rule),
     }
 
     if shares is not None:

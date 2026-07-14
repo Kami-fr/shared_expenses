@@ -1,14 +1,28 @@
-import { LitElement, css, html, nothing } from "lit";
+import { LitElement, type PropertyValues, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
 import "./se-field";
-import { colorFor, formatMoney, initials, parseMoney } from "../services/format";
+import {
+  centsToInput,
+  colorFor,
+  formatMoney,
+  initials,
+  parseMoney,
+} from "../services/format";
 import type { Localizer } from "../services/localize";
+import { resolveShares } from "../services/splits";
 import { sharedStyles } from "../styles/shared";
 import type { Member, SplitRule } from "../types";
 
+/** What a rule is previewed on, so the figures mean something. */
+const SAMPLE = 8542;
+
 /**
  * Editor for a default split rule.
+ *
+ * Two steps of the same shape: an amount shared equally between the members
+ * ticked, then whatever is left, handed to the members ticked below, either
+ * equally or by the amounts typed.
  *
  * Fires `rule-changed` with `event.detail.rule`, a SplitRule or null when the
  * expenses should simply be split equally.
@@ -25,13 +39,30 @@ export class SeSplitRuleEditor extends LitElement {
 
   @property({ type: String }) public language = "en";
 
+  /**
+   * The expense being split, in cents.
+   *
+   * Left out, the rule is a lasting default and gets previewed on a sample.
+   * Given, the preview shows the real shares of that very expense.
+   */
+  @property({ type: Number }) public amount: number | null = null;
+
+  /** Who pays, when previewing a real expense: the rest falls back to them. */
+  @property({ type: String }) public payerId: string | null = null;
+
+  /** Skip the on/off toggle: a rule is always in force here. */
+  @property({ type: Boolean }) public required = false;
+
   @state() private enabled = false;
+
+  @state() private envelopeInput = "";
 
   @state() private participants: Set<string> = new Set();
 
-  @state() private capInput = "";
+  /** Members taking the remainder. None ticked means whoever paid takes it. */
+  @state() private takers: Set<string> = new Set();
 
-  @state() private fixedInputs: Record<string, string> = {};
+  @state() private amounts: Record<string, string> = {};
 
   public static styles = [
     sharedStyles,
@@ -81,10 +112,16 @@ export class SeSplitRuleEditor extends LitElement {
 
       .preview {
         font-size: 13px;
-        line-height: 1.5;
+        line-height: 1.6;
         padding: 10px;
         border-radius: 8px;
         background: var(--secondary-background-color, #f1f1f1);
+      }
+
+      .preview .line {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
       }
 
       .preview strong {
@@ -96,24 +133,64 @@ export class SeSplitRuleEditor extends LitElement {
   public connectedCallback(): void {
     super.connectedCallback();
 
-    this.enabled = this.rule !== null;
+    this.enabled = this.required || this.rule !== null;
+
+    this.envelopeInput =
+      this.rule?.envelope != null ? centsToInput(this.rule.envelope) : "";
 
     this.participants = new Set(
       this.rule?.participants ?? this.members.map((member) => member.id),
     );
 
-    this.capInput = this.rule?.cap != null ? (this.rule.cap / 100).toFixed(2) : "";
+    // On a real expense, show what will happen rather than leaving every box
+    // clear: an unset remainder means the payer takes it, so tick them. On a
+    // lasting category rule there is no payer yet, so it stays unset and reads
+    // as "whoever pays".
+    const takers = this.rule?.remainder?.members;
 
-    this.fixedInputs = Object.fromEntries(
-      Object.entries(this.rule?.fixed ?? {}).map(([id, amount]) => [
+    this.takers = new Set(
+      takers ?? (this.payerId ? [this.payerId] : []),
+    );
+
+    this.amounts = Object.fromEntries(
+      Object.entries(this.rule?.remainder?.fixed ?? {}).map(([id, amount]) => [
         id,
-        (amount / 100).toFixed(2),
+        centsToInput(amount),
       ]),
     );
   }
 
+  protected willUpdate(changed: PropertyValues): void {
+    if (!changed.has("payerId")) {
+      return;
+    }
+
+    const previous = changed.get("payerId") as string | null | undefined;
+
+    // While the remainder is still just "whoever paid", let it follow a change
+    // of payer. Once it has been touched, it is a deliberate choice: leave it.
+    const untouched =
+      previous != null && this.takers.size === 1 && this.takers.has(previous);
+
+    if (untouched && this.payerId) {
+      this.takers = new Set([this.payerId]);
+      this.amounts = {};
+    }
+  }
+
+  protected updated(changed: PropertyValues): void {
+    // Emitting from willUpdate would fight the render in progress.
+    if (changed.has("payerId")) {
+      this.emit();
+    }
+  }
+
   protected render() {
     const translate = this.localize;
+
+    if (this.required) {
+      return this.renderPanel();
+    }
 
     return html`
       <label class="toggle">
@@ -121,102 +198,161 @@ export class SeSplitRuleEditor extends LitElement {
         <span class="label">${translate("split_rule_custom")}</span>
       </label>
 
-      ${this.enabled ? this.renderPanel() : html`<div class="muted">${translate("split_rule_equal_hint")}</div>`}
+      ${this.enabled
+        ? this.renderPanel()
+        : html`<div class="muted">${translate("split_rule_equal_hint")}</div>`}
     `;
+  }
+
+  /** What the preview runs on: the real expense, or a sample. */
+  private get previewAmount(): number {
+    return this.amount != null && this.amount > 0 ? this.amount : SAMPLE;
   }
 
   private renderPanel() {
     const translate = this.localize;
+    const envelope = parseMoney(this.envelopeInput);
+
+    // The remainder only exists once the envelope stops covering everything.
+    const hasRemainder =
+      this.envelopeInput.trim() !== "" &&
+      envelope !== null &&
+      envelope < this.previewAmount;
 
     return html`
       <div class="panel">
         <div>
-          <label class="muted">${translate("participants")}</label>
-          ${this.members.map(
-            (member) => html`
-              <div class="member-row">
-                <input
-                  type="checkbox"
-                  .checked=${this.participants.has(member.id)}
-                  @change=${() => this.toggleParticipant(member.id)}
-                />
-                ${this.renderAvatar(member)}
-                <span class="name">${member.name}</span>
-              </div>
-            `,
-          )}
+          <se-field
+            .label=${translate("envelope_label")}
+            .value=${this.envelopeInput}
+            .suffix=${this.currency}
+            .helper=${translate("envelope_hint")}
+            decimal
+            placeholder=${translate("envelope_all")}
+            @value-changed=${(e: CustomEvent) => this.setEnvelope(e.detail.value)}
+          ></se-field>
+
+          <div class="muted" style="margin-top:8px">
+            ${translate("shared_between")}
+          </div>
+          ${this.members.map((member) => this.renderParticipant(member))}
         </div>
 
-        <se-field
-          .label=${translate("cap_label")}
-          .value=${this.capInput}
-          .suffix=${this.currency}
-          .helper=${translate("cap_hint")}
-          decimal
-          placeholder=${translate("no_cap")}
-          @value-changed=${(e: CustomEvent) => this.setCap(e.detail.value)}
-        ></se-field>
-
-        <div>
-          <label class="muted">${translate("fixed_amounts")}</label>
-          <div class="muted">${translate("fixed_amounts_hint")}</div>
-          ${this.members.map(
-            (member) => html`
-              <div class="member-row">
-                ${this.renderAvatar(member)}
-                <span class="name">${member.name}</span>
-                <se-field
-                  .value=${this.fixedInputs[member.id] ?? ""}
-                  .suffix=${this.currency}
-                  decimal
-                  placeholder="—"
-                  @value-changed=${(e: CustomEvent) =>
-                    this.setFixed(member.id, e.detail.value)}
-                ></se-field>
-              </div>
-            `,
-          )}
-        </div>
-
-        ${this.renderPreview()}
+        ${hasRemainder ? this.renderRemainder() : nothing} ${this.renderPreview()}
       </div>
     `;
   }
 
+  private renderParticipant(member: Member) {
+    return html`
+      <div class="member-row">
+        <input
+          type="checkbox"
+          .checked=${this.participants.has(member.id)}
+          @change=${() => this.toggleParticipant(member.id)}
+        />
+        ${this.renderAvatar(member)}
+        <span class="name">${member.name}</span>
+      </div>
+    `;
+  }
+
+  private renderRemainder() {
+    const translate = this.localize;
+
+    return html`
+      <div>
+        <label class="muted">${translate("remainder_label")}</label>
+        <div class="muted">${translate("remainder_hint")}</div>
+
+        ${this.members.map(
+          (member) => html`
+            <div class="member-row">
+              <input
+                type="checkbox"
+                .checked=${this.takers.has(member.id)}
+                @change=${() => this.toggleTaker(member.id)}
+              />
+              ${this.renderAvatar(member)}
+              <span class="name">${member.name}</span>
+              <se-field
+                .value=${this.amounts[member.id] ?? ""}
+                .suffix=${this.currency}
+                .disabled=${!this.takers.has(member.id)}
+                decimal
+                placeholder="—"
+                @value-changed=${(e: CustomEvent) =>
+                  this.setAmount(member.id, e.detail.value)}
+              ></se-field>
+            </div>
+          `,
+        )}
+      </div>
+    `;
+  }
+
+  /**
+   * Show the rule on a sample expense.
+   *
+   * Resolved by the same code the backend mirrors, so these are the real
+   * figures rather than a hand-written approximation that could drift.
+   */
   private renderPreview() {
-    const cap = parseMoney(this.capInput);
+    const payer =
+      this.members.find((member) => member.id === this.payerId) ?? this.members[0];
 
-    if (cap === null || cap <= 0 || this.participants.size === 0) {
+    if (!payer) {
       return nothing;
     }
 
-    // Show the rule on a sample expense, the way the backend resolves it.
-    const sample = 8542;
-    const fixedTotal = Object.values(this.fixedInputs).reduce(
-      (sum, value) => sum + (parseMoney(value) ?? 0),
-      0,
-    );
-    const distributable = sample - fixedTotal;
+    const amount = this.previewAmount;
 
-    if (distributable <= 0) {
-      return nothing;
+    const shares = resolveShares({
+      amount,
+      payerId: payer.id,
+      memberIds: this.members.map((member) => member.id),
+      rule: this.build(),
+    });
+
+    if (shares === null) {
+      return html`<div class="preview negative">${this.localize("rule_invalid")}</div>`;
     }
-
-    const envelope = Math.min(distributable, cap);
-    const share = Math.floor(envelope / this.participants.size);
-    const surplus = distributable - envelope;
 
     const money = (cents: number) => formatMoney(cents, this.currency, this.language);
 
     return html`
       <div class="preview">
-        ${this.localize("rule_preview_intro")} <strong>${money(sample)}</strong>:
-        <strong>${money(envelope)}</strong> ${this.localize("rule_preview_shared")}
-        (${this.participants.size} × ~<strong>${money(share)}</strong>),
-        ${this.localize("rule_preview_rest")} <strong>${money(surplus)}</strong>
-        ${this.localize("rule_preview_to_payer")}
+        <div class="muted">
+          ${this.localize("rule_preview_intro")} ${money(amount)}
+          ${this.localize("rule_preview_paid_by")} ${payer.name} :
+        </div>
+        ${this.members.map(
+          (member) => html`
+            <div class="line">
+              <span>${member.name}</span>
+              <strong>${money(shares[member.id] ?? 0)}</strong>
+            </div>
+          `,
+        )}
       </div>
     `;
+  }
+
+  /** The shares this rule resolves to, for the caller to store. */
+  public resolved(): Record<string, number> | null {
+    const payer =
+      this.members.find((member) => member.id === this.payerId) ?? this.members[0];
+
+    if (!payer || this.amount == null) {
+      return null;
+    }
+
+    return resolveShares({
+      amount: this.amount,
+      payerId: payer.id,
+      memberIds: this.members.map((member) => member.id),
+      rule: this.build(),
+    });
   }
 
   private renderAvatar(member: Member) {
@@ -232,26 +368,29 @@ export class SeSplitRuleEditor extends LitElement {
     this.emit();
   }
 
-  private toggleParticipant(memberId: string) {
-    const next = new Set(this.participants);
+  private setEnvelope(value: string) {
+    this.envelopeInput = value;
+    this.emit();
+  }
 
-    if (next.has(memberId)) {
-      next.delete(memberId);
-    } else {
-      next.add(memberId);
+  private toggleParticipant(memberId: string) {
+    this.participants = toggled(this.participants, memberId);
+    this.emit();
+  }
+
+  private toggleTaker(memberId: string) {
+    this.takers = toggled(this.takers, memberId);
+
+    if (!this.takers.has(memberId)) {
+      const { [memberId]: _dropped, ...rest } = this.amounts;
+      this.amounts = rest;
     }
 
-    this.participants = next;
     this.emit();
   }
 
-  private setCap(value: string) {
-    this.capInput = value;
-    this.emit();
-  }
-
-  private setFixed(memberId: string, value: string) {
-    this.fixedInputs = { ...this.fixedInputs, [memberId]: value };
+  private setAmount(memberId: string, value: string) {
+    this.amounts = { ...this.amounts, [memberId]: value };
     this.emit();
   }
 
@@ -271,27 +410,46 @@ export class SeSplitRuleEditor extends LitElement {
       return null;
     }
 
+    const typed = this.envelopeInput.trim();
+    const envelope = typed === "" ? null : parseMoney(typed);
+
     const fixed: Record<string, number> = {};
 
-    for (const [memberId, value] of Object.entries(this.fixedInputs)) {
+    for (const [memberId, value] of Object.entries(this.amounts)) {
+      if (!this.takers.has(memberId) || value.trim() === "") {
+        continue;
+      }
+
       const amount = parseMoney(value);
 
-      if (amount !== null && amount > 0) {
+      if (amount !== null) {
         fixed[memberId] = amount;
       }
     }
 
-    const cap = parseMoney(this.capInput);
-
-    const everyone = this.participants.size === this.members.length;
-
     return {
-      participants: everyone ? null : [...this.participants],
-      fixed,
-      cap: cap !== null && cap > 0 ? cap : null,
-      remainder: "payer",
+      envelope,
+      participants:
+        this.participants.size === this.members.length ? null : [...this.participants],
+      remainder: {
+        // Nobody ticked: whoever paid takes the rest, the useful default.
+        members: this.takers.size === 0 ? null : [...this.takers],
+        fixed,
+      },
     };
   }
+}
+
+function toggled(set: Set<string>, value: string): Set<string> {
+  const next = new Set(set);
+
+  if (next.has(value)) {
+    next.delete(value);
+  } else {
+    next.add(value);
+  }
+
+  return next;
 }
 
 declare global {

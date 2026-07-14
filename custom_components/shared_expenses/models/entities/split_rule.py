@@ -5,30 +5,39 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
-from ..enums import RemainderTarget
+
+@dataclass(frozen=True, slots=True)
+class Remainder:
+    """Who takes what is left once the envelope is shared.
+
+    The same shape as the envelope, one level down: a member with an amount
+    takes exactly that, a member without takes an equal share of what the
+    others left. `members` at `None` means the payer takes all of it.
+    """
+
+    members: tuple[str, ...] | None = None
+    """Members taking part in the remainder. `None` means the payer alone."""
+
+    fixed: Mapping[str, int] = field(default_factory=dict)
+    """Amounts in cents owed by specific members out of the remainder."""
 
 
 @dataclass(frozen=True, slots=True)
 class SplitRule:
     """Describes how an expense amount is split between members.
 
-    Resolution order:
+    Two steps, both shared equally by default:
 
-    1. `fixed` amounts are assigned to their members first.
-    2. What is left is the distributable amount.
-    3. `cap`, when set, limits the envelope actually shared between
-       `participants`; the envelope is `min(distributable, cap)`.
-    4. The surplus left above the cap goes to `remainder`.
+    1. `envelope` is split equally between `participants`. Leave it at `None`
+       and the whole expense is the envelope, which is the plain equal split.
+    2. Whatever is left goes to `remainder`, which by default is the payer.
     """
+
+    envelope: int | None = None
+    """Amount in cents shared equally. `None` means the whole expense."""
 
     participants: tuple[str, ...] | None = None
     """Members sharing the envelope. `None` means every active group member."""
 
-    fixed: Mapping[str, int] = field(default_factory=dict)
-    """Amounts in cents assigned to specific members before distribution."""
-
-    cap: int | None = None
-    """Upper bound in cents of the shared envelope. `None` means no cap."""
-
-    remainder: RemainderTarget = RemainderTarget.PAYER
-    """Destination of the surplus left above the cap."""
+    remainder: Remainder = field(default_factory=Remainder)
+    """Who takes what the envelope left behind."""

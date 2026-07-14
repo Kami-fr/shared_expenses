@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
+from .split_rule import SplitRule
+
 
 @dataclass(frozen=True, slots=True)
 class Expense:
@@ -27,3 +29,10 @@ class Expense:
     expense_date: datetime
 
     created_at: datetime
+
+    split_rule: SplitRule | None = None
+    """The rule that produced the shares, with its members spelled out.
+
+    Only ever read to reopen the dialog as it was filled in: the shares are the
+    truth, and the balances never look at this.
+    """
