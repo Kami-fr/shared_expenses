@@ -8,7 +8,15 @@ from __future__ import annotations
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 
-from . import categories, expenses, groups, members, payments, revisions
+from . import (
+    categories,
+    expenses,
+    groups,
+    members,
+    payments,
+    revisions,
+    statistics,
+)
 
 COMMANDS = (
     *groups.COMMANDS,
@@ -17,6 +25,7 @@ COMMANDS = (
     *expenses.COMMANDS,
     *payments.COMMANDS,
     *revisions.COMMANDS,
+    *statistics.COMMANDS,
 )
 
 

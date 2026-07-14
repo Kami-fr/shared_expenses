@@ -6,6 +6,7 @@ from typing import Any
 
 from ..helpers.balances import GroupBalances, Settlement
 from ..helpers.splits import rule_to_dict
+from ..helpers.statistics import GroupStatistics
 from ..models import (
     Category,
     Expense,
@@ -128,6 +129,30 @@ def payment_to_dict(payment: Payment) -> dict[str, Any]:
         "amount": payment.amount,
         "payment_date": payment.payment_date.isoformat(),
         "created_at": payment.created_at.isoformat(),
+    }
+
+
+def statistics_to_dict(statistics: GroupStatistics) -> dict[str, Any]:
+    """Return the serialized form of a group's statistics.
+
+    Ids, not names: the panel has the members and the categories to put names on
+    them, and to say what an expense with no category should be called.
+    """
+
+    return {
+        "total": statistics.total,
+        "by_category": [
+            {"category_id": item.category_id, "total": item.total}
+            for item in statistics.by_category
+        ],
+        "by_month": [
+            {"month": item.month, "total": item.total} for item in statistics.by_month
+        ],
+        "by_member": [
+            {"member_id": item.member_id, "paid": item.paid, "share": item.share}
+            for item in statistics.by_member
+        ],
+        "years": list(statistics.years),
     }
 
 

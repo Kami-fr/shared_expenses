@@ -11,6 +11,7 @@ import type {
   ExpenseShare,
   Group,
   GroupBalances,
+  GroupStatistics,
   GroupMember,
   GroupRole,
   HaUser,
@@ -228,6 +229,16 @@ export class SharedExpensesApi {
 
   public deletePayment(paymentId: string): Promise<null> {
     return this.call("delete_payment", { payment_id: paymentId });
+  }
+
+  // Statistics
+
+  /** What the group spent. Leave `year` out for everything, ever. */
+  public getStatistics(groupId: string, year?: number | null): Promise<GroupStatistics> {
+    return this.call("get_statistics", {
+      group_id: groupId,
+      ...(year ? { year } : {}),
+    });
   }
 
   // History

@@ -128,6 +128,40 @@ export interface GroupBalances {
   settlements: Settlement[];
 }
 
+/** What a category cost. `category_id` is null for the uncategorised. */
+export interface CategoryTotal {
+  category_id: string | null;
+  total: number;
+}
+
+/** What a month cost. `month` is `YYYY-MM`, on the date you typed. */
+export interface MonthTotal {
+  month: string;
+  total: number;
+}
+
+/**
+ * What a member put in, and what they consumed.
+ *
+ * `paid` is what left their pocket, `share` what was theirs to bear. The two
+ * differ by exactly the balance they are owed or owe.
+ */
+export interface MemberTotal {
+  member_id: string;
+  paid: number;
+  share: number;
+}
+
+/** What a group spent, cut three ways. Reimbursements are not spending. */
+export interface GroupStatistics {
+  total: number;
+  by_category: CategoryTotal[];
+  by_month: MonthTotal[];
+  by_member: MemberTotal[];
+  /** Every year holding an expense, for the period picker. Never filtered. */
+  years: number[];
+}
+
 /** One field of one thing, before and after, in stored values. */
 export interface FieldChange {
   field: string;

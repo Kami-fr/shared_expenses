@@ -23,6 +23,7 @@ from .helpers import revisions
 from .helpers.balances import GroupBalances, compute_balances, simplify_settlements
 from .helpers.ids import new_id
 from .helpers.splits import resolve_shares
+from .helpers.statistics import GroupStatistics, compute_statistics
 from .models import (
     Category,
     Expense,
@@ -780,6 +781,29 @@ class SharedExpensesManager:
                 actor_user_id=actor_user_id,
                 changes=revisions.deletion(state),
             )
+
+    #
+    # ------------------------------------------------------------------
+    # Statistics
+    # ------------------------------------------------------------------
+    #
+
+    async def get_statistics(
+        self,
+        group_id: str,
+        year: int | None = None,
+    ) -> GroupStatistics:
+        """Return what a group spent, over one year or over everything."""
+
+        await self.get_group(group_id)
+
+        return compute_statistics(
+            expenses=await self._database.expense_repository.list_by_group(group_id),
+            shares=await self._database.expense_repository.list_shares_by_group(
+                group_id
+            ),
+            year=year,
+        )
 
     #
     # ------------------------------------------------------------------

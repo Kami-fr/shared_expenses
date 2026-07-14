@@ -1,10 +1,12 @@
 import { LitElement, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import { keyed } from "lit/directives/keyed.js";
 
 import "../components/se-balance-card";
 import "../components/se-button";
 import "../components/se-icon";
 import "../components/se-menu-button";
+import "../components/se-statistics";
 import "../dialogs/se-categories-dialog";
 import "../dialogs/se-expense-dialog";
 import "../dialogs/se-history-dialog";
@@ -29,7 +31,7 @@ import type {
   Settlement,
 } from "../types";
 
-type Tab = "overview" | "expenses" | "settlements";
+type Tab = "overview" | "expenses" | "settlements" | "statistics";
 
 type Dialog = "expense" | "payment" | "member" | "categories" | "history";
 
@@ -44,10 +46,8 @@ type Activity =
   | { kind: "expense"; at: string; addedAt: string; expense: Expense }
   | { kind: "payment"; at: string; addedAt: string; payment: Payment };
 
-const RECENT_ACTIVITY = 5;
-
 /** Left to right, as the bar shows them: a swipe has to follow the eye. */
-const TABS: Tab[] = ["overview", "expenses", "settlements"];
+const TABS: Tab[] = ["overview", "expenses", "settlements", "statistics"];
 
 /** How far a finger travels before it means to change tab, in pixels. */
 const SWIPE_MIN = 60;
@@ -121,6 +121,14 @@ export class SeGroupPage extends LitElement {
 
   @state() private confirmingDelete = false;
 
+  /**
+   * Bumped on every successful load.
+   *
+   * The statistics fetch their own figures rather than deriving them from
+   * what is here, so they need telling when the data moved under them.
+   */
+  @state() private version = 0;
+
   public static styles = [
     sharedStyles,
     css`
@@ -192,6 +200,23 @@ export class SeGroupPage extends LitElement {
       }
 
       /*
+       * The whole activity, scrolling inside the card.
+       *
+       * Capped at half the screen so the balance above and the tabs stay in
+       * view: the overview would otherwise become a list you scroll past to
+       * reach anything else. A short list simply does not fill it — max-height
+       * asks for nothing.
+       *
+       * overscroll-behavior keeps a flick at the end of the list from carrying
+       * on into the page behind it.
+       */
+      .scroller {
+        max-height: 50vh;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+      }
+
+      /*
        * A row, with whose money left drawn down its side.
        *
        * The avatar already carries the colour, but it is a 36px circle among
@@ -224,8 +249,15 @@ export class SeGroupPage extends LitElement {
         font-weight: 500;
       }
 
+      /*
+       * A row you can press. Only the button's own borders go: a blanket
+       * "border: none" would take the payer's colour with them, .item carrying
+       * it as a border and this rule coming after.
+       */
       .item-button {
-        border: none;
+        border-top: none;
+        border-right: none;
+        border-bottom: none;
         background: none;
         color: inherit;
         width: 100%;
@@ -416,17 +448,6 @@ export class SeGroupPage extends LitElement {
         padding: 12px 16px 4px;
       }
 
-      .link {
-        background: none;
-        border: none;
-        color: var(--primary-color, #03a9f4);
-        font-size: 13px;
-        font-weight: 500;
-        text-transform: uppercase;
-        cursor: pointer;
-        font-family: inherit;
-      }
-
       .settled-amount {
         color: var(--se-positive);
       }
@@ -491,6 +512,7 @@ export class SeGroupPage extends LitElement {
             ${this.renderTab("overview", translate("tab_overview"))}
             ${this.renderTab("expenses", translate("tab_expenses"))}
             ${this.renderTab("settlements", translate("tab_settlements"))}
+            ${this.renderTab("statistics", translate("tab_statistics"))}
           </div>
 
           <div
@@ -680,7 +702,36 @@ export class SeGroupPage extends LitElement {
       return this.renderExpenses();
     }
 
+    if (this.tab === "statistics") {
+      return this.renderStatistics();
+    }
+
     return this.renderSettlements();
+  }
+
+  /**
+   * Keyed on the group, so switching group rebuilds it.
+   *
+   * It fetches once, on connect: without the key it would keep the figures of
+   * the group you just left, which is worse than a moment of loading.
+   */
+  private renderStatistics() {
+    return keyed(
+      this.groupId,
+      html`
+        <se-statistics
+          .api=${this.api}
+          .localize=${this.localize}
+          .groupId=${this.groupId}
+          .members=${this.pastMembers}
+          .categories=${this.categories}
+          .meId=${this.meId()}
+          .version=${this.version}
+          .currency=${this.group!.currency}
+          .language=${this.language}
+        ></se-statistics>
+      `,
+    );
   }
 
   private renderOverview() {
@@ -700,13 +751,10 @@ export class SeGroupPage extends LitElement {
       <div class="card">
         <div class="section-head">
           <h3>${translate("recent_activity")}</h3>
-          ${this.activity().length > RECENT_ACTIVITY
-            ? html`<button class="link" @click=${() => (this.tab = "expenses")}>
-                ${translate("see_all")}
-              </button>`
-            : nothing}
         </div>
-        ${this.renderActivity()}
+        <!-- Everything, scrolling within the card rather than pushing the
+             page down: the balance above stays put while you look back. -->
+        <div class="scroller">${this.renderActivity()}</div>
       </div>
     `;
   }
@@ -750,13 +798,11 @@ export class SeGroupPage extends LitElement {
       return html`<div class="empty">${this.localize("no_activity")}</div>`;
     }
 
-    return entries
-      .slice(0, RECENT_ACTIVITY)
-      .map((entry) =>
-        entry.kind === "expense"
-          ? this.renderExpense(entry.expense)
-          : this.renderPayment(entry.payment),
-      );
+    return entries.map((entry) =>
+      entry.kind === "expense"
+        ? this.renderExpense(entry.expense)
+        : this.renderPayment(entry.payment),
+    );
   }
 
   private renderSettlements() {
@@ -1123,6 +1169,7 @@ export class SeGroupPage extends LitElement {
       this.expenses = expenses;
       this.payments = payments;
       this.result = result;
+      this.version += 1;
     } catch (error) {
       this.error = errorMessage(error, this.localize);
 

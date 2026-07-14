@@ -59,6 +59,24 @@ export function formatDayDate(iso: string, language: string): string {
   return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
 
+/**
+ * Format a `YYYY-MM` as a month, e.g. "Juil. 2026".
+ *
+ * Parsed by hand rather than through `new Date("2026-07")`: that reads as UTC
+ * midnight, which lands in June for anyone west of Greenwich and would label
+ * the month wrong.
+ */
+export function formatMonth(month: string, language: string): string {
+  const [year, index] = month.split("-").map(Number);
+
+  const formatted = new Intl.DateTimeFormat(language, {
+    month: "short",
+    year: "numeric",
+  }).format(new Date(year, index - 1, 1));
+
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+}
+
 /** Return today as `YYYY-MM-DD`, for date inputs. */
 export function today(): string {
   const now = new Date();
