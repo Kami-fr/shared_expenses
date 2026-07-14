@@ -1,5 +1,5 @@
 import { LitElement, css, html, nothing } from "lit";
-import { customElement, property, query, state } from "lit/decorators.js";
+import { customElement, property, state } from "lit/decorators.js";
 import { keyed } from "lit/directives/keyed.js";
 
 import "../components/se-button";
@@ -7,16 +7,17 @@ import "../components/se-dialog";
 import "../components/se-field";
 import "../components/se-select";
 import "../components/se-split-rule-editor";
-import type { SeSplitRuleEditor } from "../components/se-split-rule-editor";
 import type { CreateExpenseInput, SharedExpensesApi } from "../services/api";
 import {
   centsToInput,
   dateToIso,
+  formatMoney,
   isoToDateInput,
   parseMoney,
   today,
 } from "../services/format";
 import { errorMessage, type Localizer } from "../services/localize";
+import { resolveShares } from "../services/splits";
 import { sharedStyles } from "../styles/shared";
 import type { Category, Expense, Group, Member, SplitRule } from "../types";
 
@@ -64,16 +65,60 @@ export class SeExpenseDialog extends LitElement {
 
   @state() private confirmingDelete = false;
 
-  @query("se-split-rule-editor") private editor?: SeSplitRuleEditor;
+  /** The split editor is open. Collapsed, only its result shows.  */
+  @state() private editingSplit = false;
+
+  /** The description field is showing. Hidden until asked for, or filled. */
+  @state() private showDescription = false;
 
   public static styles = [
     sharedStyles,
     css`
-      .total {
+      /* Two per row where they fit; one per row when the screen is narrow. */
+      .pair {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      @media (max-width: 380px) {
+        .pair {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .split-head {
         display: flex;
+        align-items: center;
         justify-content: space-between;
+        gap: 8px;
+      }
+
+      .link {
+        background: none;
+        border: none;
+        color: var(--primary-color, #03a9f4);
         font-size: 13px;
-        padding-top: 8px;
+        cursor: pointer;
+        font-family: inherit;
+        padding: 0;
+      }
+
+      .summary {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 14px;
+        font-size: 13px;
+        padding: 6px 0 2px;
+      }
+
+      .who strong {
+        font-variant-numeric: tabular-nums;
+        margin-left: 4px;
+      }
+
+      .editor[hidden] {
+        display: none;
       }
     `,
   ];
@@ -100,6 +145,7 @@ export class SeExpenseDialog extends LitElement {
     // names its members, so re-resolving gives the stored shares back and
     // whoever joined since stays out of it.
     this.rule = this.expense.split_rule ?? this.ruleFromStoredShares();
+    this.showDescription = this.description !== "";
   }
 
   /**
@@ -133,6 +179,27 @@ export class SeExpenseDialog extends LitElement {
     return category?.split_rule ?? this.group.split_rule ?? null;
   }
 
+  /**
+   * The shares the split comes out as.
+   *
+   * Resolved from this dialog's own state rather than asked of the editor:
+   * during a render the editor still holds the previous amount, so it would
+   * answer one keystroke behind. Same resolver either way — the one the backend
+   * is checked against.
+   */
+  private resolved(amount: number | null): Record<string, number> | null {
+    if (amount === null || !this.paidBy || this.members.length === 0) {
+      return null;
+    }
+
+    return resolveShares({
+      amount,
+      payerId: this.paidBy,
+      memberIds: this.members.map((member) => member.id),
+      rule: this.rule ?? this.defaultRule(),
+    });
+  }
+
   protected render() {
     const translate = this.localize;
     const amount = parseMoney(this.amountInput);
@@ -151,49 +218,59 @@ export class SeExpenseDialog extends LitElement {
             @value-changed=${(e: CustomEvent) => (this.expenseTitle = e.detail.value)}
           ></se-field>
 
-          <se-field
-            .label=${translate("description")}
-            .value=${this.description}
-            placeholder=${translate("description_placeholder")}
-            @value-changed=${(e: CustomEvent) => (this.description = e.detail.value)}
-          ></se-field>
+          <div class="pair">
+            <se-field
+              .label=${translate("amount")}
+              .value=${this.amountInput}
+              .suffix=${this.group.currency}
+              required
+              decimal
+              placeholder="85,42"
+              @value-changed=${(e: CustomEvent) => (this.amountInput = e.detail.value)}
+            ></se-field>
 
-          <se-field
-            .label=${translate("amount")}
-            .value=${this.amountInput}
-            .suffix=${this.group.currency}
-            required
-            decimal
-            placeholder="85,42"
-            @value-changed=${(e: CustomEvent) => (this.amountInput = e.detail.value)}
-          ></se-field>
-
-          <se-select
-            .label=${translate("paid_by")}
-            .value=${this.paidBy}
-            .options=${this.members.map((m) => ({ value: m.id, label: m.name }))}
-            @value-changed=${(e: CustomEvent) => (this.paidBy = e.detail.value)}
-          ></se-select>
-
-          <se-field
-            .label=${translate("date")}
-            type="date"
-            .value=${this.date}
-            @value-changed=${(e: CustomEvent) => (this.date = e.detail.value)}
-          ></se-field>
-
-          <se-select
-            .label=${translate("category")}
-            .value=${this.categoryId}
-            .placeholder=${translate("no_category")}
-            .options=${this.categories.map((c) => ({ value: c.id, label: c.name }))}
-            @value-changed=${this.pickCategory}
-          ></se-select>
-
-          <div>
-            <label class="muted">${translate("split")}</label>
-            ${this.renderEditor(amount)}
+            <se-field
+              .label=${translate("date")}
+              type="date"
+              .value=${this.date}
+              @value-changed=${(e: CustomEvent) => (this.date = e.detail.value)}
+            ></se-field>
           </div>
+
+          <div class="pair">
+            <se-select
+              .label=${translate("paid_by")}
+              .value=${this.paidBy}
+              .options=${this.members.map((m) => ({ value: m.id, label: m.name }))}
+              @value-changed=${(e: CustomEvent) => (this.paidBy = e.detail.value)}
+            ></se-select>
+
+            <se-select
+              .label=${translate("category")}
+              .value=${this.categoryId}
+              .placeholder=${translate("no_category")}
+              .options=${this.categories.map((c) => ({ value: c.id, label: c.name }))}
+              @value-changed=${this.pickCategory}
+            ></se-select>
+          </div>
+
+          ${this.showDescription
+            ? html`
+                <se-field
+                  .label=${translate("description")}
+                  .value=${this.description}
+                  placeholder=${translate("description_placeholder")}
+                  @value-changed=${(e: CustomEvent) =>
+                    (this.description = e.detail.value)}
+                ></se-field>
+              `
+            : html`
+                <button class="link" @click=${() => (this.showDescription = true)}>
+                  + ${translate("add_description")}
+                </button>
+              `}
+
+          ${this.renderSplit(amount)}
         </div>
 
         ${this.expense
@@ -222,6 +299,67 @@ export class SeExpenseDialog extends LitElement {
           ${this.expense ? translate("save") : translate("create")}
         </se-button>
       </se-dialog>
+    `;
+  }
+
+  /**
+   * The split: its result always, its controls on request.
+   *
+   * The editor is the tallest thing here and the least often touched, since the
+   * category rule usually does the job. So it stays folded away — but what it
+   * resolves to is always on screen, because that is the part you must see
+   * before saving.
+   */
+  private renderSplit(amount: number | null) {
+    const translate = this.localize;
+
+    return html`
+      <div>
+        <div class="split-head">
+          <label class="muted">${translate("split")}</label>
+          <button class="link" @click=${() => (this.editingSplit = !this.editingSplit)}>
+            ${this.editingSplit ? translate("done") : translate("edit_split")}
+          </button>
+        </div>
+
+        ${this.editingSplit ? nothing : this.renderSummary(amount)}
+
+        <!-- Kept mounted while folded: it owns the rule and resolves it. -->
+        <div class="editor" ?hidden=${!this.editingSplit}>
+          ${this.renderEditor(amount)}
+        </div>
+      </div>
+    `;
+  }
+
+  private renderSummary(amount: number | null) {
+    const shares = this.resolved(amount);
+
+    if (shares === null) {
+      return html`
+        <div class="summary muted">
+          ${amount === null
+            ? this.localize("split_needs_amount")
+            : this.localize("rule_invalid")}
+        </div>
+      `;
+    }
+
+    return html`
+      <div class="summary">
+        ${this.members
+          .filter((member) => shares[member.id])
+          .map(
+            (member) => html`
+              <span class="who">
+                ${member.name}
+                <strong>
+                  ${formatMoney(shares[member.id], this.group.currency, this.language)}
+                </strong>
+              </span>
+            `,
+          )}
+      </div>
     `;
   }
 
@@ -268,7 +406,7 @@ export class SeExpenseDialog extends LitElement {
 
     // Valid exactly when the split resolves: the resolver already checks that
     // the amounts fit and that the shares add up.
-    return this.editor?.resolved() != null;
+    return this.resolved(amount) !== null;
   }
 
   private cancel = () => {
@@ -280,10 +418,9 @@ export class SeExpenseDialog extends LitElement {
   private submit = async () => {
     const amount = parseMoney(this.amountInput);
 
-    // Send the shares the editor shows rather than the rule behind them: what
-    // you see is what gets stored, and the resolver agrees with the backend on
-    // every cent.
-    const shares = this.editor?.resolved();
+    // Send the shares shown rather than the rule behind them: what you see is
+    // what gets stored, and the resolver agrees with the backend on every cent.
+    const shares = this.resolved(amount);
 
     if (amount === null || !shares) {
       return;
@@ -306,7 +443,7 @@ export class SeExpenseDialog extends LitElement {
       })),
       // The shares are the truth, but the rule has to travel with them, or
       // reopening the expense could only ever spell the amounts back out.
-      split_rule: this.editor?.currentRule() ?? null,
+      split_rule: this.rule ?? this.defaultRule(),
     };
 
     try {

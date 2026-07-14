@@ -127,6 +127,19 @@ export class SharedExpensesApi {
     return this.call("update_member", { member_id: memberId, ...changes });
   }
 
+  /** Put an existing member back into a group they had left. */
+  public addMemberToGroup(
+    groupId: string,
+    memberId: string,
+    role?: GroupRole,
+  ): Promise<GroupMember> {
+    return this.call("add_member_to_group", {
+      group_id: groupId,
+      member_id: memberId,
+      ...(role ? { role } : {}),
+    });
+  }
+
   public removeMemberFromGroup(groupId: string, memberId: string): Promise<null> {
     return this.call("remove_member_from_group", {
       group_id: groupId,

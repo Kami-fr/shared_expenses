@@ -2,6 +2,7 @@ import { LitElement, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
 import "../components/se-button";
+import "../components/se-menu-button";
 import "../dialogs/se-group-dialog";
 import type { SharedExpensesApi } from "../services/api";
 import { errorMessage, type Localizer } from "../services/localize";
@@ -28,6 +29,18 @@ export class SeDashboardPage extends LitElement {
     css`
       :host {
         display: block;
+      }
+
+      /* The same banner the group page wears, from the same theme variables. */
+      .toolbar {
+        background: var(--app-header-background-color, var(--primary-color, #03a9f4));
+        color: var(--app-header-text-color, var(--text-primary-color, #fff));
+        position: sticky;
+        top: 0;
+        z-index: 3;
+      }
+
+      .page {
         padding: 16px;
         max-width: 720px;
         margin: 0 auto;
@@ -93,6 +106,22 @@ export class SeDashboardPage extends LitElement {
         padding: 1px 5px;
       }
 
+      .header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 8px 16px;
+        min-height: 64px;
+        box-sizing: border-box;
+      }
+
+      .header h1 {
+        font-size: 18px;
+        color: inherit;
+      }
+
       .fab {
         margin-top: 20px;
         display: flex;
@@ -114,19 +143,30 @@ export class SeDashboardPage extends LitElement {
     }
 
     return html`
-      <div class="stack">
-        <h1>${translate("groups")}</h1>
+      <div class="toolbar">
+        <div class="header">
+          <se-menu-button></se-menu-button>
+          <h1>${translate("groups")}</h1>
+        </div>
+      </div>
 
-        ${this.error ? html`<div class="error">${this.error}</div>` : nothing}
+      <div class="page">
+        <div class="stack">
+          ${this.error ? html`<div class="error">${this.error}</div>` : nothing}
 
-        ${this.groups.length === 0
-          ? html`<div class="card"><div class="empty">${translate("no_groups")}</div></div>`
-          : html`<div class="card">${this.groups.map((group) => this.renderGroup(group))}</div>`}
+          ${this.groups.length === 0
+            ? html`<div class="card">
+                <div class="empty">${translate("no_groups")}</div>
+              </div>`
+            : html`<div class="card">
+                ${this.groups.map((group) => this.renderGroup(group))}
+              </div>`}
 
-        <div class="fab">
-          <se-button @click=${() => (this.dialogOpen = true)}>
-            ${translate("new_group")}
-          </se-button>
+          <div class="fab">
+            <se-button @click=${() => (this.dialogOpen = true)}>
+              ${translate("new_group")}
+            </se-button>
+          </div>
         </div>
       </div>
 

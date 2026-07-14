@@ -4,8 +4,8 @@ import { customElement, property, state } from "lit/decorators.js";
 import "../components/se-balance-card";
 import "../components/se-button";
 import "../components/se-icon";
-import "../components/se-quick-actions";
-import "../dialogs/se-category-dialog";
+import "../components/se-menu-button";
+import "../dialogs/se-categories-dialog";
 import "../dialogs/se-expense-dialog";
 import "../dialogs/se-member-dialog";
 import "../dialogs/se-payment-dialog";
@@ -28,7 +28,7 @@ import type {
   Settlement,
 } from "../types";
 
-type Tab = "overview" | "expenses" | "settlements" | "members" | "categories";
+type Tab = "overview" | "expenses" | "settlements";
 
 /**
  * One thing that happened in the group, expense or payment alike.
@@ -86,11 +86,9 @@ export class SeGroupPage extends LitElement {
 
   @state() private error?: string;
 
-  @state() private dialog?: "expense" | "payment" | "member" | "category";
+  @state() private dialog?: "expense" | "payment" | "member" | "categories";
 
   @state() private prefill?: Settlement;
-
-  @state() private editedCategory?: Category;
 
   @state() private editedExpense?: Expense;
 
@@ -104,18 +102,36 @@ export class SeGroupPage extends LitElement {
       :host {
         display: block;
         position: relative;
+      }
+
+      /*
+       * The banner every other Home Assistant panel wears. Its colours come
+       * from the theme: hard-coding a grey would look wrong the moment someone
+       * picks a theme that is not the default.
+       */
+      .toolbar {
+        background: var(--app-header-background-color, var(--primary-color, #03a9f4));
+        color: var(--app-header-text-color, var(--text-primary-color, #fff));
+        position: sticky;
+        top: 0;
+        z-index: 3;
+      }
+
+      .page {
         padding: 16px;
         max-width: 720px;
         margin: 0 auto;
       }
 
-      .back {
-        background: none;
-        border: none;
-        color: var(--primary-text-color);
-        font-size: 22px;
-        cursor: pointer;
-        padding: 4px 8px;
+      .header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 8px 16px;
+        min-height: 64px;
+        box-sizing: border-box;
       }
 
       .tabs {
@@ -198,12 +214,6 @@ export class SeGroupPage extends LitElement {
         margin-top: 8px;
       }
 
-      .header {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-      }
-
       .titles {
         flex: 1;
         min-width: 0;
@@ -221,7 +231,8 @@ export class SeGroupPage extends LitElement {
         border: none;
         padding: 2px 0 0;
         cursor: pointer;
-        color: var(--secondary-text-color);
+        color: inherit;
+        opacity: 0.85;
         font-family: inherit;
         font-size: 15px;
         max-width: 100%;
@@ -240,7 +251,7 @@ export class SeGroupPage extends LitElement {
       .icon {
         background: none;
         border: none;
-        color: var(--primary-text-color);
+        color: inherit;
         font-size: 18px;
         cursor: pointer;
         padding: 6px;
@@ -249,7 +260,34 @@ export class SeGroupPage extends LitElement {
       }
 
       .icon:hover {
-        background: var(--secondary-background-color, #f1f1f1);
+        background: rgba(255, 255, 255, 0.12);
+      }
+
+      /*
+       * Within thumb reach, and on the left: Home Assistant puts its own
+       * buttons bottom right, so this one would sit under them.
+       */
+      .fab {
+        position: fixed;
+        left: 20px;
+        bottom: 20px;
+        z-index: 2;
+        width: 56px;
+        height: 56px;
+        border: none;
+        border-radius: 50%;
+        background: var(--primary-color, #03a9f4);
+        color: var(--text-primary-color, #fff);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.12s ease;
+      }
+
+      .fab:hover {
+        transform: scale(1.06);
       }
 
       .scrim {
@@ -261,7 +299,7 @@ export class SeGroupPage extends LitElement {
       .menu {
         position: absolute;
         z-index: 5;
-        top: 56px;
+        top: 64px;
         left: 16px;
         right: 16px;
         max-width: 320px;
@@ -402,25 +440,34 @@ export class SeGroupPage extends LitElement {
     }
 
     return html`
-      <div class="stack">
-        ${this.renderHeader()}
+      ${this.renderHeader()}
 
-        ${this.group.archived
-          ? html`<div class="banner">${translate("archived_hint")}</div>`
-          : nothing}
+      <div class="page">
+        <div class="stack">
+          ${this.group.archived
+            ? html`<div class="banner">${translate("archived_hint")}</div>`
+            : nothing}
 
-        ${this.error ? html`<div class="error">${this.error}</div>` : nothing}
+          ${this.error ? html`<div class="error">${this.error}</div>` : nothing}
 
-        <div class="tabs" role="tablist">
-          ${this.renderTab("overview", translate("tab_overview"))}
-          ${this.renderTab("expenses", translate("tab_expenses"))}
-          ${this.renderTab("settlements", translate("tab_settlements"))}
-          ${this.renderTab("members", translate("tab_members"))}
-          ${this.renderTab("categories", translate("tab_categories"))}
+          <div class="tabs" role="tablist">
+            ${this.renderTab("overview", translate("tab_overview"))}
+            ${this.renderTab("expenses", translate("tab_expenses"))}
+            ${this.renderTab("settlements", translate("tab_settlements"))}
+          </div>
+
+          ${this.renderTabContent()}
         </div>
-
-        ${this.renderTabContent()}
       </div>
+
+      <button
+        class="fab"
+        aria-label=${translate("action_add_expense")}
+        title=${translate("action_add_expense")}
+        @click=${() => this.openExpense()}
+      >
+        <se-icon plain .icon=${"mdi:plus"} fallback="+" .size=${26}></se-icon>
+      </button>
 
       ${this.renderDialog()}
     `;
@@ -431,10 +478,9 @@ export class SeGroupPage extends LitElement {
     const group = this.group!;
 
     return html`
-      <div class="header">
-        <button class="back" @click=${this.goBack} aria-label=${translate("back")}>
-          ‹
-        </button>
+      <div class="toolbar">
+        <div class="header">
+          <se-menu-button></se-menu-button>
 
         <div class="titles">
           <h1>${translate("app_title")}</h1>
@@ -449,25 +495,15 @@ export class SeGroupPage extends LitElement {
 
         <button
           class="icon"
-          aria-label=${translate("members")}
-          @click=${() => (this.dialog = "member")}
-        >
-          <se-icon plain .icon=${"mdi:account-multiple"} fallback="M" .size=${22}></se-icon>
-        </button>
-        <button
-          class="icon"
           aria-label=${translate("more")}
           @click=${() => this.openMenu("more")}
         >
           <se-icon plain .icon=${"mdi:dots-vertical"} fallback="⋮" .size=${22}></se-icon>
         </button>
 
-        ${this.menu ? this.renderMenu() : nothing}
+        </div>
       </div>
-
-      ${group.archived
-        ? html`<div class="banner">${translate("archived_hint")}</div>`
-        : nothing}
+      ${this.menu ? this.renderMenu() : nothing}
     `;
   }
 
@@ -507,7 +543,18 @@ export class SeGroupPage extends LitElement {
     const translate = this.localize;
 
     return html`
-      <button role="menuitem" ?disabled=${this.busy} @click=${this.toggleArchive}>
+      <button role="menuitem" @click=${() => this.openDialog("member")}>
+        ${translate("members")}
+      </button>
+      <button role="menuitem" @click=${() => this.openDialog("categories")}>
+        ${translate("categories")}
+      </button>
+      <button
+        role="menuitem"
+        class="separated"
+        ?disabled=${this.busy}
+        @click=${this.toggleArchive}
+      >
         ${this.group!.archived ? translate("restore") : translate("archive")}
       </button>
       <button
@@ -519,6 +566,11 @@ export class SeGroupPage extends LitElement {
         ${this.confirmingDelete ? translate("confirm_delete") : translate("delete_group")}
       </button>
     `;
+  }
+
+  private openDialog(dialog: "expense" | "payment" | "member" | "categories") {
+    this.menu = undefined;
+    this.dialog = dialog;
   }
 
   private openMenu(menu: "groups" | "more") {
@@ -581,15 +633,7 @@ export class SeGroupPage extends LitElement {
       return this.renderExpenses();
     }
 
-    if (this.tab === "settlements") {
-      return this.renderSettlements();
-    }
-
-    if (this.tab === "categories") {
-      return this.renderCategories();
-    }
-
-    return this.renderMembers();
+    return this.renderSettlements();
   }
 
   private renderOverview() {
@@ -603,42 +647,6 @@ export class SeGroupPage extends LitElement {
         .currency=${this.group!.currency}
         .language=${this.language}
       ></se-balance-card>
-
-      <div class="card">
-        <se-quick-actions
-          .actions=${[
-            {
-              key: "expense",
-              label: translate("action_add_expense"),
-              icon: "mdi:plus",
-              fallback: "+",
-              color: "#2b7fd4",
-            },
-            {
-              key: "member",
-              label: translate("action_members"),
-              icon: "mdi:account-multiple",
-              fallback: "M",
-              color: "#3f8a4a",
-            },
-            {
-              key: "payment",
-              label: translate("action_settle"),
-              icon: "mdi:swap-horizontal",
-              fallback: "⇄",
-              color: "#c9871f",
-            },
-            {
-              key: "category",
-              label: translate("tab_categories"),
-              icon: "mdi:tag-multiple",
-              fallback: "C",
-              color: "#8b5fbf",
-            },
-          ]}
-          @action=${this.handleQuickAction}
-        ></se-quick-actions>
-      </div>
 
       <div class="card">
         <div class="section-head">
@@ -757,68 +765,8 @@ export class SeGroupPage extends LitElement {
     `;
   }
 
-  private handleQuickAction = (event: CustomEvent) => {
-    const key = event.detail.key;
 
-    if (key === "expense") {
-      this.openExpense();
-    } else if (key === "payment") {
-      this.openPayment();
-    } else if (key === "member") {
-      this.tab = "members";
-    } else {
-      this.tab = "categories";
-    }
-  };
 
-  private renderCategories() {
-    const translate = this.localize;
-
-    return html`
-      <div class="card">
-        ${this.categories.length === 0
-          ? html`<div class="empty">${translate("no_categories")}</div>`
-          : this.categories.map((category) => this.renderCategory(category))}
-      </div>
-
-      <div class="actions">
-        <se-button @click=${() => this.openCategory()}>
-          ${translate("new_category")}
-        </se-button>
-      </div>
-    `;
-  }
-
-  private renderCategory(category: Category) {
-    return html`
-      <button class="item item-button" @click=${() => this.openCategory(category)}>
-        <se-icon
-          .icon=${category.icon}
-          .fallback=${category.name.charAt(0).toUpperCase()}
-          .color=${category.color ?? colorFor(category.id)}
-        ></se-icon>
-        <div class="info">
-          <div class="title">${category.name}</div>
-          <div class="muted">${this.describeRule(category)}</div>
-        </div>
-        <span class="chevron">›</span>
-      </button>
-    `;
-  }
-
-  /** Summarize a split rule in one line, for the category list. */
-  private describeRule(category: Category): string {
-    const envelope = category.split_rule?.envelope;
-
-    // No envelope means the whole expense is shared: the plain equal split.
-    if (envelope == null) {
-      return this.localize("rule_equal");
-    }
-
-    const shared = formatMoney(envelope, this.group!.currency, this.language);
-
-    return `${this.localize("rule_shares")} ${shared}`;
-  }
 
   private renderSettlement(settlement: Settlement) {
     const translate = this.localize;
@@ -923,35 +871,6 @@ export class SeGroupPage extends LitElement {
     `;
   }
 
-  private renderMembers() {
-    const translate = this.localize;
-
-    return html`
-      <div class="card">
-        ${this.members.length === 0
-          ? html`<div class="empty">${translate("no_members")}</div>`
-          : this.members.map(
-              (member) => html`
-                <div class="item">
-                  ${this.renderAvatar(member.name, member.id)}
-                  <div class="info">
-                    <div class="title">${member.name}</div>
-                    ${member.user_id === null
-                      ? html`<div class="muted">${translate("no_account")}</div>`
-                      : nothing}
-                  </div>
-                </div>
-              `,
-            )}
-      </div>
-
-      <div class="actions">
-        <se-button variant="text" @click=${() => (this.dialog = "member")}>
-          ${translate("new_member")}
-        </se-button>
-      </div>
-    `;
-  }
 
   /**
    * A member as a coloured initial.
@@ -985,7 +904,7 @@ export class SeGroupPage extends LitElement {
           .api=${this.api}
           .localize=${this.localize}
           .group=${this.group}
-          .members=${this.members}
+          .members=${this.membersFor(this.editedExpense)}
           .categories=${this.categories}
           .expense=${this.editedExpense}
           .language=${this.language}
@@ -1011,18 +930,17 @@ export class SeGroupPage extends LitElement {
       `;
     }
 
-    if (this.dialog === "category") {
+    if (this.dialog === "categories") {
       return html`
-        <se-category-dialog
+        <se-categories-dialog
           .api=${this.api}
           .localize=${this.localize}
           .group=${this.group}
           .members=${this.members}
-          .category=${this.editedCategory}
           .language=${this.language}
           @dialog-cancelled=${this.closeDialog}
-          @category-saved=${this.handleChanged}
-        ></se-category-dialog>
+          @categories-changed=${this.handleChanged}
+        ></se-categories-dialog>
       `;
     }
 
@@ -1040,6 +958,33 @@ export class SeGroupPage extends LitElement {
   /** Looks among past members too: an old expense still needs a name on it. */
   private memberById(id: string): Member | undefined {
     return this.pastMembers.find((member) => member.id === id);
+  }
+
+  /**
+   * Who the expense dialog may offer.
+   *
+   * The active members, plus anyone this very expense already involves. Someone
+   * removed from the group must not be pickable for something new, but an
+   * expense they paid still has to show them as its payer: dropping them would
+   * silently reassign it on the next save.
+   */
+  private membersFor(expense?: Expense): Member[] {
+    if (!expense) {
+      return this.members;
+    }
+
+    const involved = new Set<string>([
+      expense.paid_by_member_id,
+      ...(expense.shares ?? []).map((share) => share.member_id),
+    ]);
+
+    const gone = this.pastMembers.filter(
+      (member) =>
+        involved.has(member.id) &&
+        !this.members.some((active) => active.id === member.id),
+    );
+
+    return [...this.members, ...gone];
   }
 
   private async load() {
@@ -1094,10 +1039,6 @@ export class SeGroupPage extends LitElement {
     this.dialog = "payment";
   }
 
-  private openCategory(category?: Category) {
-    this.editedCategory = category;
-    this.dialog = "category";
-  }
 
   private openExpense(expense?: Expense) {
     this.editedExpense = expense;
@@ -1107,7 +1048,6 @@ export class SeGroupPage extends LitElement {
   private closeDialog = () => {
     this.dialog = undefined;
     this.prefill = undefined;
-    this.editedCategory = undefined;
     this.editedExpense = undefined;
   };
 

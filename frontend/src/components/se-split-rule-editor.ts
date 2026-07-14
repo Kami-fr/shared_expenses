@@ -178,6 +178,12 @@ export class SeSplitRuleEditor extends LitElement {
     }
   }
 
+  protected firstUpdated(): void {
+    // Announce the rule straight away: a caller showing a summary of it has
+    // nothing to show until the user touches something otherwise.
+    this.emit();
+  }
+
   protected updated(changed: PropertyValues): void {
     // Emitting from willUpdate would fight the render in progress.
     if (changed.has("payerId")) {

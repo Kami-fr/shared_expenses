@@ -788,6 +788,41 @@ async def test_a_backdated_expense_stays_in_the_past(manager: SharedExpensesMana
     assert [e.title for e in expenses] == ["aujourd'hui", "le mois dernier"]
 
 
+async def test_a_guest_is_hidden_then_brought_back(manager: SharedExpensesManager):
+    """Removing someone sets them aside; it must never lose their past."""
+
+    group = await make_group(manager)
+    clara = await manager.create_group_member(group_id=group.id, name="Clara")
+
+    expense = await manager.create_expense(
+        group_id=group.id,
+        title="Courses",
+        amount=1000,
+        paid_by_member_id=clara.id,
+        expense_date=NOW,
+    )
+
+    membership = next(
+        m
+        for m in await manager.list_group_memberships(group.id)
+        if m.member_id == clara.id
+    )
+    await manager.remove_member_from_group(membership)
+
+    active = {m.name for m in await manager.list_group_members(group.id)}
+    everyone = {
+        m.name for m in await manager.list_group_members(group.id, include_left=True)
+    }
+
+    assert "Clara" not in active
+    assert "Clara" in everyone
+    assert (await manager.get_expense(expense.id)).paid_by_member_id == clara.id
+
+    await manager.add_member_to_group(group_id=group.id, member_id=clara.id)
+
+    assert "Clara" in {m.name for m in await manager.list_group_members(group.id)}
+
+
 async def test_a_payment_to_oneself_is_refused(manager: SharedExpensesManager):
     group = await make_group(manager)
     owner = (await manager.list_group_members(group.id))[0]

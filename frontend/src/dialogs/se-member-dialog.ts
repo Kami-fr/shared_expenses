@@ -47,6 +47,12 @@ export class SeMemberDialog extends LitElement {
   /** The member whose palette is open, if any. */
   @state() private tinting?: string;
 
+  /** The member whose removal is awaiting a second click. */
+  @state() private confirming?: string;
+
+  /** Members including those hidden, so a guest can be brought back. */
+  @state() private pastMembers: Member[] = [];
+
   public static styles = [
     sharedStyles,
     css`
@@ -106,6 +112,20 @@ export class SeMemberDialog extends LitElement {
 
       .palette {
         padding: 4px 0 12px 48px;
+      }
+
+      .gone {
+        opacity: 0.55;
+      }
+
+      .confirm {
+        font-size: 12px;
+        color: var(--error-color, #db4437);
+      }
+
+      .remove.danger {
+        color: var(--error-color, #db4437);
+        font-weight: 700;
       }
 
       .remove {
@@ -249,20 +269,27 @@ export class SeMemberDialog extends LitElement {
 
   private renderGuests() {
     const translate = this.localize;
-    const guests = this.members.filter((member) => member.user_id === null);
+    const active = this.members.filter((member) => member.user_id === null);
+    const hidden = this.pastMembers.filter(
+      (member) =>
+        member.user_id === null && !active.some((one) => one.id === member.id),
+    );
 
     return html`
       <div class="section">
         <h3>${translate("guests")}</h3>
         <div class="muted">${translate("guests_hint")}</div>
 
-        ${guests.map(
+        ${active.map(
           (member) => html`
             <div class="row">
               ${this.renderTintable(member, member.name, member.id)}
               <span class="name">${member.name}</span>
+              ${this.confirming === member.id
+                ? html`<span class="confirm">${translate("confirm_remove")}</span>`
+                : nothing}
               <button
-                class="remove"
+                class=${`remove ${this.confirming === member.id ? "danger" : ""}`}
                 ?disabled=${this.busy !== undefined}
                 aria-label=${translate("remove_member")}
                 @click=${() => this.removeGuest(member)}
@@ -271,6 +298,27 @@ export class SeMemberDialog extends LitElement {
               </button>
             </div>
             ${this.renderPalette(member)}
+          `,
+        )}
+
+        ${hidden.map(
+          (member) => html`
+            <div class="row gone">
+              <div
+                class="avatar"
+                style=${`background:${member.color ?? colorFor(member.id)}`}
+              >
+                ${initials(member.name)}
+              </div>
+              <span class="name">${member.name}</span>
+              <se-button
+                variant="text"
+                ?disabled=${this.busy !== undefined}
+                @click=${() => this.restoreGuest(member)}
+              >
+                ${translate("restore_member")}
+              </se-button>
+            </div>
           `,
         )}
 
@@ -315,14 +363,16 @@ export class SeMemberDialog extends LitElement {
     this.error = undefined;
 
     try {
-      const [haUsers, members, memberships] = await Promise.all([
+      const [haUsers, members, pastMembers, memberships] = await Promise.all([
         this.api.listHaUsers(),
         this.api.listMembers(this.groupId),
+        this.api.listMembers(this.groupId, true),
         this.api.listMemberships(this.groupId),
       ]);
 
       this.haUsers = haUsers;
       this.members = members;
+      this.pastMembers = pastMembers;
       this.memberships = memberships;
     } catch (error) {
       this.error = errorMessage(error, this.localize);
@@ -332,8 +382,16 @@ export class SeMemberDialog extends LitElement {
   }
 
   private async toggleAccount(user: HaUser, member: Member | undefined) {
+    // Taking someone out costs them access to the group: ask once.
+    if (member && this.confirming !== member.id) {
+      this.confirming = member.id;
+      this.requestUpdate();
+      return;
+    }
+
     this.busy = user.id;
     this.error = undefined;
+    this.confirming = undefined;
 
     try {
       if (member) {
@@ -377,11 +435,36 @@ export class SeMemberDialog extends LitElement {
   };
 
   private async removeGuest(member: Member) {
+    if (this.confirming !== member.id) {
+      this.confirming = member.id;
+      return;
+    }
+
+    this.busy = member.id;
+    this.error = undefined;
+    this.confirming = undefined;
+
+    try {
+      // Hidden, not deleted: their past expenses stay attributable, and they
+      // can be brought back.
+      await this.api.removeMemberFromGroup(this.groupId, member.id);
+
+      this.dirty = true;
+      await this.load();
+    } catch (error) {
+      this.error = errorMessage(error, this.localize);
+    } finally {
+      this.busy = undefined;
+    }
+  }
+
+  /** Bring a hidden guest back: they were never deleted, only set aside. */
+  private async restoreGuest(member: Member) {
     this.busy = member.id;
     this.error = undefined;
 
     try {
-      await this.api.removeMemberFromGroup(this.groupId, member.id);
+      await this.api.addMemberToGroup(this.groupId, member.id);
 
       this.dirty = true;
       await this.load();
