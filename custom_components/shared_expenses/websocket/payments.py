@@ -67,6 +67,7 @@ async def websocket_create_payment(
         amount=msg["amount"],
         payment_date=as_utc(msg["payment_date"]),
         description=msg.get("description"),
+        actor_user_id=connection.user.id,
     )
 
     connection.send_result(msg["id"], payment_to_dict(payment))
@@ -106,7 +107,7 @@ async def websocket_update_payment(
 
     updated = replace(payment, **changes)
 
-    await manager.update_payment(updated)
+    await manager.update_payment(updated, actor_user_id=connection.user.id)
 
     connection.send_result(msg["id"], payment_to_dict(updated))
 
@@ -127,7 +128,10 @@ async def websocket_delete_payment(
 ) -> None:
     """Delete a payment."""
 
-    await manager.delete_payment(msg["payment_id"])
+    await manager.delete_payment(
+        msg["payment_id"],
+        actor_user_id=connection.user.id,
+    )
 
     connection.send_result(msg["id"], None)
 

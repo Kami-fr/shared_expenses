@@ -128,6 +128,32 @@ export interface GroupBalances {
   settlements: Settlement[];
 }
 
+/** One field of one thing, before and after, in stored values. */
+export interface FieldChange {
+  field: string;
+  before: unknown;
+  after: unknown;
+}
+
+/**
+ * Something that happened to an expense or a payment.
+ *
+ * Stands on its own: it holds no reference to what it describes, so it is still
+ * there once that has been deleted — which is the change most worth reading.
+ */
+export interface Revision {
+  id: string;
+  group_id: string;
+  entity_type: "expense" | "payment";
+  entity_id: string;
+  /** What it was called at the time, so a deleted one can still be named. */
+  entity_label: string | null;
+  action: "created" | "updated" | "deleted";
+  actor_user_id: string | null;
+  changes: FieldChange[];
+  at: string;
+}
+
 /** Error codes sent back by the integration. */
 export type ErrorCode =
   | "group_not_found"

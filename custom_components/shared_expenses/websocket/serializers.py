@@ -14,6 +14,7 @@ from ..models import (
     GroupMember,
     Member,
     Payment,
+    Revision,
 )
 
 
@@ -127,6 +128,29 @@ def payment_to_dict(payment: Payment) -> dict[str, Any]:
         "amount": payment.amount,
         "payment_date": payment.payment_date.isoformat(),
         "created_at": payment.created_at.isoformat(),
+    }
+
+
+def revision_to_dict(revision: Revision) -> dict[str, Any]:
+    """Return the serialized form of a revision.
+
+    The changes carry stored values, ids and all: the panel holds the members
+    and categories to name them, and a name frozen here would drift.
+    """
+
+    return {
+        "id": revision.id,
+        "group_id": revision.group_id,
+        "entity_type": str(revision.entity_type),
+        "entity_id": revision.entity_id,
+        "entity_label": revision.entity_label,
+        "action": str(revision.action),
+        "actor_user_id": revision.actor_user_id,
+        "changes": [
+            {"field": change.field, "before": change.before, "after": change.after}
+            for change in revision.changes
+        ],
+        "at": revision.at.isoformat(),
     }
 
 

@@ -128,6 +128,7 @@ async def websocket_create_expense(
         description=msg.get("description"),
         shares=shares_from_msg(msg),
         split_rule=split_rule_from_msg(msg),
+        actor_user_id=connection.user.id,
     )
 
     shares = await manager.get_expense_shares(expense.id)
@@ -186,6 +187,7 @@ async def websocket_update_expense(
         updated,
         shares_from_msg(msg),
         split_rule=split_rule_from_msg(msg),
+        actor_user_id=connection.user.id,
     )
 
     shares = await manager.get_expense_shares(updated.id)
@@ -209,7 +211,10 @@ async def websocket_delete_expense(
 ) -> None:
     """Delete an expense and its shares."""
 
-    await manager.delete_expense(msg["expense_id"])
+    await manager.delete_expense(
+        msg["expense_id"],
+        actor_user_id=connection.user.id,
+    )
 
     connection.send_result(msg["id"], None)
 

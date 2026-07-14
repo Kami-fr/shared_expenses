@@ -3,6 +3,7 @@ import { customElement, property, state } from "lit/decorators.js";
 
 import "../components/se-button";
 import "../components/se-dialog";
+import "../components/se-entity-history";
 import "../components/se-field";
 import "../components/se-select";
 import type { SharedExpensesApi } from "../services/api";
@@ -126,6 +127,21 @@ export class SePaymentDialog extends LitElement {
             ? html`<div class="muted">
                 ${formatMoney(amount, this.group.currency, this.language)}
               </div>`
+            : nothing}
+
+          <!-- Only once there is a past to read: a new one has none. -->
+          ${this.payment
+            ? html`
+                <se-entity-history
+                  .api=${this.api}
+                  .localize=${this.localize}
+                  .groupId=${this.group.id}
+                  .entityId=${this.payment.id}
+                  .members=${this.members}
+                  .currency=${this.group.currency}
+                  .language=${this.language}
+                ></se-entity-history>
+              `
             : nothing}
         </div>
 

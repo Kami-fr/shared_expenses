@@ -852,6 +852,47 @@ async def test_a_non_positive_payment_is_refused(manager: SharedExpensesManager)
         )
 
 
+async def test_someone_who_left_can_still_settle_up(manager: SharedExpensesManager):
+    """Leaving a group does not clear a debt; it must stay payable."""
+
+    group = await make_group(manager)
+    clara = await manager.create_group_member(group_id=group.id, name="Clara")
+    owner = await owner_of(manager, group.id)
+
+    await manager.create_expense(
+        group_id=group.id,
+        title="Courses",
+        amount=4000,
+        paid_by_member_id=owner.id,
+        expense_date=NOW,
+    )
+
+    membership = next(
+        m
+        for m in await manager.list_group_memberships(group.id)
+        if m.member_id == clara.id
+    )
+    await manager.remove_member_from_group(membership)
+
+    # Gone, and still owing: the balances count her, so she can be paid for.
+    before = await manager.get_balances(group.id)
+
+    assert before.balances[clara.id] == -2000
+
+    await manager.create_payment(
+        group_id=group.id,
+        from_member_id=clara.id,
+        to_member_id=owner.id,
+        amount=2000,
+        payment_date=NOW,
+    )
+
+    after = await manager.get_balances(group.id)
+
+    assert after.balances == {owner.id: 0, clara.id: 0}
+    assert after.settlements == []
+
+
 async def test_a_corrected_payment_moves_the_balance(manager: SharedExpensesManager):
     """A payment typed wrong is worth correcting, not deleting and retyping."""
 

@@ -4,6 +4,7 @@ import { keyed } from "lit/directives/keyed.js";
 
 import "../components/se-button";
 import "../components/se-dialog";
+import "../components/se-entity-history";
 import "../components/se-field";
 import "../components/se-select";
 import "../components/se-split-rule-editor";
@@ -40,6 +41,9 @@ export class SeExpenseDialog extends LitElement {
 
   /** Set to edit an existing expense, leave out to create one. */
   @property({ attribute: false }) public expense?: Expense;
+
+  /** Which member you are, to fill in who paid. Null: nobody in this group. */
+  @property({ type: String }) public meId: string | null = null;
 
   @property({ type: String }) public language = "en";
 
@@ -133,9 +137,10 @@ export class SeExpenseDialog extends LitElement {
     super.connectedCallback();
 
     if (!this.expense) {
-      if (this.members.length > 0) {
-        this.paidBy = this.members[0].id;
-      }
+      // You, when the panel knows who you are: an expense is nearly always
+      // entered by whoever just paid for it. The first member otherwise —
+      // an account tied to nobody has no better guess to offer.
+      this.paidBy = this.meId ?? this.members[0]?.id ?? "";
 
       return;
     }
@@ -277,6 +282,22 @@ export class SeExpenseDialog extends LitElement {
               `}
 
           ${this.renderSplit(amount)}
+
+          <!-- Only once there is a past to read: a new expense has none. -->
+          ${this.expense
+            ? html`
+                <se-entity-history
+                  .api=${this.api}
+                  .localize=${this.localize}
+                  .groupId=${this.group.id}
+                  .entityId=${this.expense.id}
+                  .members=${this.members}
+                  .categories=${this.categories}
+                  .currency=${this.group.currency}
+                  .language=${this.language}
+                ></se-entity-history>
+              `
+            : nothing}
         </div>
 
         ${this.confirmingDelete

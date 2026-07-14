@@ -239,8 +239,16 @@ export class SeBalanceCard extends LitElement {
       return html`<div>${active.map((balance) => this.renderRow(balance))}</div>`;
     }
 
+    // Two people owing each other is the whole story: the one transfer to make,
+    // both sides of it at once. Judged on the non-zero balances rather than the
+    // member count — someone who left with nothing outstanding is still listed,
+    // and must not spoil the duel.
+    if (active.length === 2) {
+      return this.renderDuel(active);
+    }
+
     if (this.meId === null) {
-      return this.renderGroupView(active);
+      return this.renderGroupView();
     }
 
     const mine = this.settlements.filter(
@@ -264,15 +272,8 @@ export class SeBalanceCard extends LitElement {
     `;
   }
 
-  /** No "you" to speak from: show the group as it stands. */
-  private renderGroupView(active: Balance[]) {
-    // Judged on the non-zero balances rather than the member count: a member
-    // who left with nothing outstanding is still listed, and must not spoil the
-    // duel.
-    if (active.length === 2) {
-      return this.renderDuel(active);
-    }
-
+  /** No "you" to speak from: show the transfers as the group's own business. */
+  private renderGroupView() {
     return html`
       <div>${this.settlements.map((settlement) => this.renderTransfer(settlement))}</div>
     `;
@@ -336,14 +337,25 @@ export class SeBalanceCard extends LitElement {
     `;
   }
 
+  /**
+   * The two of you, facing each other.
+   *
+   * You go on the left, where reading starts, so the side you look at first is
+   * yours whichever way the money goes. Without a "you" — a tablet in the
+   * kitchen — whoever is owed leads, as the group's own way of putting it.
+   */
   private renderDuel(active: Balance[]) {
-    const sorted = [...active].sort((a, b) => b.amount - a.amount);
+    const mine = active.find((balance) => balance.member_id === this.meId);
+
+    const [first, second] = mine
+      ? [mine, active.find((balance) => balance !== mine)!]
+      : [...active].sort((a, b) => b.amount - a.amount);
 
     return html`
       <div class="duel">
-        ${this.renderSide(sorted[0], false)}
+        ${this.renderSide(first, false)}
         <div class="swap">⇄</div>
-        ${this.renderSide(sorted[1], true)}
+        ${this.renderSide(second, true)}
       </div>
     `;
   }
@@ -362,9 +374,7 @@ export class SeBalanceCard extends LitElement {
     const body = html`
       <div class="body">
         <div class="name">${member?.name ?? "?"}</div>
-        <div class=${`verdict ${tone}`}>
-          ${positive ? this.localize("must_receive") : this.localize("must_pay")}
-        </div>
+        <div class=${`verdict ${tone}`}>${this.verdict(balance, positive)}</div>
         <div class=${`figure ${tone}`}>
           ${formatMoney(Math.abs(balance.amount), this.currency, this.language)}
         </div>
@@ -376,6 +386,22 @@ export class SeBalanceCard extends LitElement {
         ${right ? nothing : avatar}${body}${right ? avatar : nothing}
       </div>
     `;
+  }
+
+  /**
+   * What a side of the duel is about, addressed to whoever is reading.
+   *
+   * Your own side speaks to you — "You owe" rather than "Antonin owes" about
+   * yourself, which is how a balance sheet talks, not a person.
+   */
+  private verdict(balance: Balance, positive: boolean): string {
+    const translate = this.localize;
+
+    if (balance.member_id === this.meId) {
+      return positive ? translate("you_are_owed") : translate("you_owe");
+    }
+
+    return positive ? translate("must_receive") : translate("must_pay");
   }
 
   private renderRow(balance: Balance) {

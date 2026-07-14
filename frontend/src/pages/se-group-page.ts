@@ -7,6 +7,7 @@ import "../components/se-icon";
 import "../components/se-menu-button";
 import "../dialogs/se-categories-dialog";
 import "../dialogs/se-expense-dialog";
+import "../dialogs/se-history-dialog";
 import "../dialogs/se-member-dialog";
 import "../dialogs/se-payment-dialog";
 import type { SharedExpensesApi } from "../services/api";
@@ -29,6 +30,8 @@ import type {
 } from "../types";
 
 type Tab = "overview" | "expenses" | "settlements";
+
+type Dialog = "expense" | "payment" | "member" | "categories" | "history";
 
 /**
  * One thing that happened in the group, expense or payment alike.
@@ -103,7 +106,7 @@ export class SeGroupPage extends LitElement {
 
   @state() private error?: string;
 
-  @state() private dialog?: "expense" | "payment" | "member" | "categories";
+  @state() private dialog?: Dialog;
 
   @state() private prefill?: Settlement;
 
@@ -188,11 +191,23 @@ export class SeGroupPage extends LitElement {
         font-weight: 500;
       }
 
+      /*
+       * A row, with whose money left drawn down its side.
+       *
+       * The avatar already carries the colour, but it is a 36px circle among
+       * others: the list reads as a run of rows, not as a run of people. A rule
+       * the height of the row groups them at a glance, without adding a word to
+       * a line that has three already.
+       *
+       * The colour is never the only thing saying it — the avatar and its
+       * tooltip stay, which matters to anyone who reads colour poorly.
+       */
       .item {
         display: flex;
         align-items: center;
         gap: 12px;
-        padding: 14px 16px;
+        padding: 14px 16px 14px 12px;
+        border-left: 4px solid transparent;
       }
 
       .item + .item {
@@ -578,6 +593,9 @@ export class SeGroupPage extends LitElement {
       <button role="menuitem" @click=${() => this.openDialog("categories")}>
         ${translate("categories")}
       </button>
+      <button role="menuitem" @click=${() => this.openDialog("history")}>
+        ${translate("group_history")}
+      </button>
       <button
         role="menuitem"
         class="separated"
@@ -597,7 +615,7 @@ export class SeGroupPage extends LitElement {
     `;
   }
 
-  private openDialog(dialog: "expense" | "payment" | "member" | "categories") {
+  private openDialog(dialog: Dialog) {
     this.menu = undefined;
     this.dialog = dialog;
   }
@@ -766,7 +784,11 @@ export class SeGroupPage extends LitElement {
     const to = this.memberById(payment.to_member_id);
 
     return html`
-      <button class="item item-button" @click=${() => this.openPayment(undefined, payment)}>
+      <button
+        class="item item-button"
+        style=${`border-left-color:${from?.color ?? colorFor(payment.from_member_id)}`}
+        @click=${() => this.openPayment(undefined, payment)}
+      >
         <se-icon
           icon="mdi:swap-horizontal"
           fallback="⇄"
@@ -833,7 +855,11 @@ export class SeGroupPage extends LitElement {
     const category = this.categories.find((c) => c.id === expense.category_id);
 
     return html`
-      <button class="item item-button" @click=${() => this.openExpense(expense)}>
+      <button
+        class="item item-button"
+        style=${`border-left-color:${payer?.color ?? colorFor(expense.paid_by_member_id)}`}
+        @click=${() => this.openExpense(expense)}
+      >
         ${this.renderAvatar(
           payer?.name ?? "?",
           expense.paid_by_member_id,
@@ -926,6 +952,7 @@ export class SeGroupPage extends LitElement {
           .members=${this.membersFor(this.editedExpense)}
           .categories=${this.categories}
           .expense=${this.editedExpense}
+          .meId=${this.meId()}
           .language=${this.language}
           @dialog-cancelled=${this.closeDialog}
           @expense-saved=${this.handleChanged}
@@ -948,6 +975,22 @@ export class SeGroupPage extends LitElement {
           @payment-saved=${this.handleChanged}
           @payment-deleted=${this.handleChanged}
         ></se-payment-dialog>
+      `;
+    }
+
+    if (this.dialog === "history") {
+      return html`
+        <se-history-dialog
+          .api=${this.api}
+          .localize=${this.localize}
+          .group=${this.group}
+          .members=${this.pastMembers}
+          .categories=${this.categories}
+          .openable=${this.openable()}
+          .language=${this.language}
+          @dialog-cancelled=${this.closeDialog}
+          @revision-picked=${this.openFromHistory}
+        ></se-history-dialog>
       `;
     }
 
@@ -1014,13 +1057,27 @@ export class SeGroupPage extends LitElement {
     ]);
   }
 
-  /** The same, for a payment: someone may have left since settling up. */
+  /**
+   * Who the payment dialog may offer.
+   *
+   * Anyone still owing or owed comes along, active or not. Leaving a group does
+   * not clear a debt: the balances count those who left, and a settlement they
+   * owe would be impossible to record if they could not be picked. Someone gone
+   * and square is left out — that is over, and the list is not a graveyard.
+   *
+   * Editing an existing payment offers whoever it already names, whatever their
+   * balance: dropping them would silently reassign the payment on the next save.
+   */
   private membersForPayment(payment?: Payment): Member[] {
-    if (!payment) {
-      return this.members;
+    if (payment) {
+      return this.plusGone([payment.from_member_id, payment.to_member_id]);
     }
 
-    return this.plusGone([payment.from_member_id, payment.to_member_id]);
+    const owing = (this.result?.balances ?? [])
+      .filter((balance) => balance.amount !== 0)
+      .map((balance) => balance.member_id);
+
+    return this.plusGone(owing);
   }
 
   private plusGone(involved: string[]): Member[] {
@@ -1152,6 +1209,40 @@ export class SeGroupPage extends LitElement {
       ? this.localize("new_payment")
       : this.localize("action_add_expense");
   }
+
+  /** What the journal can still send you to: everything not deleted. */
+  private openable(): Set<string> {
+    return new Set([
+      ...this.expenses.map((expense) => expense.id),
+      ...this.payments.map((payment) => payment.id),
+    ]);
+  }
+
+  /**
+   * Jump from an entry of the journal to the thing it is about.
+   *
+   * The journal closes on the way: two stacked dialogs would leave no way back
+   * that is not a guess, and the history you wanted is inside the one opening.
+   */
+  private openFromHistory = (event: CustomEvent) => {
+    const { entityType, entityId } = event.detail;
+
+    if (entityType === "expense") {
+      const expense = this.expenses.find((item) => item.id === entityId);
+
+      if (expense) {
+        this.openExpense(expense);
+      }
+
+      return;
+    }
+
+    const payment = this.payments.find((item) => item.id === entityId);
+
+    if (payment) {
+      this.openPayment(undefined, payment);
+    }
+  };
 
   /** A suggested settlement to record, or a recorded payment to correct. */
   private openPayment(settlement?: Settlement, payment?: Payment) {

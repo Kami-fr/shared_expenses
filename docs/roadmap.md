@@ -10,7 +10,7 @@
 - [x] SQLite
 - [x] Domain models
 - [x] Repositories
-- [x] Versioned migrations (`schema_v2`: split rules)
+- [x] Versioned migrations (up to `schema_v5`: history)
 
 ## Sprint 3 — Business logic
 
@@ -22,7 +22,7 @@
 
 ## Sprint 4 — API and panel
 
-- [x] WebSocket API (27 commands)
+- [x] WebSocket API (30 commands)
 - [x] Panel registration
 - [x] Lit 3 frontend: dashboard, group detail, dialogs
 - [x] Category management and split rule editor in the panel
@@ -45,13 +45,17 @@
 
 - [x] `hacs.json`
 - [x] CI (ruff, pytest, hassfest, HACS, frontend build)
-- [ ] README with screenshots
+- [x] README
+- [ ] Screenshots
 - [ ] Publish to HACS
+
+## Sprint 7 — Accountability
+
+- [x] History of every change to an expense or a reimbursement
+- [x] Group journal, holding what deletions took away
 
 ## Later
 
-- [ ] Editing and deleting expenses from the panel
-- [ ] Category management in the panel
 - [ ] Statistics
 - [ ] Percentage and weighted splits
 - [ ] Surplus to a member other than the payer

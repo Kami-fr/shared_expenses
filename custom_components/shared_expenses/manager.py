@@ -19,6 +19,7 @@ from .exceptions import (
     MemberNotFoundError,
     PaymentNotFoundError,
 )
+from .helpers import revisions
 from .helpers.balances import GroupBalances, compute_balances, simplify_settlements
 from .helpers.ids import new_id
 from .helpers.splits import resolve_shares
@@ -26,11 +27,15 @@ from .models import (
     Category,
     Expense,
     ExpenseShare,
+    FieldChange,
     Group,
     GroupMember,
     GroupRole,
     Member,
     Payment,
+    Revision,
+    RevisionAction,
+    RevisionEntity,
     SplitRule,
 )
 from .storage.database import Database
@@ -457,6 +462,7 @@ class SharedExpensesManager:
         amount: int,
         payment_date: datetime,
         description: str | None = None,
+        actor_user_id: str | None = None,
     ) -> Payment:
         """Create a payment."""
 
@@ -482,7 +488,18 @@ class SharedExpensesManager:
             created_at=datetime.now(UTC),
         )
 
-        await self._database.payment_repository.create(payment)
+        async with self._database.transaction():
+            await self._database.payment_repository.create(payment)
+
+            await self._record(
+                group_id=group_id,
+                entity_type=RevisionEntity.PAYMENT,
+                entity_id=payment.id,
+                label=None,
+                action=RevisionAction.CREATED,
+                actor_user_id=actor_user_id,
+                changes=revisions.creation(revisions.payment_state(payment)),
+            )
 
         return payment
 
@@ -503,10 +520,15 @@ class SharedExpensesManager:
 
         return await self._database.payment_repository.list_by_group(group_id)
 
-    async def update_payment(self, payment: Payment) -> None:
+    async def update_payment(
+        self,
+        payment: Payment,
+        *,
+        actor_user_id: str | None = None,
+    ) -> None:
         """Update a payment."""
 
-        await self.get_payment(payment.id)
+        before = await self.get_payment(payment.id)
 
         _validate_payment(
             amount=payment.amount,
@@ -514,14 +536,51 @@ class SharedExpensesManager:
             to_member_id=payment.to_member_id,
         )
 
-        await self._database.payment_repository.update(payment)
+        changes = revisions.diff(
+            revisions.payment_state(before),
+            revisions.payment_state(payment),
+        )
 
-    async def delete_payment(self, payment_id: str) -> None:
+        # Saving with nothing changed is not something that happened. Recording
+        # it would bury the real changes under noise.
+        if not changes:
+            return
+
+        async with self._database.transaction():
+            await self._database.payment_repository.update(payment)
+
+            await self._record(
+                group_id=payment.group_id,
+                entity_type=RevisionEntity.PAYMENT,
+                entity_id=payment.id,
+                label=None,
+                action=RevisionAction.UPDATED,
+                actor_user_id=actor_user_id,
+                changes=changes,
+            )
+
+    async def delete_payment(
+        self,
+        payment_id: str,
+        *,
+        actor_user_id: str | None = None,
+    ) -> None:
         """Delete a payment."""
 
-        await self.get_payment(payment_id)
+        payment = await self.get_payment(payment_id)
 
-        await self._database.payment_repository.delete(payment_id)
+        async with self._database.transaction():
+            await self._database.payment_repository.delete(payment_id)
+
+            await self._record(
+                group_id=payment.group_id,
+                entity_type=RevisionEntity.PAYMENT,
+                entity_id=payment_id,
+                label=None,
+                action=RevisionAction.DELETED,
+                actor_user_id=actor_user_id,
+                changes=revisions.deletion(revisions.payment_state(payment)),
+            )
 
     #
     # ------------------------------------------------------------------
@@ -542,6 +601,7 @@ class SharedExpensesManager:
         description: str | None = None,
         shares: Sequence[ExpenseShare] | None = None,
         split_rule: SplitRule | None = None,
+        actor_user_id: str | None = None,
     ) -> Expense:
         """Create an expense and its shares.
 
@@ -584,10 +644,19 @@ class SharedExpensesManager:
             split_rule=effective_rule,
         )
 
+        built = _build_shares(expense.id, amounts, now)
+
         async with self._database.transaction():
-            await self._database.expense_repository.create(
-                expense,
-                _build_shares(expense.id, amounts, now),
+            await self._database.expense_repository.create(expense, built)
+
+            await self._record(
+                group_id=group_id,
+                entity_type=RevisionEntity.EXPENSE,
+                entity_id=expense.id,
+                label=expense.title,
+                action=RevisionAction.CREATED,
+                actor_user_id=actor_user_id,
+                changes=revisions.creation(revisions.expense_state(expense, built)),
             )
 
         return expense
@@ -629,10 +698,18 @@ class SharedExpensesManager:
         shares: Sequence[ExpenseShare] | None = None,
         *,
         split_rule: SplitRule | None = None,
+        actor_user_id: str | None = None,
     ) -> None:
         """Update an expense and replace its shares."""
 
-        await self.get_expense(expense.id)
+        previous = await self.get_expense(expense.id)
+
+        # Read before anything is written: afterwards the old shares are gone,
+        # and a history of what changed would have nothing to compare against.
+        before = revisions.expense_state(
+            previous,
+            await self._database.expense_repository.get_shares(expense.id),
+        )
 
         group = await self.get_group(expense.group_id)
 
@@ -655,18 +732,112 @@ class SharedExpensesManager:
             split_rule=split_rule,
         )
 
+        updated = replace(expense, split_rule=effective_rule)
+        built = _build_shares(expense.id, amounts, datetime.now(UTC))
+
+        changes = revisions.diff(before, revisions.expense_state(updated, built))
+
+        if not changes:
+            return
+
         async with self._database.transaction():
-            await self._database.expense_repository.update(
-                replace(expense, split_rule=effective_rule),
-                _build_shares(expense.id, amounts, datetime.now(UTC)),
+            await self._database.expense_repository.update(updated, built)
+
+            await self._record(
+                group_id=expense.group_id,
+                entity_type=RevisionEntity.EXPENSE,
+                entity_id=expense.id,
+                label=updated.title,
+                action=RevisionAction.UPDATED,
+                actor_user_id=actor_user_id,
+                changes=changes,
             )
 
-    async def delete_expense(self, expense_id: str) -> None:
+    async def delete_expense(
+        self,
+        expense_id: str,
+        *,
+        actor_user_id: str | None = None,
+    ) -> None:
         """Delete an expense."""
 
-        await self.get_expense(expense_id)
+        expense = await self.get_expense(expense_id)
 
-        await self._database.expense_repository.delete(expense_id)
+        state = revisions.expense_state(
+            expense,
+            await self._database.expense_repository.get_shares(expense_id),
+        )
+
+        async with self._database.transaction():
+            await self._database.expense_repository.delete(expense_id)
+
+            await self._record(
+                group_id=expense.group_id,
+                entity_type=RevisionEntity.EXPENSE,
+                entity_id=expense_id,
+                label=expense.title,
+                action=RevisionAction.DELETED,
+                actor_user_id=actor_user_id,
+                changes=revisions.deletion(state),
+            )
+
+    #
+    # ------------------------------------------------------------------
+    # Revisions
+    # ------------------------------------------------------------------
+    #
+
+    async def list_revisions(self, group_id: str, limit: int = 200) -> list[Revision]:
+        """Return what happened in a group, newest first."""
+
+        await self.get_group(group_id)
+
+        return await self._database.revision_repository.list_by_group(group_id, limit)
+
+    async def list_entity_revisions(
+        self,
+        group_id: str,
+        entity_id: str,
+    ) -> list[Revision]:
+        """Return the history of one expense or payment, newest first.
+
+        Takes the group it belongs to rather than trusting the entity to name
+        it: the caller has already been cleared for that group, and a revision
+        of another one must not come back through this door.
+        """
+
+        await self.get_group(group_id)
+
+        found = await self._database.revision_repository.list_by_entity(entity_id)
+
+        return [revision for revision in found if revision.group_id == group_id]
+
+    async def _record(
+        self,
+        *,
+        group_id: str,
+        entity_type: RevisionEntity,
+        entity_id: str,
+        label: str | None,
+        action: RevisionAction,
+        actor_user_id: str | None,
+        changes: tuple[FieldChange, ...],
+    ) -> None:
+        """Append a revision. Call inside the transaction it accounts for."""
+
+        await self._database.revision_repository.create(
+            Revision(
+                id=new_id(),
+                group_id=group_id,
+                entity_type=entity_type,
+                entity_id=entity_id,
+                entity_label=label,
+                action=action,
+                actor_user_id=actor_user_id,
+                changes=changes,
+                at=datetime.now(UTC),
+            )
+        )
 
     #
     # ------------------------------------------------------------------

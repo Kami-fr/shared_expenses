@@ -17,6 +17,7 @@ from .repositories.group_member_repository import GroupMemberRepository
 from .repositories.group_repository import GroupRepository
 from .repositories.member_repository import MemberRepository
 from .repositories.payment_repository import PaymentRepository
+from .repositories.revision_repository import RevisionRepository
 
 
 class Database:
@@ -39,6 +40,7 @@ class Database:
         self._category_repository: CategoryRepository | None = None
         self._expense_repository: ExpenseRepository | None = None
         self._payment_repository: PaymentRepository | None = None
+        self._revision_repository: RevisionRepository | None = None
 
     @property
     def connection(self) -> aiosqlite.Connection:
@@ -89,6 +91,13 @@ class Database:
         assert self._payment_repository is not None
         return self._payment_repository
 
+    @property
+    def revision_repository(self) -> RevisionRepository:
+        """Return the revision repository."""
+
+        assert self._revision_repository is not None
+        return self._revision_repository
+
     async def initialize(self) -> None:
         """Initialize the database."""
 
@@ -114,6 +123,7 @@ class Database:
         self._category_repository = CategoryRepository(self.connection)
         self._expense_repository = ExpenseRepository(self.connection)
         self._payment_repository = PaymentRepository(self.connection)
+        self._revision_repository = RevisionRepository(self.connection)
 
     @asynccontextmanager
     async def transaction(self) -> AsyncIterator[None]:

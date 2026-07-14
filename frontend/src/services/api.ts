@@ -17,6 +17,7 @@ import type {
   HomeAssistant,
   Member,
   Payment,
+  Revision,
   SplitRule,
 } from "../types";
 
@@ -227,6 +228,25 @@ export class SharedExpensesApi {
 
   public deletePayment(paymentId: string): Promise<null> {
     return this.call("delete_payment", { payment_id: paymentId });
+  }
+
+  // History
+
+  /** What happened in the group, newest first. */
+  public listRevisions(groupId: string, limit?: number): Promise<Revision[]> {
+    return this.call("list_revisions", {
+      group_id: groupId,
+      ...(limit ? { limit } : {}),
+    });
+  }
+
+  // `groupId` is required: a deleted expense can no longer say which group it
+  // belonged to, and its history is exactly what is being asked for.
+  public listEntityRevisions(groupId: string, entityId: string): Promise<Revision[]> {
+    return this.call("list_entity_revisions", {
+      group_id: groupId,
+      entity_id: entityId,
+    });
   }
 
   private call<T>(command: string, payload: object = {}): Promise<T> {
