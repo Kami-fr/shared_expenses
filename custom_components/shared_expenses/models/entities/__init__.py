@@ -7,6 +7,7 @@ from .group import Group
 from .group_member import GroupMember
 from .member import Member
 from .payment import Payment
+from .split_rule import SplitRule
 
 __all__ = [
     "Category",
@@ -16,4 +17,5 @@ __all__ = [
     "GroupMember",
     "Member",
     "Payment",
+    "SplitRule",
 ]
