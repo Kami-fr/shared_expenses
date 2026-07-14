@@ -135,9 +135,18 @@ export interface Payment {
   /** Whoever received it, or owes it. */
   to_member_id: string;
   kind: PaymentKind;
+  /** What was handed over, in the cents of `currency`. */
   amount: number;
+  /** What it was handed over in. Not always the group's. */
+  currency: string;
   payment_date: string;
   created_at: string;
+  /** The same money in the group's currency: what the balances count. */
+  converted_amount: number;
+  /** The rate applied, in millionths. */
+  exchange_rate: number;
+  /** The day the rate is from, or null when nothing was converted. */
+  rate_as_of: string | null;
 }
 
 export interface Balance {

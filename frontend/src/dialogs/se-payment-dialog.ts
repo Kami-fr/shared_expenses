@@ -2,15 +2,16 @@ import { LitElement, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
 import "../components/se-button";
+import "../components/se-currency-field";
 import "../components/se-dialog";
 import "../components/se-entity-history";
 import "../components/se-field";
 import "../components/se-select";
-import type { SharedExpensesApi } from "../services/api";
+import type { CreatePaymentInput, SharedExpensesApi } from "../services/api";
+import { CURRENCIES, RATE_ONE } from "../services/currency";
 import {
   centsToInput,
   dateToIso,
-  formatMoney,
   isoToDateInput,
   parseMoney,
   today,
@@ -58,6 +59,11 @@ export class SePaymentDialog extends LitElement {
 
   @state() private amountInput = "";
 
+  @state() private description = "";
+
+  /** Folded away until asked for: most of them are self-evident. */
+  @state() private showDescription = false;
+
   @state() private date = today();
 
   @state() private busy = false;
@@ -67,6 +73,12 @@ export class SePaymentDialog extends LitElement {
   @state() private confirmingDelete = false;
 
   @state() private kind: PaymentKind = "reimbursement";
+
+  /** What it was handed over in. The group's, unless said otherwise. */
+  @state() private currency = "";
+
+  /** The rate to convert at, in millionths. Null: not settled, cannot save. */
+  @state() private rate: number | null = null;
 
   public static styles = sharedStyles;
 
@@ -79,10 +91,20 @@ export class SePaymentDialog extends LitElement {
       this.amountInput = centsToInput(this.payment.amount);
       this.date = isoToDateInput(this.payment.payment_date);
       this.kind = this.payment.kind;
+      this.currency = this.payment.currency;
+      this.rate = this.payment.exchange_rate;
+      this.description = this.payment.description ?? "";
+
+      // Unfolded when there is one: hiding what somebody wrote behind a link
+      // saying "add" would read as there being nothing there.
+      this.showDescription = this.description !== "";
+
       return;
     }
 
     this.kind = this.initialKind;
+    this.currency = this.group.currency;
+    this.rate = RATE_ONE;
 
     if (this.settlement) {
       this.fromMember = this.settlement.from_member_id;
@@ -119,55 +141,99 @@ export class SePaymentDialog extends LitElement {
               { value: "reimbursement", label: translate("kind_reimbursement") },
               { value: "debt", label: translate("kind_debt") },
             ]}
-            @value-changed=${(e: CustomEvent) => (this.kind = e.detail.value)}
+            @value-changed=${this.pickKind}
           ></se-select>
 
           <!--
-            The fields swap round, the model does not. A debt names who owes
-            first, because that is the sentence; whoever is owed is stored as
-            the payer either way, being the one out of pocket.
+            The two halves of one sentence, so they sit on one line and read as
+            one. The fields swap round, the model does not: a debt names who
+            owes first, because that is the sentence; whoever is owed is stored
+            as the payer either way, being the one out of pocket.
           -->
-          <se-select
-            .label=${translate(debt ? "debt_who_owes" : "from_member")}
-            .value=${debt ? this.toMember : this.fromMember}
-            .options=${options}
-            @value-changed=${(e: CustomEvent) =>
-              debt
-                ? (this.toMember = e.detail.value)
-                : (this.fromMember = e.detail.value)}
-          ></se-select>
+          <div class="pair">
+            <se-select
+              .label=${translate(debt ? "debt_who_owes" : "from_member")}
+              .value=${debt ? this.toMember : this.fromMember}
+              .options=${options}
+              @value-changed=${(e: CustomEvent) =>
+                debt
+                  ? (this.toMember = e.detail.value)
+                  : (this.fromMember = e.detail.value)}
+            ></se-select>
 
-          <se-select
-            .label=${translate(debt ? "debt_to_whom" : "to_member")}
-            .value=${debt ? this.fromMember : this.toMember}
-            .options=${options}
-            @value-changed=${(e: CustomEvent) =>
-              debt
-                ? (this.fromMember = e.detail.value)
-                : (this.toMember = e.detail.value)}
-          ></se-select>
+            <se-select
+              .label=${translate(debt ? "debt_to_whom" : "to_member")}
+              .value=${debt ? this.fromMember : this.toMember}
+              .options=${options}
+              @value-changed=${(e: CustomEvent) =>
+                debt
+                  ? (this.fromMember = e.detail.value)
+                  : (this.toMember = e.detail.value)}
+            ></se-select>
+          </div>
 
-          <se-field
-            .label=${translate("amount")}
-            .value=${this.amountInput}
-            .suffix=${this.group.currency}
-            decimal
-            required
-            @value-changed=${(e: CustomEvent) => (this.amountInput = e.detail.value)}
-          ></se-field>
+          <div class="pair">
+            <se-field
+              .label=${translate("amount")}
+              .value=${this.amountInput}
+              decimal
+              required
+              @value-changed=${(e: CustomEvent) => (this.amountInput = e.detail.value)}
+            >
+              <!-- Chosen against the figure it qualifies, as on an expense. -->
+              <select
+                slot="suffix"
+                class="currency"
+                .value=${this.currency}
+                aria-label=${translate("currency_label")}
+                @change=${this.pickCurrency}
+              >
+                ${this.currencies().map(
+                  (code) => html`
+                    <option value=${code} ?selected=${code === this.currency}>
+                      ${code}
+                    </option>
+                  `,
+                )}
+              </select>
+            </se-field>
 
-          <se-field
-            .label=${translate("date")}
-            type="date"
-            .value=${this.date}
-            @value-changed=${(e: CustomEvent) => (this.date = e.detail.value)}
-          ></se-field>
+            <se-field
+              .label=${translate("date")}
+              type="date"
+              .value=${this.date}
+              @value-changed=${(e: CustomEvent) => (this.date = e.detail.value)}
+            ></se-field>
+          </div>
 
-          ${amount !== null && amount > 0
-            ? html`<div class="muted">
-                ${formatMoney(amount, this.group.currency, this.language)}
-              </div>`
-            : nothing}
+          <!-- Shows itself only when there is a rate to settle. -->
+          <se-currency-field
+            .api=${this.api}
+            .localize=${this.localize}
+            .groupId=${this.group.id}
+            .groupCurrency=${this.group.currency}
+            .currency=${this.currency}
+            .on=${this.date}
+            .amount=${amount}
+            .language=${this.language}
+            @rate-changed=${this.handleRate}
+          ></se-currency-field>
+
+          ${this.showDescription
+            ? html`
+                <se-field
+                  .label=${translate("description")}
+                  .value=${this.description}
+                  placeholder=${translate("description_placeholder")}
+                  @value-changed=${(e: CustomEvent) =>
+                    (this.description = e.detail.value)}
+                ></se-field>
+              `
+            : html`
+                <button class="link" @click=${() => (this.showDescription = true)}>
+                  + ${translate("add_description")}
+                </button>
+              `}
 
           <!-- Only once there is a past to read: a new one has none. -->
           ${this.payment
@@ -224,15 +290,65 @@ export class SePaymentDialog extends LitElement {
     `;
   }
 
+  /**
+   * Whether the payment can be saved.
+   *
+   * A foreign currency with no rate cannot: the backend would refuse it, and a
+   * button that sends something doomed is worse than one that waits.
+   */
   private isValid(amount: number | null): boolean {
     return (
       amount !== null &&
       amount > 0 &&
+      this.rate !== null &&
       this.fromMember !== "" &&
       this.toMember !== "" &&
       this.fromMember !== this.toMember
     );
   }
+
+  /** Every currency a rate can be had for, and the group's, which may not be. */
+  private currencies(): string[] {
+    return [...new Set([...CURRENCIES, this.group.currency, this.currency])].sort();
+  }
+
+  /**
+   * Change what was handed over.
+   *
+   * The rate goes with it: keeping the old currency's would convert the amount
+   * by a number that has nothing to do with it. Until the new one lands the
+   * payment cannot be saved, which is the point.
+   */
+  private pickCurrency = (event: Event) => {
+    this.currency = (event.target as HTMLSelectElement).value;
+    this.rate = this.currency === this.group.currency ? RATE_ONE : null;
+  };
+
+  /** The currency field settled on something, or on nothing. */
+  private handleRate = (event: CustomEvent) => {
+    this.currency = event.detail.currency;
+    this.rate = event.detail.rate;
+  };
+
+  /**
+   * Change what this is, and keep the sentence on screen where it was.
+   *
+   * The first field is "who owes" on a debt and "who paid" on a reimbursement:
+   * the same person, and the opposite direction of money. So the members swap
+   * with the kind, and the names stay exactly where they sit — changing a label
+   * must not make people jump between fields, and "Michel owes Dupont" has to
+   * become "Michel paid Dupont", never "Dupont paid Michel".
+   */
+  private pickKind = (event: CustomEvent) => {
+    const kind = event.detail.value as PaymentKind;
+
+    if (kind === this.kind) {
+      return;
+    }
+
+    this.kind = kind;
+    [this.fromMember, this.toMember] = [this.toMember, this.fromMember];
+  };
 
   private cancel = () => {
     this.dispatchEvent(new CustomEvent("dialog-cancelled", { bubbles: true, composed: true }));
@@ -248,23 +364,30 @@ export class SePaymentDialog extends LitElement {
     this.busy = true;
     this.error = undefined;
 
+    const input: CreatePaymentInput = {
+      group_id: this.group.id,
+      from_member_id: this.fromMember,
+      to_member_id: this.toMember,
+      amount,
+      payment_date: dateToIso(this.date),
+      description: this.description.trim() || null,
+      currency: this.currency || this.group.currency,
+      kind: this.kind,
+      ...(this.rate !== null && this.rate !== RATE_ONE
+        ? { exchange_rate: this.rate }
+        : {}),
+    };
+
+    // Everything the create sends, minus the group a payment cannot move
+    // between. Written out twice, the two lists agreed today and only today:
+    // the expense dialog had the same shape and quietly stopped sending the
+    // currency, so an edit came back in the old one. Deriving it cannot drift.
+    const { group_id: _group, ...changes } = input;
+
     try {
       const payment = this.payment
-        ? await this.api.updatePayment(this.payment.id, {
-            from_member_id: this.fromMember,
-            to_member_id: this.toMember,
-            amount,
-            payment_date: dateToIso(this.date),
-            kind: this.kind,
-          })
-        : await this.api.createPayment({
-            group_id: this.group.id,
-            from_member_id: this.fromMember,
-            to_member_id: this.toMember,
-            amount,
-            payment_date: dateToIso(this.date),
-            kind: this.kind,
-          });
+        ? await this.api.updatePayment(this.payment.id, changes)
+        : await this.api.createPayment(input);
 
       this.dispatchEvent(
         new CustomEvent("payment-saved", {

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 import aiosqlite
 
@@ -16,9 +16,13 @@ _COLUMNS = """
     from_member_id,
     to_member_id,
     amount,
+    currency,
     payment_date,
     created_at,
-    kind
+    kind,
+    converted_amount,
+    exchange_rate,
+    rate_as_of
 """
 
 
@@ -37,11 +41,15 @@ class PaymentRepository(BaseRepository):
                 from_member_id,
                 to_member_id,
                 amount,
+                currency,
                 payment_date,
                 created_at,
-                kind
+                kind,
+                converted_amount,
+                exchange_rate,
+                rate_as_of
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 payment.id,
@@ -50,9 +58,13 @@ class PaymentRepository(BaseRepository):
                 payment.from_member_id,
                 payment.to_member_id,
                 payment.amount,
+                payment.currency,
                 payment.payment_date.isoformat(),
                 payment.created_at.isoformat(),
                 str(payment.kind),
+                payment.converted_amount,
+                payment.exchange_rate,
+                payment.rate_as_of.isoformat() if payment.rate_as_of else None,
             ),
         )
 
@@ -105,8 +117,12 @@ class PaymentRepository(BaseRepository):
                 from_member_id = ?,
                 to_member_id = ?,
                 amount = ?,
+                currency = ?,
                 payment_date = ?,
-                kind = ?
+                kind = ?,
+                converted_amount = ?,
+                exchange_rate = ?,
+                rate_as_of = ?
             WHERE id = ?
             """,
             (
@@ -114,8 +130,12 @@ class PaymentRepository(BaseRepository):
                 payment.from_member_id,
                 payment.to_member_id,
                 payment.amount,
+                payment.currency,
                 payment.payment_date.isoformat(),
                 str(payment.kind),
+                payment.converted_amount,
+                payment.exchange_rate,
+                payment.rate_as_of.isoformat() if payment.rate_as_of else None,
                 payment.id,
             ),
         )
@@ -142,7 +162,13 @@ class PaymentRepository(BaseRepository):
             from_member_id=row["from_member_id"],
             to_member_id=row["to_member_id"],
             amount=row["amount"],
+            currency=row["currency"],
             payment_date=datetime.fromisoformat(row["payment_date"]),
             created_at=datetime.fromisoformat(row["created_at"]),
             kind=PaymentKind(row["kind"]),
+            converted_amount=row["converted_amount"],
+            exchange_rate=row["exchange_rate"],
+            rate_as_of=(
+                date.fromisoformat(row["rate_as_of"]) if row["rate_as_of"] else None
+            ),
         )

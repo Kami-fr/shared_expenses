@@ -50,6 +50,10 @@ async def websocket_list_payments(
         vol.Required("payment_date"): cv.datetime,
         vol.Optional("description"): vol.Any(None, cv.string),
         vol.Optional("kind"): vol.In([str(k) for k in PaymentKind]),
+        vol.Optional("currency"): vol.Any(None, cv.string),
+        # In millionths. Sent when the panel has shown a rate and had it
+        # accepted; left out, the manager finds one itself.
+        vol.Optional("exchange_rate"): int,
     }
 )
 @websocket_api.async_response
@@ -69,6 +73,8 @@ async def websocket_create_payment(
         amount=msg["amount"],
         payment_date=as_utc(msg["payment_date"]),
         description=msg.get("description"),
+        currency=msg.get("currency"),
+        exchange_rate=msg.get("exchange_rate"),
         kind=PaymentKind(msg.get("kind", PaymentKind.REIMBURSEMENT)),
         actor_user_id=connection.user.id,
     )
@@ -86,6 +92,8 @@ async def websocket_create_payment(
         vol.Optional("payment_date"): cv.datetime,
         vol.Optional("description"): vol.Any(None, cv.string),
         vol.Optional("kind"): vol.In([str(k) for k in PaymentKind]),
+        vol.Optional("currency"): cv.string,
+        vol.Optional("exchange_rate"): int,
     }
 )
 @websocket_api.async_response
@@ -102,7 +110,13 @@ async def websocket_update_payment(
 
     changes: dict[str, Any] = {
         field: msg[field]
-        for field in ("from_member_id", "to_member_id", "amount", "description")
+        for field in (
+            "from_member_id",
+            "to_member_id",
+            "amount",
+            "currency",
+            "description",
+        )
         if field in msg
     }
 
@@ -114,7 +128,11 @@ async def websocket_update_payment(
 
     updated = replace(payment, **changes)
 
-    await manager.update_payment(updated, actor_user_id=connection.user.id)
+    await manager.update_payment(
+        updated,
+        exchange_rate=msg.get("exchange_rate"),
+        actor_user_id=connection.user.id,
+    )
 
     connection.send_result(msg["id"], payment_to_dict(updated))
 

@@ -137,9 +137,13 @@ def payment_to_dict(payment: Payment) -> dict[str, Any]:
         "from_member_id": payment.from_member_id,
         "to_member_id": payment.to_member_id,
         "amount": payment.amount,
+        "currency": payment.currency,
         "payment_date": payment.payment_date.isoformat(),
         "created_at": payment.created_at.isoformat(),
         "kind": str(payment.kind),
+        "converted_amount": payment.converted_amount,
+        "exchange_rate": payment.exchange_rate,
+        "rate_as_of": payment.rate_as_of.isoformat() if payment.rate_as_of else None,
     }
 
 

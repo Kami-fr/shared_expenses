@@ -25,6 +25,60 @@ export const sharedStyles = css`
     overflow: hidden;
   }
 
+  /*
+   * A currency picker slotted into an amount field, where the code used to be
+   * merely written. It has to pass for part of that field rather than a control
+   * parked alongside: no frame, no fill, and the muted colour a written suffix
+   * had. A number and its unit are one thing.
+   */
+  .currency {
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--secondary-text-color);
+    font-size: 14px;
+    font-family: inherit;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .currency:focus-visible {
+    color: var(--primary-color, #03a9f4);
+  }
+
+  /*
+   * A button that asks to be read as a link: "+ add a description", "see all",
+   * "try again". Always a button, never an anchor — it goes nowhere.
+   */
+  .link {
+    background: none;
+    border: none;
+    color: var(--primary-color, #03a9f4);
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+    padding: 0;
+  }
+
+  /*
+   * Two fields per row where they fit; one per row when the screen is narrow.
+   *
+   * minmax(0, …) rather than 1fr: a bare 1fr keeps an automatic minimum of the
+   * content's own width, and a date input asks for more than half a phone. The
+   * column would grow to grant it and take the dialog with it.
+   */
+  .pair {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  @media (max-width: 380px) {
+    .pair {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
   .stack {
     display: flex;
     flex-direction: column;

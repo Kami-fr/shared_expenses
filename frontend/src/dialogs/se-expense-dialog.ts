@@ -86,60 +86,11 @@ export class SeExpenseDialog extends LitElement {
   public static styles = [
     sharedStyles,
     css`
-      /*
-       * Two per row where they fit; one per row when the screen is narrow.
-       *
-       * minmax(0, …) rather than 1fr: a bare 1fr keeps an automatic minimum of
-       * the content's own width, and a date input asks for more than half a
-       * phone. The column would grow to grant it and take the dialog with it.
-       */
-      .pair {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-        gap: 12px;
-      }
-
-      @media (max-width: 380px) {
-        .pair {
-          grid-template-columns: minmax(0, 1fr);
-        }
-      }
-
-      /*
-       * Slotted into the amount field, so it is styled from here and has to
-       * pass for part of that field rather than a control parked next to it:
-       * no frame, no fill, and the muted colour a written suffix had.
-       */
-      .currency {
-        background: none;
-        border: none;
-        outline: none;
-        color: var(--secondary-text-color);
-        font-size: 14px;
-        font-family: inherit;
-        cursor: pointer;
-        padding: 0;
-      }
-
-      .currency:focus-visible {
-        color: var(--primary-color, #03a9f4);
-      }
-
       .split-head {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 8px;
-      }
-
-      .link {
-        background: none;
-        border: none;
-        color: var(--primary-color, #03a9f4);
-        font-size: 13px;
-        cursor: pointer;
-        font-family: inherit;
-        padding: 0;
       }
 
       .summary {
@@ -611,18 +562,16 @@ export class SeExpenseDialog extends LitElement {
       split_rule: this.rule ?? this.defaultRule(),
     };
 
+    // Everything the create sends, minus the group an expense cannot move
+    // between. Spelled out field by field, this listed eight of the ten and
+    // silently dropped the currency and its rate: an edit saved fine and came
+    // back in the old currency, because `Partial` means a missing field is a
+    // field nobody asked to change. Deriving it cannot drift.
+    const { group_id: _group, ...changes } = input;
+
     try {
       const expense = this.expense
-        ? await this.api.updateExpense(this.expense.id, {
-            title: input.title,
-            amount: input.amount,
-            paid_by_member_id: input.paid_by_member_id,
-            expense_date: input.expense_date,
-            category_id: input.category_id,
-            description: input.description,
-            shares: input.shares,
-            split_rule: input.split_rule,
-          })
+        ? await this.api.updateExpense(this.expense.id, changes)
         : await this.api.createExpense(input);
 
       this.dispatchEvent(

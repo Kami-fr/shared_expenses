@@ -14,12 +14,14 @@ have nothing to do with.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Any
 
 import pytest
 
 from custom_components.shared_expenses.manager import SharedExpensesManager
+from custom_components.shared_expenses.models import PaymentKind
 from custom_components.shared_expenses.websocket import (
     COMMANDS,
     categories,
@@ -565,3 +567,328 @@ async def test_a_foreign_expense_goes_through_the_real_command(
     }
 
     assert shares == {owner.id: 4_384, other.id: 4_384}
+
+
+async def test_an_expense_can_change_currency(
+    loaded: FakeHass,
+    household: dict[str, Any],
+    manager: SharedExpensesManager,
+):
+    """An edit that moves an expense to another currency must stick.
+
+    The panel dropped `currency` and `exchange_rate` from its update, so the
+    save went through and the expense came back in the old currency. The
+    command itself always could: this pins that it does.
+    """
+
+    connection = FakeConnection(MINE)
+
+    await call(
+        loaded,
+        connection,
+        expenses.websocket_update_expense,
+        {
+            "type": "shared_expenses/update_expense",
+            "expense_id": household["my_expense"].id,
+            "currency": "USD",
+            "exchange_rate": 876_810,
+        },
+    )
+
+    assert connection.errors == {}
+
+    reloaded = await manager.get_expense(household["my_expense"].id)
+
+    assert reloaded.currency == "USD"
+    assert reloaded.exchange_rate == 876_810
+    assert reloaded.converted_amount != reloaded.amount
+
+
+async def test_a_group_can_be_renamed_without_touching_its_currency(
+    loaded: FakeHass,
+    household: dict[str, Any],
+    manager: SharedExpensesManager,
+):
+    """What the group dialog sends on an edit: the name, and nothing else.
+
+    The currency is deliberately absent. It is the unit every share and every
+    balance in the group is written in, and changing it converts nothing -- the
+    same figures would simply be read in another currency. The dialog shows it
+    and does not offer it; this pins that an edit leaves it alone.
+    """
+
+    connection = FakeConnection(MINE)
+
+    await call(
+        loaded,
+        connection,
+        groups.websocket_update_group,
+        {
+            "type": "shared_expenses/update_group",
+            "group_id": household["mine"].id,
+            "name": "Coloc",
+            "description": None,
+        },
+    )
+
+    assert connection.errors == {}
+
+    reloaded = await manager.get_group(household["mine"].id)
+
+    assert reloaded.name == "Coloc"
+    assert reloaded.currency == household["mine"].currency
+    assert reloaded.split_rule == household["mine"].split_rule
+
+
+async def test_a_group_created_deleted_and_created_again(
+    loaded: FakeHass,
+    household: dict[str, Any],
+    manager: SharedExpensesManager,
+):
+    """Stephane's own sequence, through the command that answered him.
+
+    The panel does not pass an owner: the handler takes the connected account,
+    which is the whole point and was also what broke. Nothing below the handler
+    would show it -- every manager test left the owner accountless, and a null
+    user_id collides with nothing.
+    """
+
+    connection = FakeConnection(MINE)
+
+    await call(
+        loaded,
+        connection,
+        groups.websocket_delete_group,
+        {"type": "shared_expenses/delete_group", "group_id": household["mine"].id},
+    )
+
+    assert connection.errors == {}
+
+    await call(
+        loaded,
+        connection,
+        groups.websocket_create_group,
+        {"type": "shared_expenses/create_group", "name": "Coloc", "currency": "EUR"},
+        msg_id=2,
+    )
+
+    assert connection.errors == {}
+
+    created = connection.results[2]
+
+    assert created["name"] == "Coloc"
+
+    # And it belongs to the account that asked for it, or it would not be
+    # listed back to them.
+    assert [g.id for g in await manager.list_user_groups(MINE)] == [created["id"]]
+
+
+async def test_a_payment_carries_a_note(
+    loaded: FakeHass,
+    household: dict[str, Any],
+    manager: SharedExpensesManager,
+):
+    """A debt says what it is about, and the note survives an edit.
+
+    The column, the model and both schemas always had it; the dialog simply
+    never offered it. This drives the whole path the panel does, because the
+    schema is what a field forgotten in it dies on.
+    """
+
+    connection = FakeConnection(MINE)
+    owner = household["my_owner"]
+    other = await manager.create_group_member(
+        group_id=household["mine"].id,
+        name="Antonin",
+    )
+
+    await call(
+        loaded,
+        connection,
+        payments.websocket_create_payment,
+        {
+            "type": "shared_expenses/create_payment",
+            "group_id": household["mine"].id,
+            "from_member_id": owner.id,
+            "to_member_id": other.id,
+            "amount": 4_625,
+            "payment_date": NOW.isoformat(),
+            "description": "Billet de train avance",
+            "kind": "debt",
+        },
+    )
+
+    assert connection.errors == {}
+
+    created = connection.results[1]
+
+    assert created["description"] == "Billet de train avance"
+    assert created["kind"] == "debt"
+
+    # And an edit that only touches the note leaves the rest where it was.
+    await call(
+        loaded,
+        connection,
+        payments.websocket_update_payment,
+        {
+            "type": "shared_expenses/update_payment",
+            "payment_id": created["id"],
+            "description": "Billet de train, aller simple",
+        },
+        msg_id=2,
+    )
+
+    assert connection.errors == {}
+
+    reloaded = await manager.get_payment(created["id"])
+
+    assert reloaded.description == "Billet de train, aller simple"
+    assert reloaded.amount == 4_625
+    assert reloaded.kind is PaymentKind.DEBT
+
+
+async def test_a_debt_becomes_a_reimbursement(
+    loaded: FakeHass,
+    household: dict[str, Any],
+    manager: SharedExpensesManager,
+):
+    """Changing only the kind, which answered "fine" and did nothing.
+
+    `update_payment` asks `payment_state` what moved and returns early when the
+    answer is nothing. The kind was not in it, so the one field that moves no
+    money was also the one field no other field could betray: the write was
+    skipped, silently, and the caller was told it went through.
+    """
+
+    connection = FakeConnection(MINE)
+    owner = household["my_owner"]
+    other = await manager.create_group_member(
+        group_id=household["mine"].id,
+        name="Antonin",
+    )
+
+    debt = await manager.create_payment(
+        group_id=household["mine"].id,
+        from_member_id=owner.id,
+        to_member_id=other.id,
+        amount=4_625,
+        payment_date=NOW,
+        kind=PaymentKind.DEBT,
+    )
+
+    await call(
+        loaded,
+        connection,
+        payments.websocket_update_payment,
+        {
+            "type": "shared_expenses/update_payment",
+            "payment_id": debt.id,
+            "kind": "reimbursement",
+        },
+    )
+
+    assert connection.errors == {}
+    assert (await manager.get_payment(debt.id)).kind is PaymentKind.REIMBURSEMENT
+
+
+async def test_the_kind_of_a_payment_is_written_down(
+    loaded: FakeHass,
+    household: dict[str, Any],
+    manager: SharedExpensesManager,
+):
+    """And the history says so, which is the same mechanism seen from the front."""
+
+    connection = FakeConnection(MINE)
+    owner = household["my_owner"]
+    other = await manager.create_group_member(
+        group_id=household["mine"].id,
+        name="Antonin",
+    )
+
+    debt = await manager.create_payment(
+        group_id=household["mine"].id,
+        from_member_id=owner.id,
+        to_member_id=other.id,
+        amount=4_625,
+        payment_date=NOW,
+        kind=PaymentKind.DEBT,
+    )
+
+    await manager.update_payment(
+        replace(debt, kind=PaymentKind.REIMBURSEMENT),
+        actor_user_id=MINE,
+    )
+
+    await call(
+        loaded,
+        connection,
+        revisions.websocket_list_entity_revisions,
+        {
+            "type": "shared_expenses/list_entity_revisions",
+            "group_id": household["mine"].id,
+            "entity_id": debt.id,
+        },
+    )
+
+    # The creation carries a kind too, being part of what a payment is born
+    # with. What has to be here is the edit.
+    edits = [
+        change
+        for revision in connection.results[1]
+        if revision["action"] == "updated"
+        for change in revision["changes"]
+        if change["field"] == "kind"
+    ]
+
+    assert edits == [{"field": "kind", "before": "debt", "after": "reimbursement"}]
+
+
+async def test_a_payment_in_another_currency_goes_through(
+    loaded: FakeHass,
+    household: dict[str, Any],
+    manager: SharedExpensesManager,
+):
+    """The whole message the panel sends for a debt in dollars.
+
+    A rate is given rather than fetched, so nothing here touches the network:
+    what is under test is the shape of the message and what it comes to.
+    """
+
+    connection = FakeConnection(MINE)
+    owner = household["my_owner"]
+    other = await manager.create_group_member(
+        group_id=household["mine"].id,
+        name="Antonin",
+    )
+
+    await call(
+        loaded,
+        connection,
+        payments.websocket_create_payment,
+        {
+            "type": "shared_expenses/create_payment",
+            "group_id": household["mine"].id,
+            "from_member_id": owner.id,
+            "to_member_id": other.id,
+            "amount": 5_000,
+            "currency": "USD",
+            "exchange_rate": 876_810,
+            "payment_date": NOW.isoformat(),
+            "kind": "debt",
+        },
+    )
+
+    assert connection.errors == {}
+
+    created = connection.results[1]
+
+    assert created["amount"] == 5_000
+    assert created["currency"] == "USD"
+    assert created["converted_amount"] == 4_384
+    assert created["exchange_rate"] == 876_810
+
+    # And the balances count the euros it came to, not the dollars written on
+    # it: 43,84 owed, never 50.
+    balances = await manager.get_balances(household["mine"].id)
+
+    assert balances.balances[other.id] == -4_384

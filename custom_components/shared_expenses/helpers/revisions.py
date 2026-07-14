@@ -63,14 +63,23 @@ def expense_state(
 
 
 def payment_state(payment: Payment) -> dict[str, Any]:
-    """Return a payment as plain values."""
+    """Return a payment as plain values.
+
+    Every field that can be edited belongs here, and not only so the history can
+    read it: `update_payment` asks this what moved, and returns early when the
+    answer is nothing. A field left out is a field that cannot be changed at all
+    — the save is skipped, and the caller is told it went fine.
+    """
 
     return {
         "description": payment.description,
         "amount": payment.amount,
+        "currency": payment.currency,
         "from_member_id": payment.from_member_id,
         "to_member_id": payment.to_member_id,
         "payment_date": payment.payment_date.isoformat(),
+        "kind": str(payment.kind),
+        "converted_amount": payment.converted_amount,
     }
 
 

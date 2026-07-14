@@ -8,6 +8,7 @@ import "../components/se-icon";
 import "../components/se-menu-button";
 import "../dialogs/se-categories-dialog";
 import "../dialogs/se-expense-dialog";
+import "../dialogs/se-group-dialog";
 import "../dialogs/se-history-dialog";
 import "../dialogs/se-member-dialog";
 import "../dialogs/se-payment-dialog";
@@ -35,6 +36,7 @@ type Dialog =
   | "expense"
   | "payment"
   | "member"
+  | "group"
   | "categories"
   | "history"
   | "statistics";
@@ -49,9 +51,6 @@ type Dialog =
 type Activity =
   | { kind: "expense"; at: string; addedAt: string; expense: Expense }
   | { kind: "payment"; at: string; addedAt: string; payment: Payment };
-
-/** Below this, the list is short enough to read: a search box would be noise. */
-const SEARCH_FROM = 8;
 
 /** How far the plus is dragged before it means a reimbursement, in pixels. */
 const FAB_DRAG = 40;
@@ -582,6 +581,9 @@ export class SeGroupPage extends LitElement {
     const translate = this.localize;
 
     return html`
+      <button role="menuitem" @click=${() => this.openDialog("group")}>
+        ${translate("edit_group")}
+      </button>
       <button role="menuitem" @click=${() => this.openDialog("member")}>
         ${translate("members")}
       </button>
@@ -686,17 +688,14 @@ export class SeGroupPage extends LitElement {
   }
 
   /**
-   * Shown once there is enough to look for something in.
+   * Always there.
    *
-   * Judged on everything the group holds, never on what is left after
-   * filtering: the box would vanish under your fingers the moment you narrowed
-   * it down, taking your own query with it.
+   * It used to appear only past a few entries, on the grounds that a short list
+   * reads at a glance — which is true, and beside the point: a control that
+   * comes and goes on its own is read as a bug, and a new group is exactly when
+   * you have not yet learnt where things are.
    */
   private renderSearch() {
-    if (this.activity().length < SEARCH_FROM) {
-      return nothing;
-    }
-
     return html`
       <se-field
         .value=${this.query}
@@ -778,8 +777,12 @@ export class SeGroupPage extends LitElement {
     const to = this.memberById(payment.to_member_id);
     const debt = payment.kind === "debt";
 
-    // Whose money left, as everywhere: on a debt, the one who lent it.
-    const colour = from?.color ?? colorFor(payment.from_member_id);
+    // Whoever the line is about. On a reimbursement that is the one whose money
+    // left; on a debt, the one who owes it — a debt is somebody's, and it is
+    // theirs, not the lender's. Same member the title opens on, either way.
+    const owner = debt ? to : from;
+    const ownerId = debt ? payment.to_member_id : payment.from_member_id;
+    const colour = owner?.color ?? colorFor(ownerId);
 
     return html`
       <button
@@ -794,23 +797,50 @@ export class SeGroupPage extends LitElement {
           .size=${40}
         ></se-icon>
         <div class="info">
+          <!--
+            The arrow points at whoever ends up with the money, and it points
+            that way on both: a reimbursement has sent it, a debt owes it.
+            Which is why the names swap round — on a debt the one who will pay
+            is the one who owes, and that is the member on the receiving end of
+            the stored payment. The icon and the colour say which is which.
+          -->
           <div class="title">
             ${debt
-              ? html`${to?.name ?? "?"} ${this.localize("owes_to")} ${from?.name ?? "?"}`
+              ? html`${to?.name ?? "?"} → ${from?.name ?? "?"}`
               : html`${from?.name ?? "?"} → ${to?.name ?? "?"}`}
           </div>
-          <!-- Where an expense shows its category: same grid, same reading. -->
+          <!--
+            Where an expense shows its category: same grid, same reading. What
+            somebody wrote about it wins the line — "Dette" is already said by
+            the icon and the colour, and a note is only ever there because it
+            said something they were not.
+          -->
           <div class="muted">
-            ${this.localize(debt ? "a_debt" : "a_settlement")}
+            ${payment.description || this.localize(debt ? "a_debt" : "a_settlement")}
           </div>
           <div class="muted">
             ${formatDayDate(payment.payment_date, this.language)}
           </div>
         </div>
         <div class="tail">
-          <span class="amount settled-amount">
-            ${formatMoney(payment.amount, this.group!.currency, this.language)}
+          <!--
+            Red on a debt, the colour money owed already wears on the balance
+            card. A reimbursement stays quiet: it is money that has landed,
+            and nothing about it is outstanding.
+          -->
+          <span class="amount ${debt ? "negative" : "settled-amount"}">
+            ${formatMoney(payment.amount, payment.currency, this.language)}
           </span>
+          <!-- What it weighs in the group, exactly as on an expense. -->
+          ${payment.currency === this.group!.currency
+            ? nothing
+            : html`<span class="converted">
+                ${formatMoney(
+                  payment.converted_amount,
+                  this.group!.currency,
+                  this.language,
+                )}
+              </span>`}
         </div>
       </button>
     `;
@@ -992,6 +1022,18 @@ export class SeGroupPage extends LitElement {
           @dialog-cancelled=${this.closeDialog}
           @revision-picked=${this.openFromHistory}
         ></se-history-dialog>
+      `;
+    }
+
+    if (this.dialog === "group") {
+      return html`
+        <se-group-dialog
+          .api=${this.api}
+          .localize=${this.localize}
+          .group=${this.group}
+          @dialog-cancelled=${this.closeDialog}
+          @group-saved=${this.handleChanged}
+        ></se-group-dialog>
       `;
     }
 

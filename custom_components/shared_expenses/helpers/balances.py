@@ -55,8 +55,10 @@ def compute_balances(
         add(share.member_id, -share.amount)
 
     for payment in payments:
-        add(payment.from_member_id, payment.amount)
-        add(payment.to_member_id, -payment.amount)
+        # What it came to for the group, exactly as an expense above: 100 USD
+        # handed over does not clear 100 EUR owed.
+        add(payment.from_member_id, payment.converted_amount)
+        add(payment.to_member_id, -payment.converted_amount)
 
     return balances
 

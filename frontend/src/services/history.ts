@@ -45,6 +45,7 @@ const LABELS: Record<string, Key> = {
   from_member_id: "from_member",
   to_member_id: "to_member",
   shares: "split",
+  kind: "kind_label",
 };
 
 /**
@@ -103,6 +104,14 @@ function readValue(
 
   if (field === "shares" && isShares(value)) {
     return readShares(value, context);
+  }
+
+  // Stored as the enum spells it. "reimbursement" is a word for the database,
+  // not for whoever is reading their own history.
+  if (field === "kind") {
+    return context.localize(
+      value === "debt" ? "kind_debt" : "kind_reimbursement",
+    );
   }
 
   return String(value);

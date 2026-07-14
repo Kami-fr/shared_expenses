@@ -68,6 +68,16 @@ export interface CreatePaymentInput {
   payment_date: string;
   description?: string | null;
   kind?: PaymentKind;
+  /** What it was handed over in. Left out, the group's own. */
+  currency?: string | null;
+  /**
+   * The rate to convert at, in millionths.
+   *
+   * Sent when the panel has shown a rate and had it accepted, so that what was
+   * agreed to on screen is what lands in the balances. Left out, the backend
+   * finds one itself.
+   */
+  exchange_rate?: number;
 }
 
 export class SharedExpensesApi {

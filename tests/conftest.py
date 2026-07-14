@@ -92,13 +92,21 @@ class FakeConnection:
     """Stand-in for an `ActiveConnection`, remembering what it was sent.
 
     Holds no Home Assistant machinery: the handlers only ever call
-    `send_result`, `send_error`, and read `user.id`.
+    `send_result`, `send_error`, and read from `user`. A real account has a
+    name, and creating a group falls back on it to name the owner, so this one
+    has one too — the stand-in is only worth what it stands in for.
     """
 
-    def __init__(self, user_id: str, *, is_admin: bool = False) -> None:
+    def __init__(
+        self,
+        user_id: str,
+        *,
+        is_admin: bool = False,
+        name: str = "Stephane",
+    ) -> None:
         """Initialize the connection of one account."""
 
-        self.user = SimpleNamespace(id=user_id, is_admin=is_admin)
+        self.user = SimpleNamespace(id=user_id, is_admin=is_admin, name=name)
         self.results: dict[int, Any] = {}
         self.errors: dict[int, tuple[str, str]] = {}
 

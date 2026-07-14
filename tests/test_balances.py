@@ -43,7 +43,15 @@ def make_share(expense_id: str, member: str, amount: int) -> ExpenseShare:
     )
 
 
-def make_payment(sender: str, receiver: str, amount: int) -> Payment:
+def make_payment(
+    sender: str,
+    receiver: str,
+    amount: int,
+    *,
+    converted: int | None = None,
+) -> Payment:
+    """Return a payment in the group's own money, unless `converted` says else."""
+
     return Payment(
         id="payment",
         group_id="group",
@@ -51,8 +59,10 @@ def make_payment(sender: str, receiver: str, amount: int) -> Payment:
         from_member_id=sender,
         to_member_id=receiver,
         amount=amount,
+        currency="EUR",
         payment_date=NOW,
         created_at=NOW,
+        converted_amount=amount if converted is None else converted,
     )
 
 

@@ -161,15 +161,24 @@ the same tomorrow is not a balance.
 | description | TEXT | Optional description |
 | from_member_id | TEXT | FK → members.id |
 | to_member_id | TEXT | FK → members.id |
-| amount | INTEGER | Amount in cents of the group's currency |
+| amount | INTEGER | What moved, in the cents of `currency` |
+| currency | TEXT | ISO 4217 code of what it was handed over in |
 | payment_date | TEXT | UTC ISO-8601 timestamp |
 | created_at | TEXT | UTC ISO-8601 timestamp |
 | kind | TEXT | `reimbursement` or `debt` |
+| converted_amount | INTEGER | The same money, in the cents of the **group's** currency |
+| exchange_rate | INTEGER | The rate applied, in millionths |
+| rate_as_of | TEXT | The day the rate is from, ISO-8601 date (nullable) |
 
 `from_member_id` is whoever is out of pocket, whichever kind it is: on a
 reimbursement they settled up, on a debt they lent. That is why the balances
 need no help telling the two apart — they are the same movement of money, and
 `from` becomes the creditor either way.
+
+The four currency columns work exactly as an expense's, and for the same reason:
+`converted_amount` is what the balances count, because 100 USD handed back does
+not clear 100 EUR owed. The rate is frozen here too — what someone owed was
+settled on the day they owed it.
 
 `kind` exists to be read, never to be counted: no balance, no statistic and no
 settlement looks at it. "Michel owes 46,25 to Dupont" shown as a transfer read
@@ -337,7 +346,7 @@ creates `schema_v1.sql` on an empty database, then applies `migration_v<n>.sql`
 one by one up to `DATABASE_VERSION`. Each migration file bumps the version
 itself. Downgrades are refused.
 
-**Current version: 8.**
+**Current version: 9.**
 
 | Version | What it added |
 |---------|---------------|
@@ -349,11 +358,14 @@ itself. Downgrades are refused.
 | 6 | `groups.default_category_id`: the category a new expense opens on |
 | 7 | `expenses.converted_amount`, `exchange_rate`, `rate_as_of`, and the `exchange_rates` table |
 | 8 | `payments.kind`: a debt, said as one |
+| 9 | `payments.currency`, `converted_amount`, `exchange_rate`, `rate_as_of` |
 
 Migrations are additive. Every existing row must come out of one meaning what it
 meant going in — v7 converts every past expense to itself at a rate of one,
 because a group's own currency was all that was allowed before it; v8 defaults
-every past payment to `reimbursement`, because that is all there was.
+every past payment to `reimbursement`, because that is all there was; v9 gives
+every past payment the currency of the group it belongs to, read from `groups`
+rather than assumed, because a group counting in francs never held euros.
 
 The migration files carry the reasoning. They are the only place a decision
 about the schema is written down at the moment it is taken, so they are worth

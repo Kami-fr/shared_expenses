@@ -26,8 +26,14 @@ apology.
 
 ## Decision
 
-An expense may be in any currency. The rate is fetched once, on the way in, and
-**frozen onto the expense**.
+An expense may be in any currency, and so may a reimbursement or a debt — money
+is handed back in whatever was to hand, and 100 USD paid back does not clear
+100 EUR owed. The rate is fetched once, on the way in, and **frozen onto the
+record**.
+
+Both keep the same four columns: what was handed over and in what, what it came
+to in the group's currency, the rate, and the day that rate is from. The
+balances only ever read the converted figure.
 
 Rates come from [Frankfurter](https://frankfurter.dev): free, open-source,
 sourcing from central banks, needing no key and no account.
@@ -60,6 +66,11 @@ known.
 - Nothing about the expense is sent. The request carries a pair of currency
   codes and a date, and that is all there is to leak.
 
+A group's own currency is the exception that proves it: it is picked from the
+list of what the service knows, never typed. A group counting in "EURO" can
+never be had a rate for, and its currency cannot be changed once set — so a free
+text field made every foreign expense in it impossible to enter, permanently.
+
 ## Consequences
 
 `clients/frankfurter.py` is the only code in this integration that reaches the
@@ -69,7 +80,12 @@ world is one module, and it is the one place that has to be defensive.
 The rate is frozen, so a balance is stable. What someone owes was settled on the
 day they were owed it; a rate that moved afterwards is a fact about the market,
 not about the debt. This also means a rate entered wrongly is corrected by
-editing the expense, not by waiting.
+editing the record, not by waiting.
+
+A group's currency therefore cannot change once it holds anything. Every share,
+every balance and every converted amount is written in it, and nothing would
+re-convert them: the same figures would simply be read in another currency. The
+panel does not offer it. **The command still allows it** — see the roadmap.
 
 Money and rates stay integers throughout — rates in millionths. See ADR-008.
 

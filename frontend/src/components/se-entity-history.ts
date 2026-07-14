@@ -50,15 +50,6 @@ export class SeEntityHistory extends LitElement {
         gap: 8px;
       }
 
-      .link {
-        background: none;
-        border: none;
-        color: var(--primary-color, #03a9f4);
-        font-size: 13px;
-        cursor: pointer;
-        font-family: inherit;
-        padding: 0;
-      }
     `,
   ];
 

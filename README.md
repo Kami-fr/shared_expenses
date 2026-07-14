@@ -11,20 +11,22 @@ belong to, and nothing else.
 
 - **Groups** — a flat, a holiday, a couple. Every Home Assistant account you add
   can open the group; people without an account can be added too, and still
-  carry expenses.
+  carry expenses. A group is named for what it counts in, and that currency is
+  chosen once: it is the unit every balance in it is written in, so it does not
+  move afterwards. The name does — rename it whenever you like.
 - **Expenses** — a title, an amount, who paid, a date, a category, and a split.
 - **Split rules** — beyond splitting equally: fixed amounts or percentages per
   person, an envelope shared between some and the rest to whoever paid. A
   category carries its own rule, so the usual case is filled in for you.
-- **Other currencies** — pay in dollars in a group that counts in euros. The
-  day's rate is fetched and frozen onto the expense: what someone owes was
-  settled the day they were owed it, and a rate that moved since is a fact
-  about the market, not about the debt.
+- **Other currencies** — pay in dollars in a group that counts in euros, and pay
+  each other back in dollars too. The day's rate is fetched and frozen onto what
+  it converted: what someone owes was settled the day they were owed it, and a
+  rate that moved since is a fact about the market, not about the debt.
 - **Balances** — who owes what, answered from your side first, and the shortest
   set of transfers that clears everything.
 - **Reimbursements and debts** — record that money moved, or merely that it is
-  owed. Someone who left the group can still be reimbursed: leaving does not
-  clear a debt.
+  owed, with a note saying what it was about. Someone who left the group can
+  still be reimbursed: leaving does not clear a debt.
 - **Statistics** — what the group spent, by category and by month, and what of
   it was yours.
 - **History** — every change to an expense or a reimbursement, with who made it
@@ -88,9 +90,9 @@ of.
 - Home Assistant **2026.7.0** or later
 - No account, no API key
 
-One request ever leaves your instance, and only if you ask for it: an expense in
-a currency the group does not count in fetches that day's rate from
-[Frankfurter](https://frankfurter.dev), a free open-source service sourcing
+One request ever leaves your instance, and only if you ask for it: an expense or
+a reimbursement in a currency the group does not count in fetches that day's rate
+from [Frankfurter](https://frankfurter.dev), a free open-source service sourcing
 from central banks and needing no key. Nothing about the expense is sent — only
 the pair of currencies and the date.
 

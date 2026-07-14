@@ -87,7 +87,18 @@ class SharedExpensesManager:
         color: str | None = None,
         split_rule: SplitRule | None = None,
     ) -> Group:
-        """Create a group with its owner."""
+        """Create a group with its owner.
+
+        The owner is the member the account already has, when it has one. There
+        is one member per Home Assistant account and the database enforces it,
+        so minting a fresh one for every group left the second group anybody
+        made impossible to create: the same person cannot be two people, and a
+        member outlives the groups they pass through.
+
+        `owner_name` therefore names a member being met for the first time. It
+        never renames one: the name they go by is theirs, and a new group is no
+        reason to overwrite it with whatever the account happens to be called.
+        """
 
         now = datetime.now(UTC)
 
@@ -103,7 +114,13 @@ class SharedExpensesManager:
             split_rule=split_rule,
         )
 
-        owner = Member(
+        # Whoever this account already is. A member without an account has
+        # nothing to be found by, and is always somebody new.
+        existing = (
+            await self.get_member_for_user(owner_user_id) if owner_user_id else None
+        )
+
+        owner = existing or Member(
             id=new_id(),
             user_id=owner_user_id,
             name=owner_name,
@@ -123,7 +140,10 @@ class SharedExpensesManager:
 
         async with self._database.transaction():
             await self._database.group_repository.create(group)
-            await self._database.member_repository.create(owner)
+
+            if existing is None:
+                await self._database.member_repository.create(owner)
+
             await self._database.group_member_repository.create(group_member)
 
         return group
@@ -477,6 +497,8 @@ class SharedExpensesManager:
         to_member_id: str,
         amount: int,
         payment_date: datetime,
+        currency: str | None = None,
+        exchange_rate: int | None = None,
         description: str | None = None,
         kind: PaymentKind = PaymentKind.REIMBURSEMENT,
         actor_user_id: str | None = None,
@@ -486,9 +508,13 @@ class SharedExpensesManager:
         `from_member_id` is whoever is out of pocket, whichever kind this is: on
         a reimbursement they settled up, on a debt they lent. The balances treat
         the two identically, because they are the same movement of money.
+
+        `currency` is what was handed over, the group's unless said otherwise.
+        It converts on the way in, once, exactly as an expense does: 100 USD paid
+        back does not clear 100 EUR owed.
         """
 
-        await self._get_active_group(group_id)
+        group = await self._get_active_group(group_id)
 
         _validate_payment(
             amount=amount,
@@ -499,6 +525,16 @@ class SharedExpensesManager:
         await self.get_member(from_member_id)
         await self.get_member(to_member_id)
 
+        paid_in = (currency or group.currency).upper()
+
+        converted, rate, rate_as_of = await self._convert(
+            amount=amount,
+            paid_in=paid_in,
+            group=group,
+            on=payment_date.date(),
+            given_rate=exchange_rate,
+        )
+
         payment = Payment(
             id=new_id(),
             group_id=group_id,
@@ -506,9 +542,13 @@ class SharedExpensesManager:
             from_member_id=from_member_id,
             to_member_id=to_member_id,
             amount=amount,
+            currency=paid_in,
             payment_date=payment_date,
             created_at=datetime.now(UTC),
             kind=kind,
+            converted_amount=converted,
+            exchange_rate=rate,
+            rate_as_of=rate_as_of,
         )
 
         async with self._database.transaction():
@@ -547,16 +587,37 @@ class SharedExpensesManager:
         self,
         payment: Payment,
         *,
+        exchange_rate: int | None = None,
         actor_user_id: str | None = None,
     ) -> None:
         """Update a payment."""
 
         before = await self.get_payment(payment.id)
+        group = await self.get_group(payment.group_id)
 
         _validate_payment(
             amount=payment.amount,
             from_member_id=payment.from_member_id,
             to_member_id=payment.to_member_id,
+        )
+
+        paid_in = payment.currency.upper()
+
+        converted, rate, rate_as_of = await self._convert(
+            amount=payment.amount,
+            paid_in=paid_in,
+            group=group,
+            on=payment.payment_date.date(),
+            given_rate=exchange_rate,
+            known=before,
+        )
+
+        payment = replace(
+            payment,
+            currency=paid_in,
+            converted_amount=converted,
+            exchange_rate=rate,
+            rate_as_of=rate_as_of,
         )
 
         changes = revisions.diff(
@@ -1099,14 +1160,17 @@ class SharedExpensesManager:
         group: Group,
         on: date,
         given_rate: int | None,
-        known: Expense | None = None,
+        known: Expense | Payment | None = None,
     ) -> tuple[int, int, date | None]:
         """Return the amount in the group's currency, the rate, and its day.
 
         The rate comes from whoever knows best, in order: the caller, who has
-        just shown it on screen and had it accepted; the expense as it already
+        just shown it on screen and had it accepted; the record as it already
         stood, so re-saving one does not silently re-price it at today's rate;
         then the source.
+
+        An expense and a payment are the same problem here — an amount, in a
+        currency, on a day — so `known` is either.
         """
 
         if paid_in == group.currency.upper():

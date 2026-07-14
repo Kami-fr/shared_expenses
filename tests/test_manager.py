@@ -1505,3 +1505,164 @@ async def test_editing_a_foreign_expense_reapportions_its_shares(
     assert reloaded.converted_amount == 17_536
     assert sum(shares.values()) == 17_536
     assert shares == {owner.id: 8_768, antonin.id: 8_768}
+
+
+async def test_a_second_group_can_be_created_from_the_same_account(
+    manager: SharedExpensesManager,
+):
+    """The same person cannot be two people.
+
+    A member is one per Home Assistant account and the database enforces it, so
+    minting a fresh one for every group made the second group impossible to
+    create -- for anybody logged in, which is everybody. Every test here missed
+    it by leaving `owner_user_id` unset: a null user_id is distinct from every
+    other null, so the index never fired.
+    """
+
+    first = await manager.create_group(
+        group_name="Appartement",
+        owner_name="Stephane",
+        owner_user_id="ha-user-1",
+    )
+    second = await manager.create_group(
+        group_name="Vacances",
+        owner_name="Stephane",
+        owner_user_id="ha-user-1",
+    )
+
+    owner_of_first = (await manager.list_group_members(first.id))[0]
+    owner_of_second = (await manager.list_group_members(second.id))[0]
+
+    # One member, owning both. Not two members who happen to share a name.
+    assert owner_of_first.id == owner_of_second.id
+    assert owner_of_first.user_id == "ha-user-1"
+
+    memberships = await manager.list_group_memberships(second.id)
+
+    assert memberships[0].role is GroupRole.OWNER
+
+
+async def test_a_group_can_be_created_after_one_was_deleted(
+    manager: SharedExpensesManager,
+):
+    """Exactly what Stephane did, and it answered "an error occurred".
+
+    Deleting a group takes its memberships with it and leaves the member: they
+    are global, and an account keeps its identity across the groups it comes and
+    goes from. The next group then tried to mint that same account a second one.
+    """
+
+    first = await manager.create_group(
+        group_name="Appartement",
+        owner_name="Stephane",
+        owner_user_id="ha-user-1",
+    )
+
+    await manager.delete_group(first.id)
+
+    second = await manager.create_group(
+        group_name="Coloc",
+        owner_name="Stephane",
+        owner_user_id="ha-user-1",
+    )
+
+    members = await manager.list_group_members(second.id)
+
+    assert [member.name for member in members] == ["Stephane"]
+    assert members[0].user_id == "ha-user-1"
+
+
+async def test_an_owner_keeps_the_name_they_already_go_by(
+    manager: SharedExpensesManager,
+):
+    """A new group does not get to rename someone.
+
+    The account's name comes from Home Assistant and may well differ from what
+    the household calls them; the member was named once and that name is theirs.
+    """
+
+    await manager.create_group(
+        group_name="Appartement",
+        owner_name="Stephane",
+        owner_user_id="ha-user-1",
+    )
+
+    second = await manager.create_group(
+        group_name="Vacances",
+        owner_name="Stephane Fath",
+        owner_user_id="ha-user-1",
+    )
+
+    members = await manager.list_group_members(second.id)
+
+    assert [member.name for member in members] == ["Stephane"]
+
+
+async def test_a_payment_in_another_currency_clears_what_it_is_worth(
+    manager: SharedExpensesManager,
+):
+    """100 USD handed back does not clear 100 EUR owed.
+
+    The whole point of converting a payment at all. Before, `amount` went
+    straight into the balances, so paying somebody back in dollars cleared their
+    euros one for one and both walked away thinking they were square.
+    """
+
+    group = await make_group(manager, currency="EUR")
+    antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
+    owner = await owner_of(manager, group.id)
+
+    # Antonin owes 43,84 after a 87,68 dinner split in two.
+    await manager.create_expense(
+        group_id=group.id,
+        title="Diner",
+        amount=8_768,
+        paid_by_member_id=owner.id,
+        expense_date=NOW,
+    )
+
+    payment = await manager.create_payment(
+        group_id=group.id,
+        from_member_id=antonin.id,
+        to_member_id=owner.id,
+        amount=5_000,
+        currency="USD",
+        exchange_rate=876_810,
+        payment_date=NOW,
+    )
+
+    # 50 USD is 43,84 EUR, which is exactly what he owed.
+    assert payment.amount == 5_000
+    assert payment.currency == "USD"
+    assert payment.converted_amount == 4_384
+
+    balances = await manager.get_balances(group.id)
+
+    assert balances.balances[antonin.id] == 0
+    assert balances.balances[owner.id] == 0
+    assert balances.settlements == []
+
+
+async def test_the_rate_of_a_payment_is_frozen(manager: SharedExpensesManager):
+    """Re-saving a payment must not re-price it at today's rate."""
+
+    group = await make_group(manager, currency="EUR")
+    antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
+    owner = await owner_of(manager, group.id)
+
+    payment = await manager.create_payment(
+        group_id=group.id,
+        from_member_id=antonin.id,
+        to_member_id=owner.id,
+        amount=5_000,
+        currency="USD",
+        exchange_rate=876_810,
+        payment_date=NOW,
+    )
+
+    await manager.update_payment(replace(payment, description="Rembourse"))
+
+    reloaded = await manager.get_payment(payment.id)
+
+    assert reloaded.exchange_rate == 876_810
+    assert reloaded.converted_amount == 4_384
