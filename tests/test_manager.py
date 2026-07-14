@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 
 import pytest
@@ -363,8 +364,6 @@ async def test_a_non_positive_expense_is_refused(
 
 
 async def test_updating_an_expense_replaces_its_shares(manager: SharedExpensesManager):
-    from dataclasses import replace
-
     group = await make_group(manager)
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
     owner = await owner_of(manager, group.id)
@@ -380,6 +379,96 @@ async def test_updating_an_expense_replaces_its_shares(manager: SharedExpensesMa
     await manager.update_expense(replace(expense, amount=8000))
 
     assert await shares_of(manager, expense.id) == {owner.id: 4000, antonin.id: 4000}
+
+
+async def test_updating_an_expense_with_explicit_shares(manager: SharedExpensesManager):
+    """What the edit dialog sends: the shares it shows, verbatim."""
+
+    group = await make_group(manager)
+    antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
+    owner = await owner_of(manager, group.id)
+
+    expense = await manager.create_expense(
+        group_id=group.id,
+        title="Restaurant",
+        amount=5000,
+        paid_by_member_id=owner.id,
+        expense_date=NOW,
+    )
+
+    await manager.update_expense(
+        replace(expense, amount=6000),
+        [share_input(owner.id, 1000), share_input(antonin.id, 5000)],
+    )
+
+    assert await shares_of(manager, expense.id) == {owner.id: 1000, antonin.id: 5000}
+
+
+async def test_updating_an_expense_keeps_a_single_row(manager: SharedExpensesManager):
+    """Replacing the shares must not pile them up."""
+
+    group = await make_group(manager)
+    await manager.create_group_member(group_id=group.id, name="Antonin")
+    owner = await owner_of(manager, group.id)
+
+    expense = await manager.create_expense(
+        group_id=group.id,
+        title="Restaurant",
+        amount=5000,
+        paid_by_member_id=owner.id,
+        expense_date=NOW,
+    )
+
+    await manager.update_expense(replace(expense, amount=8000))
+    await manager.update_expense(replace(expense, amount=9000))
+
+    shares = await manager.get_expense_shares(expense.id)
+
+    assert len(shares) == 2
+    assert sum(share.amount for share in shares) == 9000
+
+
+async def test_updating_an_expense_with_wrong_shares_is_refused(
+    manager: SharedExpensesManager,
+):
+    group = await make_group(manager)
+    owner = await owner_of(manager, group.id)
+
+    expense = await manager.create_expense(
+        group_id=group.id,
+        title="Restaurant",
+        amount=5000,
+        paid_by_member_id=owner.id,
+        expense_date=NOW,
+    )
+
+    with pytest.raises(InvalidExpenseSharesError):
+        await manager.update_expense(expense, [share_input(owner.id, 1)])
+
+
+async def test_deleting_an_expense_clears_its_shares_and_balances(
+    manager: SharedExpensesManager,
+    database: Database,
+):
+    group = await make_group(manager)
+    await manager.create_group_member(group_id=group.id, name="Antonin")
+    owner = await owner_of(manager, group.id)
+
+    expense = await manager.create_expense(
+        group_id=group.id,
+        title="Essence",
+        amount=4000,
+        paid_by_member_id=owner.id,
+        expense_date=NOW,
+    )
+
+    await manager.delete_expense(expense.id)
+
+    assert await count_rows(database, "expense_shares") == 0
+
+    result = await manager.get_balances(group.id)
+
+    assert set(result.balances.values()) == {0}
 
 
 async def test_a_payment_to_oneself_is_refused(manager: SharedExpensesManager):

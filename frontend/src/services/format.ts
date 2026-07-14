@@ -64,6 +64,20 @@ export function dateToIso(value: string): string {
   return new Date(`${value}T12:00:00`).toISOString();
 }
 
+/** Turn an ISO timestamp from the backend into a `YYYY-MM-DD` input value. */
+export function isoToDateInput(iso: string): string {
+  const date = new Date(iso);
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+/** Turn an amount in cents into a value for a money input. */
+export function centsToInput(cents: number): string {
+  return (cents / 100).toFixed(2);
+}
+
 /** Return the initials shown in a member avatar. */
 export function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);

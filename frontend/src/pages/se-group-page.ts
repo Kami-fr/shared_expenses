@@ -47,6 +47,8 @@ export class SeGroupPage extends LitElement {
 
   @state() private editedCategory?: Category;
 
+  @state() private editedExpense?: Expense;
+
   public static styles = [
     sharedStyles,
     css`
@@ -337,7 +339,7 @@ export class SeGroupPage extends LitElement {
       </div>
 
       <div class="actions">
-        <se-button @click=${() => (this.dialog = "expense")}>
+        <se-button @click=${() => this.openExpense()}>
           ${translate("new_expense")}
         </se-button>
       </div>
@@ -349,7 +351,7 @@ export class SeGroupPage extends LitElement {
     const category = this.categories.find((c) => c.id === expense.category_id);
 
     return html`
-      <div class="item">
+      <button class="item item-button" @click=${() => this.openExpense(expense)}>
         ${this.renderAvatar(payer?.name ?? "?", expense.paid_by_member_id)}
         <div class="info">
           <div class="title">${expense.title}</div>
@@ -362,7 +364,8 @@ export class SeGroupPage extends LitElement {
         <span class="amount">
           ${formatMoney(expense.amount, expense.currency, this.language)}
         </span>
-      </div>
+        <span class="chevron">›</span>
+      </button>
     `;
   }
 
@@ -414,9 +417,11 @@ export class SeGroupPage extends LitElement {
           .group=${this.group}
           .members=${this.members}
           .categories=${this.categories}
+          .expense=${this.editedExpense}
           .language=${this.language}
           @dialog-cancelled=${this.closeDialog}
-          @expense-created=${this.handleChanged}
+          @expense-saved=${this.handleChanged}
+          @expense-deleted=${this.handleChanged}
         ></se-expense-dialog>
       `;
     }
@@ -500,10 +505,16 @@ export class SeGroupPage extends LitElement {
     this.dialog = "category";
   }
 
+  private openExpense(expense?: Expense) {
+    this.editedExpense = expense;
+    this.dialog = "expense";
+  }
+
   private closeDialog = () => {
     this.dialog = undefined;
     this.prefill = undefined;
     this.editedCategory = undefined;
+    this.editedExpense = undefined;
   };
 
   private handleChanged = () => {

@@ -6,14 +6,27 @@ import "../components/se-dialog";
 import "../components/se-field";
 import "../components/se-select";
 import type { SharedExpensesApi, CreateExpenseInput } from "../services/api";
-import { colorFor, dateToIso, formatMoney, initials, parseMoney, today } from "../services/format";
+import {
+  centsToInput,
+  colorFor,
+  dateToIso,
+  formatMoney,
+  initials,
+  isoToDateInput,
+  parseMoney,
+  today,
+} from "../services/format";
 import { errorMessage, type Localizer } from "../services/localize";
 import { sharedStyles } from "../styles/shared";
-import type { Category, Group, Member } from "../types";
+import type { Category, Expense, Group, Member } from "../types";
 
 type SplitMode = "rule" | "equal" | "custom";
 
-/** Dialog creating an expense. Fires `expense-created` on success. */
+/**
+ * Dialog creating or editing an expense.
+ *
+ * Fires `expense-saved` on success and `expense-deleted` after a deletion.
+ */
 @customElement("se-expense-dialog")
 export class SeExpenseDialog extends LitElement {
   @property({ attribute: false }) public api!: SharedExpensesApi;
@@ -25,6 +38,9 @@ export class SeExpenseDialog extends LitElement {
   @property({ attribute: false }) public members: Member[] = [];
 
   @property({ attribute: false }) public categories: Category[] = [];
+
+  /** Set to edit an existing expense, leave out to create one. */
+  @property({ attribute: false }) public expense?: Expense;
 
   @property({ type: String }) public language = "en";
 
@@ -48,6 +64,8 @@ export class SeExpenseDialog extends LitElement {
   @state() private busy = false;
 
   @state() private error?: string;
+
+  @state() private confirmingDelete = false;
 
   public static styles = [
     sharedStyles,
@@ -112,19 +130,41 @@ export class SeExpenseDialog extends LitElement {
   public connectedCallback(): void {
     super.connectedCallback();
 
-    if (!this.paidBy && this.members.length > 0) {
-      this.paidBy = this.members[0].id;
+    this.participants = new Set(this.members.map((member) => member.id));
+
+    if (!this.expense) {
+      if (this.members.length > 0) {
+        this.paidBy = this.members[0].id;
+      }
+
+      return;
     }
 
-    this.participants = new Set(this.members.map((member) => member.id));
+    this.expenseTitle = this.expense.title;
+    this.amountInput = centsToInput(this.expense.amount);
+    this.paidBy = this.expense.paid_by_member_id;
+    this.date = isoToDateInput(this.expense.expense_date);
+    this.categoryId = this.expense.category_id ?? "";
+
+    // The stored shares are absolute: showing them as custom amounts is the
+    // only honest view of what was actually saved. Switching mode re-resolves.
+    this.mode = "custom";
+    this.customAmounts = Object.fromEntries(
+      (this.expense.shares ?? []).map((share) => [
+        share.member_id,
+        centsToInput(share.amount),
+      ]),
+    );
   }
 
   protected render() {
     const translate = this.localize;
     const amount = parseMoney(this.amountInput);
 
+    const heading = this.expense ? translate("edit_expense") : translate("new_expense");
+
     return html`
-      <se-dialog open heading=${translate("new_expense")} @dialog-closed=${this.cancel}>
+      <se-dialog open heading=${heading} @dialog-closed=${this.cancel}>
         <div class="stack">
           ${this.error ? html`<div class="error">${this.error}</div>` : nothing}
 
@@ -180,11 +220,28 @@ export class SeExpenseDialog extends LitElement {
           ${this.renderSplit(amount)}
         </div>
 
+        ${this.expense
+          ? html`
+              <se-button
+                slot="actions"
+                variant="danger"
+                ?disabled=${this.busy}
+                @click=${this.deleteExpense}
+              >
+                ${this.confirmingDelete ? translate("confirm_delete") : translate("delete")}
+              </se-button>
+              <span slot="actions" class="spacer"></span>
+            `
+          : nothing}
         <se-button slot="actions" variant="text" @click=${this.cancel}>
           ${translate("cancel")}
         </se-button>
-        <se-button slot="actions" ?disabled=${this.busy || !this.isValid(amount)} @click=${this.submit}>
-          ${translate("create")}
+        <se-button
+          slot="actions"
+          ?disabled=${this.busy || !this.isValid(amount)}
+          @click=${this.submit}
+        >
+          ${this.expense ? translate("save") : translate("create")}
         </se-button>
       </se-dialog>
     `;
@@ -368,10 +425,20 @@ export class SeExpenseDialog extends LitElement {
     }
 
     try {
-      const expense = await this.api.createExpense(input);
+      const expense = this.expense
+        ? await this.api.updateExpense(this.expense.id, {
+            title: input.title,
+            amount: input.amount,
+            paid_by_member_id: input.paid_by_member_id,
+            expense_date: input.expense_date,
+            category_id: input.category_id,
+            shares: input.shares,
+            split_rule: input.split_rule,
+          })
+        : await this.api.createExpense(input);
 
       this.dispatchEvent(
-        new CustomEvent("expense-created", {
+        new CustomEvent("expense-saved", {
           detail: { expense },
           bubbles: true,
           composed: true,
@@ -379,6 +446,35 @@ export class SeExpenseDialog extends LitElement {
       );
     } catch (error) {
       this.error = errorMessage(error, this.localize);
+    } finally {
+      this.busy = false;
+    }
+  };
+
+  /** Named `deleteExpense` because `remove` is taken by HTMLElement. */
+  private deleteExpense = async () => {
+    if (!this.expense) {
+      return;
+    }
+
+    // Deleting an expense cannot be undone: ask once, in place.
+    if (!this.confirmingDelete) {
+      this.confirmingDelete = true;
+      return;
+    }
+
+    this.busy = true;
+    this.error = undefined;
+
+    try {
+      await this.api.deleteExpense(this.expense.id);
+
+      this.dispatchEvent(
+        new CustomEvent("expense-deleted", { bubbles: true, composed: true }),
+      );
+    } catch (error) {
+      this.error = errorMessage(error, this.localize);
+      this.confirmingDelete = false;
     } finally {
       this.busy = false;
     }
