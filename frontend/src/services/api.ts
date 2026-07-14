@@ -152,7 +152,12 @@ export class SharedExpensesApi {
 
   public updateCategory(
     categoryId: string,
-    changes: { name?: string; icon?: string | null; split_rule?: SplitRule | null },
+    changes: {
+      name?: string;
+      icon?: string | null;
+      color?: string | null;
+      split_rule?: SplitRule | null;
+    },
   ): Promise<Category> {
     return this.call("update_category", { category_id: categoryId, ...changes });
   }

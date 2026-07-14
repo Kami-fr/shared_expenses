@@ -1,10 +1,15 @@
 import { LitElement, css, html } from "lit";
 import { customElement, property } from "lit/decorators.js";
 
+import "./se-icon";
+
 export interface QuickAction {
   key: string;
   label: string;
-  symbol: string;
+  /** A Material Design Icons name, drawn by Home Assistant. */
+  icon: string;
+  /** Shown if Home Assistant's icon element is not around. */
+  fallback: string;
   color: string;
 }
 
@@ -44,15 +49,6 @@ export class SeQuickActions extends LitElement {
     }
 
     .bubble {
-      width: 52px;
-      height: 52px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #fff;
-      font-size: 22px;
-      line-height: 1;
       transition: transform 0.12s ease;
     }
 
@@ -73,9 +69,13 @@ export class SeQuickActions extends LitElement {
         ${this.actions.map(
           (action) => html`
             <button @click=${() => this.emit(action.key)} aria-label=${action.label}>
-              <div class="bubble" style=${`background:${action.color}`}>
-                ${action.symbol}
-              </div>
+              <se-icon
+                class="bubble"
+                .icon=${action.icon}
+                .fallback=${action.fallback}
+                .color=${action.color}
+                .size=${52}
+              ></se-icon>
               <span class="label">${action.label}</span>
             </button>
           `,

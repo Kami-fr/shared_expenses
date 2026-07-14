@@ -41,13 +41,22 @@ export function parseMoney(value: string): number | null {
   return Math.round(amount * 100);
 }
 
-/** Format an ISO date as a short local date. */
-export function formatDate(iso: string, language: string): string {
-  return new Intl.DateTimeFormat(language, {
+/**
+ * Format an ISO date with its weekday, e.g. "Lun. 15 juil. 2026".
+ *
+ * Which day of the week it was is what tells a Saturday shop from a Monday one
+ * at a glance, and no amount of staring at "15 juil." gives you that.
+ */
+export function formatDayDate(iso: string, language: string): string {
+  const formatted = new Intl.DateTimeFormat(language, {
+    weekday: "short",
     day: "numeric",
     month: "short",
     year: "numeric",
   }).format(new Date(iso));
+
+  // French yields a lowercase "lun." mid-sentence; this one opens a line.
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
 
 /** Return today as `YYYY-MM-DD`, for date inputs. */
@@ -93,24 +102,34 @@ export function initials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-/** Pick a stable colour for a member without one. */
-export function colorFor(id: string): string {
-  const palette = [
-    "#3f7cac",
-    "#c05746",
-    "#4a7c59",
-    "#8b5fbf",
-    "#c98b3e",
-    "#3d7e7e",
-    "#b0567a",
-    "#5c6b8a",
-  ];
+/**
+ * The colours offered, and drawn from when nobody picked one.
+ *
+ * Muted on purpose: these sit behind white initials on both a light and a dark
+ * theme, so they cannot be as bright as the palette a chart would use.
+ */
+export const PALETTE = [
+  "#3f7cac",
+  "#c05746",
+  "#4a7c59",
+  "#8b5fbf",
+  "#c98b3e",
+  "#3d7e7e",
+  "#b0567a",
+  "#5c6b8a",
+  "#7a5c3d",
+  "#4a5f8a",
+  "#8a4a6b",
+  "#5f7a3d",
+];
 
+/** Pick a stable colour for whoever has not chosen one. */
+export function colorFor(id: string): string {
   let hash = 0;
 
   for (let index = 0; index < id.length; index += 1) {
     hash = (hash * 31 + id.charCodeAt(index)) >>> 0;
   }
 
-  return palette[hash % palette.length];
+  return PALETTE[hash % PALETTE.length];
 }

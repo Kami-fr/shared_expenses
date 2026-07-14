@@ -21,6 +21,9 @@ export class SeIcon extends LitElement {
 
   @property({ type: Number }) public size = 40;
 
+  /** Draw the glyph on its own, in the current text colour, with no pill. */
+  @property({ type: Boolean }) public plain = false;
+
   public static styles = css`
     :host {
       display: block;
@@ -41,9 +44,28 @@ export class SeIcon extends LitElement {
       align-items: center;
       justify-content: center;
     }
+
+    .bare {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: inherit;
+      line-height: 1;
+    }
   `;
 
   protected render() {
+    if (this.plain) {
+      return html`
+        <div
+          class="bare"
+          style=${`--mdc-icon-size: ${this.size}px; font-size: ${this.size}px;`}
+        >
+          ${this.renderContent()}
+        </div>
+      `;
+    }
+
     // `--mdc-icon-size` takes a length: a percentage is invalid and silently
     // leaves the icon at its 24px default, which overflows a small pill.
     const style = `

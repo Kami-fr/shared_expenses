@@ -10,7 +10,12 @@ import "../dialogs/se-expense-dialog";
 import "../dialogs/se-member-dialog";
 import "../dialogs/se-payment-dialog";
 import type { SharedExpensesApi } from "../services/api";
-import { colorFor, formatDate, formatMoney, initials } from "../services/format";
+import {
+  colorFor,
+  formatDayDate,
+  formatMoney,
+  initials,
+} from "../services/format";
 import { errorMessage, type Localizer } from "../services/localize";
 import { sharedStyles } from "../styles/shared";
 import type {
@@ -351,9 +356,11 @@ export class SeGroupPage extends LitElement {
         color: var(--se-positive);
       }
 
-      .payer {
-        font-size: 13px;
-        margin-top: 2px;
+      .note {
+        font-size: 12px;
+        font-weight: 400;
+        color: var(--secondary-text-color);
+        margin-left: 6px;
       }
 
       .tail {
@@ -445,14 +452,14 @@ export class SeGroupPage extends LitElement {
           aria-label=${translate("members")}
           @click=${() => (this.dialog = "member")}
         >
-          👥
+          <se-icon plain .icon=${"mdi:account-multiple"} fallback="M" .size=${22}></se-icon>
         </button>
         <button
           class="icon"
           aria-label=${translate("more")}
           @click=${() => this.openMenu("more")}
         >
-          ⋮
+          <se-icon plain .icon=${"mdi:dots-vertical"} fallback="⋮" .size=${22}></se-icon>
         </button>
 
         ${this.menu ? this.renderMenu() : nothing}
@@ -603,25 +610,29 @@ export class SeGroupPage extends LitElement {
             {
               key: "expense",
               label: translate("action_add_expense"),
-              symbol: "+",
+              icon: "mdi:plus",
+              fallback: "+",
               color: "#2b7fd4",
             },
             {
               key: "member",
               label: translate("action_members"),
-              symbol: "👥",
+              icon: "mdi:account-multiple",
+              fallback: "M",
               color: "#3f8a4a",
             },
             {
               key: "payment",
               label: translate("action_settle"),
-              symbol: "⇄",
+              icon: "mdi:swap-horizontal",
+              fallback: "⇄",
               color: "#c9871f",
             },
             {
               key: "category",
               label: translate("tab_categories"),
-              symbol: "🏷",
+              icon: "mdi:tag-multiple",
+              fallback: "C",
               color: "#8b5fbf",
             },
           ]}
@@ -726,14 +737,15 @@ export class SeGroupPage extends LitElement {
         <se-icon
           icon="mdi:swap-horizontal"
           fallback="⇄"
-          color="#c9871f"
+          .color=${from?.color ?? colorFor(payment.from_member_id)}
           .size=${40}
         ></se-icon>
         <div class="info">
           <div class="title">${from?.name ?? "?"} → ${to?.name ?? "?"}</div>
+          <!-- Where an expense shows its category: same grid, same reading. -->
+          <div class="muted">${this.localize("a_settlement")}</div>
           <div class="muted">
-            ${formatDate(payment.payment_date, this.language)} ·
-            ${this.localize("a_settlement")}
+            ${formatDayDate(payment.payment_date, this.language)}
           </div>
         </div>
         <div class="tail">
@@ -780,9 +792,11 @@ export class SeGroupPage extends LitElement {
   private renderCategory(category: Category) {
     return html`
       <button class="item item-button" @click=${() => this.openCategory(category)}>
-        <div class="avatar" style=${`background:${category.color ?? colorFor(category.id)}`}>
-          ${category.name.charAt(0).toUpperCase()}
-        </div>
+        <se-icon
+          .icon=${category.icon}
+          .fallback=${category.name.charAt(0).toUpperCase()}
+          .color=${category.color ?? colorFor(category.id)}
+        ></se-icon>
         <div class="info">
           <div class="title">${category.name}</div>
           <div class="muted">${this.describeRule(category)}</div>
@@ -847,25 +861,29 @@ export class SeGroupPage extends LitElement {
   }
 
   private renderExpense(expense: Expense) {
+    const translate = this.localize;
     const payer = this.memberById(expense.paid_by_member_id);
     const category = this.categories.find((c) => c.id === expense.category_id);
-    const payerColor = payer?.color ?? colorFor(expense.paid_by_member_id);
 
     return html`
       <button class="item item-button" @click=${() => this.openExpense(expense)}>
-        <se-icon
-          .icon=${category?.icon}
-          .fallback=${(category?.name ?? expense.title).charAt(0).toUpperCase()}
-          .color=${category?.color ?? colorFor(category?.id ?? expense.id)}
-        ></se-icon>
+        ${this.renderAvatar(
+          payer?.name ?? "?",
+          expense.paid_by_member_id,
+          `${this.localize("paid_by")} ${payer?.name ?? "?"}`,
+        )}
         <div class="info">
-          <div class="title">${expense.title}</div>
-          <div class="muted">
-            ${formatDate(expense.expense_date, this.language)}
-            ${category ? html` · ${category.name}` : nothing}
+          <div class="title">
+            ${expense.title}
+            ${expense.description
+              ? html`<span class="note">${expense.description}</span>`
+              : nothing}
           </div>
-          <div class="payer" style=${`color:${payerColor}`}>
-            ${this.localize("paid_by")} ${payer?.name ?? "?"}
+          <div class="muted">
+            ${category ? category.name : translate("no_category")}
+          </div>
+          <div class="muted">
+            ${formatDayDate(expense.expense_date, this.language)}
           </div>
         </div>
         <div class="tail">
@@ -935,11 +953,22 @@ export class SeGroupPage extends LitElement {
     `;
   }
 
-  private renderAvatar(name: string, id: string) {
+  /**
+   * A member as a coloured initial.
+   *
+   * `hint` names what the avatar stands for: on an expense row the one on the
+   * left is the payer and the ones on the right are who shares it, which the
+   * circles alone do not say.
+   */
+  private renderAvatar(name: string, id: string, hint?: string) {
     const member = this.memberById(id);
 
     return html`
-      <div class="avatar" style=${`background:${member?.color ?? colorFor(id)}`}>
+      <div
+        class="avatar"
+        title=${hint ?? name}
+        style=${`background:${member?.color ?? colorFor(id)}`}
+      >
         ${initials(name)}
       </div>
     `;

@@ -4,9 +4,11 @@ import { customElement, property, state } from "lit/decorators.js";
 import "../components/se-button";
 import "../components/se-dialog";
 import "../components/se-field";
+import "../components/se-color-picker";
 import "../components/se-icon-picker";
 import "../components/se-split-rule-editor";
 import type { SharedExpensesApi } from "../services/api";
+import { colorFor } from "../services/format";
 import { errorMessage, type Localizer } from "../services/localize";
 import { sharedStyles } from "../styles/shared";
 import type { Category, Group, Member, SplitRule } from "../types";
@@ -35,6 +37,8 @@ export class SeCategoryDialog extends LitElement {
 
   @state() private icon = "";
 
+  @state() private color: string | null = null;
+
   @state() private rule: SplitRule | null = null;
 
   @state() private busy = false;
@@ -49,6 +53,7 @@ export class SeCategoryDialog extends LitElement {
     if (this.category) {
       this.name = this.category.name;
       this.icon = this.category.icon ?? "";
+    this.color = this.category.color;
       this.rule = this.category.split_rule;
     }
   }
@@ -74,9 +79,17 @@ export class SeCategoryDialog extends LitElement {
             .localize=${this.localize}
             .label=${translate("icon")}
             .value=${this.icon}
-            .color=${this.category?.color ?? "#5c6b8a"}
+            .color=${this.effectiveColor()}
             @value-changed=${(e: CustomEvent) => (this.icon = e.detail.value)}
           ></se-icon-picker>
+
+          <se-color-picker
+            .localize=${this.localize}
+            .label=${translate("color")}
+            .value=${this.color}
+            .fallback=${this.autoColor()}
+            @value-changed=${(e: CustomEvent) => (this.color = e.detail.value)}
+          ></se-color-picker>
 
           <div>
             <label class="muted">${translate("default_split")}</label>
@@ -105,6 +118,21 @@ export class SeCategoryDialog extends LitElement {
     `;
   }
 
+  /** What the category is shown in: the chosen colour, or the automatic one. */
+  private effectiveColor(): string {
+    return this.color ?? this.autoColor();
+  }
+
+  /**
+   * The colour the app would pick on its own.
+   *
+   * Keyed on the id, so a category being created has none yet: fall back to the
+   * name, which at least stays put while typing.
+   */
+  private autoColor(): string {
+    return colorFor(this.category?.id ?? this.name);
+  }
+
   private cancel = () => {
     this.dispatchEvent(new CustomEvent("dialog-cancelled", { bubbles: true, composed: true }));
   };
@@ -116,6 +144,7 @@ export class SeCategoryDialog extends LitElement {
     const changes = {
       name: this.name.trim(),
       icon: this.icon.trim() || null,
+      color: this.color,
       split_rule: this.rule,
     };
 

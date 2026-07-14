@@ -3,6 +3,7 @@ import { customElement, property, state } from "lit/decorators.js";
 
 import "../components/se-button";
 import "../components/se-dialog";
+import "../components/se-color-picker";
 import "../components/se-field";
 import type { SharedExpensesApi } from "../services/api";
 import { colorFor, initials } from "../services/format";
@@ -42,6 +43,9 @@ export class SeMemberDialog extends LitElement {
   @state() private error?: string;
 
   @state() private dirty = false;
+
+  /** The member whose palette is open, if any. */
+  @state() private tinting?: string;
 
   public static styles = [
     sharedStyles,
@@ -92,6 +96,16 @@ export class SeMemberDialog extends LitElement {
 
       .add se-field {
         flex: 1;
+      }
+
+      .tintable {
+        border: none;
+        cursor: pointer;
+        font-family: inherit;
+      }
+
+      .palette {
+        padding: 4px 0 12px 48px;
       }
 
       .remove {
@@ -159,15 +173,78 @@ export class SeMemberDialog extends LitElement {
           title=${owner ? this.localize("owner_locked") : ""}
           @change=${() => this.toggleAccount(user, member)}
         />
-        <div class="avatar" style=${`background:${member?.color ?? colorFor(user.id)}`}>
-          ${initials(user.name)}
-        </div>
+        ${this.renderTintable(member, user.name, user.id)}
         <span class="name">${user.name}</span>
         ${owner
           ? html`<span class="tag">${this.localize("group_owner")}</span>`
           : nothing}
       </div>
+      ${this.renderPalette(member)}
     `;
+  }
+
+  /**
+   * A member's avatar, clickable to recolour them.
+   *
+   * The avatar is what the colour actually shows up in, so it is the obvious
+   * thing to press. Members with no account yet have nothing to recolour.
+   */
+  private renderTintable(member: Member | undefined, name: string, seed: string) {
+    const color = member?.color ?? colorFor(seed);
+
+    if (!member) {
+      return html`
+        <div class="avatar" style=${`background:${color}`}>${initials(name)}</div>
+      `;
+    }
+
+    return html`
+      <button
+        class="avatar tintable"
+        title=${this.localize("pick_color")}
+        style=${`background:${color}`}
+        @click=${() => this.toggleTint(member.id)}
+      >
+        ${initials(name)}
+      </button>
+    `;
+  }
+
+  private renderPalette(member: Member | undefined) {
+    if (!member || this.tinting !== member.id) {
+      return nothing;
+    }
+
+    return html`
+      <div class="palette">
+        <se-color-picker
+          .localize=${this.localize}
+          .value=${member.color}
+          .fallback=${colorFor(member.id)}
+          @value-changed=${(e: CustomEvent) => this.tint(member, e.detail.value)}
+        ></se-color-picker>
+      </div>
+    `;
+  }
+
+  private toggleTint(memberId: string) {
+    this.tinting = this.tinting === memberId ? undefined : memberId;
+  }
+
+  private async tint(member: Member, color: string | null) {
+    this.busy = member.id;
+    this.error = undefined;
+
+    try {
+      await this.api.updateMember(member.id, { color });
+
+      this.dirty = true;
+      await this.load();
+    } catch (error) {
+      this.error = errorMessage(error, this.localize);
+    } finally {
+      this.busy = undefined;
+    }
   }
 
   private renderGuests() {
@@ -182,12 +259,7 @@ export class SeMemberDialog extends LitElement {
         ${guests.map(
           (member) => html`
             <div class="row">
-              <div
-                class="avatar"
-                style=${`background:${member.color ?? colorFor(member.id)}`}
-              >
-                ${initials(member.name)}
-              </div>
+              ${this.renderTintable(member, member.name, member.id)}
               <span class="name">${member.name}</span>
               <button
                 class="remove"
@@ -198,6 +270,7 @@ export class SeMemberDialog extends LitElement {
                 ×
               </button>
             </div>
+            ${this.renderPalette(member)}
           `,
         )}
 
