@@ -1,0 +1,55 @@
+[project]
+name = "shared-expenses"
+version = "0.1.0"
+description = "A modern, native shared expenses manager for Home Assistant."
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+
+[project.optional-dependencies]
+dev = [
+    "aiosqlite>=0.22.1",
+    "python-ulid>=3.1.0",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=6.0",
+    "ruff>=0.8",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-q"
+
+[tool.ruff]
+target-version = "py313"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # bugbear
+    "D",   # pydocstyle
+    "SIM", # simplify
+    "RUF",
+]
+ignore = [
+    "D203", # incompatible with D211
+    "D213", # incompatible with D212
+    # The project deliberately breathes after a docstring; see the whole
+    # codebase and docs/coding_guidelines.md.
+    "D202",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D100", "D102", "D103", "D104", "D107"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+known-first-party = ["custom_components"]

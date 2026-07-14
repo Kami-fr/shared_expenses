@@ -1,0 +1,37 @@
+create_group:
+  name: Create group
+  description: Create a new shared expenses group.
+
+  fields:
+    name:
+      name: Name
+      description: Group name.
+      required: true
+      selector:
+        text:
+
+    currency:
+      name: Currency
+      description: ISO 4217 currency code.
+      default: EUR
+      required: false
+      selector:
+        text:
+
+    description:
+      name: Description
+      required: false
+      selector:
+        text:
+
+    icon:
+      name: Icon
+      required: false
+      selector:
+        icon:
+
+    color:
+      name: Color
+      required: false
+      selector:
+        color_rgb:

@@ -1,0 +1,102 @@
+/** Formatting helpers. Amounts are handled in cents everywhere. */
+
+/** Format an amount in cents, e.g. 8542 -> "85,42 €". */
+export function formatMoney(cents: number, currency: string, language: string): string {
+  return new Intl.NumberFormat(language, {
+    style: "currency",
+    currency,
+  }).format(cents / 100);
+}
+
+/** Format an amount in cents with an explicit sign, for balances. */
+export function formatSignedMoney(
+  cents: number,
+  currency: string,
+  language: string,
+): string {
+  const formatted = formatMoney(Math.abs(cents), currency, language);
+
+  if (cents > 0) {
+    return `+${formatted}`;
+  }
+
+  return cents < 0 ? `-${formatted}` : formatted;
+}
+
+/** Parse a typed amount into cents. Accepts "12", "12.5", "12,50". */
+export function parseMoney(value: string): number | null {
+  const normalized = value.trim().replace(",", ".").replace(/\s/g, "");
+
+  if (normalized === "" || !/^-?\d*\.?\d*$/.test(normalized)) {
+    return null;
+  }
+
+  const amount = Number(normalized);
+
+  if (Number.isNaN(amount)) {
+    return null;
+  }
+
+  // Round to avoid 12.29 * 100 landing on 1228.9999.
+  return Math.round(amount * 100);
+}
+
+/** Format an ISO date as a short local date. */
+export function formatDate(iso: string, language: string): string {
+  return new Intl.DateTimeFormat(language, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(iso));
+}
+
+/** Return today as `YYYY-MM-DD`, for date inputs. */
+export function today(): string {
+  const now = new Date();
+  const month = `${now.getMonth() + 1}`.padStart(2, "0");
+  const day = `${now.getDate()}`.padStart(2, "0");
+
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
+/** Turn a `YYYY-MM-DD` input value into an ISO timestamp for the backend. */
+export function dateToIso(value: string): string {
+  return new Date(`${value}T12:00:00`).toISOString();
+}
+
+/** Return the initials shown in a member avatar. */
+export function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+
+  if (parts.length === 0) {
+    return "?";
+  }
+
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+/** Pick a stable colour for a member without one. */
+export function colorFor(id: string): string {
+  const palette = [
+    "#3f7cac",
+    "#c05746",
+    "#4a7c59",
+    "#8b5fbf",
+    "#c98b3e",
+    "#3d7e7e",
+    "#b0567a",
+    "#5c6b8a",
+  ];
+
+  let hash = 0;
+
+  for (let index = 0; index < id.length; index += 1) {
+    hash = (hash * 31 + id.charCodeAt(index)) >>> 0;
+  }
+
+  return palette[hash % palette.length];
+}

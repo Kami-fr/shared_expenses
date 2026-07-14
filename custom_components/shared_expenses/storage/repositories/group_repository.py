@@ -6,8 +6,21 @@ from datetime import datetime
 
 import aiosqlite
 
+from ...helpers.splits import rule_from_json, rule_to_json
 from ...models import Group
 from .base_repository import BaseRepository
+
+_COLUMNS = """
+    id,
+    name,
+    description,
+    currency,
+    icon,
+    color,
+    archived,
+    created_at,
+    split_rule
+"""
 
 
 class GroupRepository(BaseRepository):
@@ -26,9 +39,10 @@ class GroupRepository(BaseRepository):
                 icon,
                 color,
                 archived,
-                created_at
+                created_at,
+                split_rule
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 group.id,
@@ -39,17 +53,16 @@ class GroupRepository(BaseRepository):
                 group.color,
                 int(group.archived),
                 group.created_at.isoformat(),
+                rule_to_json(group.split_rule),
             ),
         )
-
-        await self._connection.commit()
 
     async def get(self, group_id: str) -> Group | None:
         """Return a group."""
 
         cursor = await self._connection.execute(
-            """
-            SELECT *
+            f"""
+            SELECT {_COLUMNS}
             FROM groups
             WHERE id = ?
             """,
@@ -57,6 +70,7 @@ class GroupRepository(BaseRepository):
         )
 
         row = await cursor.fetchone()
+        await cursor.close()
 
         if row is None:
             return None
@@ -67,14 +81,15 @@ class GroupRepository(BaseRepository):
         """Return all groups."""
 
         cursor = await self._connection.execute(
-            """
-            SELECT *
+            f"""
+            SELECT {_COLUMNS}
             FROM groups
             ORDER BY name
             """
         )
 
         rows = await cursor.fetchall()
+        await cursor.close()
 
         return [self._from_row(row) for row in rows]
 
@@ -90,7 +105,8 @@ class GroupRepository(BaseRepository):
                 currency = ?,
                 icon = ?,
                 color = ?,
-                archived = ?
+                archived = ?,
+                split_rule = ?
             WHERE id = ?
             """,
             (
@@ -100,11 +116,10 @@ class GroupRepository(BaseRepository):
                 group.icon,
                 group.color,
                 int(group.archived),
+                rule_to_json(group.split_rule),
                 group.id,
             ),
         )
-
-        await self._connection.commit()
 
     async def delete(self, group_id: str) -> None:
         """Delete a group."""
@@ -116,8 +131,6 @@ class GroupRepository(BaseRepository):
             """,
             (group_id,),
         )
-
-        await self._connection.commit()
 
     @staticmethod
     def _from_row(row: aiosqlite.Row) -> Group:
@@ -132,4 +145,5 @@ class GroupRepository(BaseRepository):
             color=row["color"],
             archived=bool(row["archived"]),
             created_at=datetime.fromisoformat(row["created_at"]),
+            split_rule=rule_from_json(row["split_rule"]),
         )

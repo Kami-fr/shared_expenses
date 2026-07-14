@@ -2,40 +2,42 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN
 from .manager import SharedExpensesManager
-
-
-async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
-    """Set up the Shared Expenses integration."""
-
-    hass.data.setdefault(DOMAIN, {})
-
-    return True
+from .panel import async_register_panel, async_unregister_panel
+from .storage.database import Database
+from .websocket import async_setup as async_setup_websocket
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Shared Expenses from a config entry."""
 
-    manager = SharedExpensesManager(hass)
+    database = Database(hass)
+    await database.initialize()
 
-    await manager.initialize()
+    hass.data.setdefault(DOMAIN, {})
+    hass.data[DOMAIN][entry.entry_id] = SharedExpensesManager(database)
 
-    hass.data[DOMAIN][entry.entry_id] = manager
+    async_setup_websocket(hass)
+
+    await async_register_panel(hass)
 
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Unload Shared Expenses."""
+    """Unload a config entry."""
 
     manager: SharedExpensesManager = hass.data[DOMAIN].pop(entry.entry_id)
 
-    await manager.close()
+    await manager.database.close()
+
+    if not hass.data[DOMAIN]:
+        hass.data.pop(DOMAIN)
+
+        async_unregister_panel(hass)
 
     return True

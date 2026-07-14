@@ -1,0 +1,19 @@
+{
+  "name": "shared-expenses-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Home Assistant panel for the Shared Expenses integration.",
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "lit": "^3.2.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5"
+  }
+}

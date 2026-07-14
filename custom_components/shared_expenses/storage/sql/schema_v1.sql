@@ -32,8 +32,6 @@ CREATE TABLE members (
 
     color TEXT,
 
-    active INTEGER NOT NULL,
-
     created_at TEXT NOT NULL
 );
 
