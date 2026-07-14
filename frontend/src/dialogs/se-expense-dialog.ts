@@ -17,10 +17,9 @@ import {
   today,
 } from "../services/format";
 import { errorMessage, type Localizer } from "../services/localize";
+import { resolveShares } from "../services/splits";
 import { sharedStyles } from "../styles/shared";
-import type { Category, Expense, Group, Member } from "../types";
-
-type SplitMode = "rule" | "equal" | "custom";
+import type { Category, Expense, Group, Member, SplitRule } from "../types";
 
 /**
  * Dialog creating or editing an expense.
@@ -55,11 +54,11 @@ export class SeExpenseDialog extends LitElement {
 
   @state() private categoryId = "";
 
-  @state() private mode: SplitMode = "rule";
+  /** Members taking part. Unchecked means the expense is not theirs. */
+  @state() private included: Set<string> = new Set();
 
-  @state() private participants: Set<string> = new Set();
-
-  @state() private customAmounts: Record<string, string> = {};
+  /** Typed amounts. Blank means an equal share of what is left. */
+  @state() private amounts: Record<string, string> = {};
 
   @state() private busy = false;
 
@@ -70,45 +69,69 @@ export class SeExpenseDialog extends LitElement {
   public static styles = [
     sharedStyles,
     css`
-      .modes {
+      .split-head {
         display: flex;
-        gap: 4px;
-        background: var(--secondary-background-color, #f1f1f1);
-        border-radius: 10px;
-        padding: 4px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
       }
 
-      .modes button {
-        flex: 1;
-        border: none;
-        background: none;
-        border-radius: 8px;
-        padding: 8px 4px;
-        font-size: 13px;
+      .split-hint {
+        font-size: 12px;
         color: var(--secondary-text-color);
-        cursor: pointer;
+        margin-bottom: 8px;
       }
 
-      .modes button[aria-pressed="true"] {
-        background: var(--card-background-color, #fff);
-        color: var(--primary-text-color);
-        font-weight: 500;
+      .reset {
+        background: none;
+        border: none;
+        color: var(--primary-color, #03a9f4);
+        font-size: 12px;
+        cursor: pointer;
+        font-family: inherit;
+        padding: 0;
+        text-align: right;
+      }
+
+      .table {
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        border-radius: 8px;
+        overflow: hidden;
       }
 
       .member-row {
         display: flex;
         align-items: center;
-        gap: 12px;
-        padding: 6px 0;
+        gap: 10px;
+        padding: 8px 10px;
+      }
+
+      .member-row + .member-row {
+        border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+      }
+
+      .member-row.excluded {
+        opacity: 0.45;
       }
 
       .member-row .name {
         flex: 1;
         font-size: 14px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
       .member-row se-field {
-        width: 120px;
+        width: 104px;
+        flex: 0 0 auto;
+      }
+
+      .resolved {
+        width: 74px;
+        text-align: right;
+        font-size: 13px;
+        flex: 0 0 auto;
       }
 
       .total {
@@ -130,7 +153,7 @@ export class SeExpenseDialog extends LitElement {
   public connectedCallback(): void {
     super.connectedCallback();
 
-    this.participants = new Set(this.members.map((member) => member.id));
+    this.included = new Set(this.members.map((member) => member.id));
 
     if (!this.expense) {
       if (this.members.length > 0) {
@@ -146,15 +169,73 @@ export class SeExpenseDialog extends LitElement {
     this.date = isoToDateInput(this.expense.expense_date);
     this.categoryId = this.expense.category_id ?? "";
 
-    // The stored shares are absolute: showing them as custom amounts is the
-    // only honest view of what was actually saved. Switching mode re-resolves.
-    this.mode = "custom";
-    this.customAmounts = Object.fromEntries(
-      (this.expense.shares ?? []).map((share) => [
-        share.member_id,
-        centsToInput(share.amount),
-      ]),
+    // The stored shares are absolute, so an existing expense opens with every
+    // amount spelled out: that is the only honest view of what was saved.
+    const shares = (this.expense.shares ?? []).filter((s) => s.amount !== 0);
+
+    this.included = new Set(shares.map((share) => share.member_id));
+    this.amounts = Object.fromEntries(
+      shares.map((share) => [share.member_id, centsToInput(share.amount)]),
     );
+  }
+
+  /** The rule the table describes: blanks share, typed amounts are fixed. */
+  private buildRule(): SplitRule {
+    const fixed: Record<string, number> = {};
+    const participants: string[] = [];
+
+    for (const member of this.members) {
+      if (!this.included.has(member.id)) {
+        continue;
+      }
+
+      const typed = parseMoney(this.amounts[member.id] ?? "");
+
+      if (typed !== null && (this.amounts[member.id] ?? "").trim() !== "") {
+        fixed[member.id] = typed;
+      } else {
+        participants.push(member.id);
+      }
+    }
+
+    return { participants, fixed, cap: null, remainder: "payer" };
+  }
+
+  /** The rule of the category, then of the group, as the backend would pick. */
+  private defaultRule(): SplitRule | null {
+    const category = this.categories.find((c) => c.id === this.categoryId);
+
+    return category?.split_rule ?? this.group.split_rule ?? null;
+  }
+
+  /** Shares the table resolves to, or null while the input is incomplete. */
+  private resolved(amount: number | null): Record<string, number> | null {
+    if (amount === null || !this.paidBy) {
+      return null;
+    }
+
+    return resolveShares({
+      amount,
+      payerId: this.paidBy,
+      memberIds: this.members.map((member) => member.id),
+      rule: this.buildRule(),
+    });
+  }
+
+  /** What the untouched category rule would give, shown as placeholders. */
+  private suggested(amount: number | null): Record<string, number> | null {
+    const rule = this.defaultRule();
+
+    if (rule === null || amount === null || !this.paidBy) {
+      return null;
+    }
+
+    return resolveShares({
+      amount,
+      payerId: this.paidBy,
+      memberIds: this.members.map((member) => member.id),
+      rule,
+    });
   }
 
   protected render() {
@@ -208,15 +289,6 @@ export class SeExpenseDialog extends LitElement {
             @value-changed=${(e: CustomEvent) => (this.categoryId = e.detail.value)}
           ></se-select>
 
-          <div>
-            <label class="muted">${translate("split")}</label>
-            <div class="modes" role="group">
-              ${this.renderModeButton("rule", translate("split_rule"))}
-              ${this.renderModeButton("equal", translate("split_equally"))}
-              ${this.renderModeButton("custom", translate("split_custom"))}
-            </div>
-          </div>
-
           ${this.renderSplit(amount)}
         </div>
 
@@ -247,73 +319,95 @@ export class SeExpenseDialog extends LitElement {
     `;
   }
 
-  private renderModeButton(mode: SplitMode, label: string) {
+  private renderSplit(amount: number | null) {
+    const translate = this.localize;
+    const resolved = this.resolved(amount);
+    const suggested = this.suggested(amount);
+    const total = resolved
+      ? Object.values(resolved).reduce((sum, value) => sum + value, 0)
+      : null;
+
     return html`
-      <button
-        type="button"
-        aria-pressed=${this.mode === mode}
-        @click=${() => (this.mode = mode)}
-      >
-        ${label}
+      <div>
+        <div class="split-head">
+          <label class="muted">${translate("split")}</label>
+          ${this.renderRuleNote(suggested)}
+        </div>
+
+        <div class="split-hint">${translate("split_table_hint")}</div>
+
+        <div class="table">
+          ${this.members.map((member) => this.renderMemberRow(member, resolved, suggested))}
+        </div>
+
+        ${amount !== null
+          ? html`
+              <div class="total">
+                <span class="muted">${translate("split_total")}</span>
+                <span class=${`amount ${total === amount ? "positive" : "negative"}`}>
+                  ${formatMoney(total ?? 0, this.group.currency, this.language)}
+                  ${total === amount ? " ✓" : ` / ${formatMoney(amount, this.group.currency, this.language)}`}
+                </span>
+              </div>
+            `
+          : nothing}
+      </div>
+    `;
+  }
+
+  /** Tell where the suggested amounts come from, and offer to go back to them. */
+  private renderRuleNote(suggested: Record<string, number> | null) {
+    if (suggested === null) {
+      return nothing;
+    }
+
+    const category = this.categories.find((c) => c.id === this.categoryId);
+    const source = category ? category.name : this.localize("group_rule");
+
+    return html`
+      <button class="reset" @click=${this.applyDefaultRule}>
+        ${this.localize("apply_rule")} ${source}
       </button>
     `;
   }
 
-  private renderSplit(amount: number | null) {
-    const translate = this.localize;
+  private renderMemberRow(
+    member: Member,
+    resolved: Record<string, number> | null,
+    suggested: Record<string, number> | null,
+  ) {
+    const included = this.included.has(member.id);
+    const share = resolved?.[member.id] ?? 0;
+    const typed = (this.amounts[member.id] ?? "").trim() !== "";
 
-    if (this.mode === "rule") {
-      return html`<div class="muted">${translate("split_rule_hint")}</div>`;
-    }
-
-    if (this.mode === "equal") {
-      return html`
-        <div>
-          <label class="muted">${translate("participants")}</label>
-          ${this.members.map(
-            (member) => html`
-              <div class="member-row">
-                <input
-                  type="checkbox"
-                  .checked=${this.participants.has(member.id)}
-                  @change=${() => this.toggleParticipant(member.id)}
-                />
-                ${this.renderAvatar(member)}
-                <span class="name">${member.name}</span>
-                <span class="amount muted">${this.equalShare(amount, member.id)}</span>
-              </div>
-            `,
-          )}
-        </div>
-      `;
-    }
-
-    const total = this.customTotal();
+    // An untouched row shows what the rule would give, in grey: the figure is
+    // real, and typing over it replaces it.
+    const hint = suggested?.[member.id];
+    const placeholder =
+      !typed && hint !== undefined ? centsToInput(hint) : "";
 
     return html`
-      <div>
-        ${this.members.map(
-          (member) => html`
-            <div class="member-row">
-              ${this.renderAvatar(member)}
-              <span class="name">${member.name}</span>
-              <se-field
-                .value=${this.customAmounts[member.id] ?? ""}
-                .suffix=${this.group.currency}
-                decimal
-                placeholder="0"
-                @value-changed=${(e: CustomEvent) => this.setCustom(member.id, e.detail.value)}
-              ></se-field>
-            </div>
-          `,
-        )}
-        <div class="total">
-          <span class="muted">Total</span>
-          <span class=${`amount ${amount !== null && total !== amount ? "negative" : ""}`}>
-            ${formatMoney(total, this.group.currency, this.language)}
-            ${amount !== null ? ` / ${formatMoney(amount, this.group.currency, this.language)}` : ""}
-          </span>
-        </div>
+      <div class=${`member-row ${included ? "" : "excluded"}`}>
+        <input
+          type="checkbox"
+          .checked=${included}
+          @change=${() => this.toggleMember(member.id)}
+        />
+        ${this.renderAvatar(member)}
+        <span class="name">${member.name}</span>
+        <se-field
+          .value=${this.amounts[member.id] ?? ""}
+          .suffix=${this.group.currency}
+          .disabled=${!included}
+          decimal
+          placeholder=${placeholder || "—"}
+          @value-changed=${(e: CustomEvent) => this.setAmount(member.id, e.detail.value)}
+        ></se-field>
+        <span class="resolved amount">
+          ${included && resolved
+            ? formatMoney(share, this.group.currency, this.language)
+            : "—"}
+        </span>
       </div>
     `;
   }
@@ -326,63 +420,43 @@ export class SeExpenseDialog extends LitElement {
     `;
   }
 
-  private equalShare(amount: number | null, memberId: string): string {
-    if (amount === null || !this.participants.has(memberId)) {
-      return "";
-    }
-
-    const ids = this.members.map((m) => m.id).filter((id) => this.participants.has(id));
-    const index = ids.indexOf(memberId);
-
-    if (index < 0 || ids.length === 0) {
-      return "";
-    }
-
-    // Mirrors the backend: the leftover cents go to the first participants.
-    const base = Math.floor(amount / ids.length);
-    const extra = amount % ids.length;
-    const share = base + (index < extra ? 1 : 0);
-
-    return formatMoney(share, this.group.currency, this.language);
-  }
-
-  private customTotal(): number {
-    return Object.values(this.customAmounts).reduce(
-      (sum, value) => sum + (parseMoney(value) ?? 0),
-      0,
-    );
-  }
-
-  private toggleParticipant(memberId: string) {
-    const next = new Set(this.participants);
+  private toggleMember(memberId: string) {
+    const next = new Set(this.included);
 
     if (next.has(memberId)) {
       next.delete(memberId);
+      // Keep the typed amount out of the way while the member is excluded.
+      const { [memberId]: _dropped, ...rest } = this.amounts;
+      this.amounts = rest;
     } else {
       next.add(memberId);
     }
 
-    this.participants = next;
+    this.included = next;
   }
 
-  private setCustom(memberId: string, value: string) {
-    this.customAmounts = { ...this.customAmounts, [memberId]: value };
+  private setAmount(memberId: string, value: string) {
+    this.amounts = { ...this.amounts, [memberId]: value };
   }
+
+  /** Clear every typed amount so the category rule drives the table again. */
+  private applyDefaultRule = () => {
+    this.included = new Set(this.members.map((member) => member.id));
+    this.amounts = {};
+  };
 
   private isValid(amount: number | null): boolean {
-    if (this.expenseTitle.trim() === "" || amount === null || amount <= 0 || !this.paidBy) {
+    if (this.expenseTitle.trim() === "" || amount === null || amount <= 0) {
       return false;
     }
 
-    if (this.mode === "equal") {
-      return this.participants.size > 0;
+    if (!this.paidBy || this.included.size === 0) {
+      return false;
     }
 
-    if (this.mode === "custom") {
-      return this.customTotal() === amount;
-    }
-
-    return true;
+    // The table is valid exactly when it resolves: the resolver already checks
+    // that the fixed amounts fit and that the shares add up.
+    return this.resolved(amount) !== null;
   }
 
   private cancel = () => {
@@ -408,21 +482,20 @@ export class SeExpenseDialog extends LitElement {
       category_id: this.categoryId || null,
     };
 
-    if (this.mode === "equal") {
-      input.split_rule = {
-        participants: [...this.participants],
-        fixed: {},
-        cap: null,
-        remainder: "payer",
-      };
-    } else if (this.mode === "custom") {
-      input.shares = this.members
-        .map((member) => ({
-          member_id: member.id,
-          amount: parseMoney(this.customAmounts[member.id] ?? "") ?? 0,
-        }))
-        .filter((share) => share.amount !== 0);
+    // Send the shares the table shows rather than the rule behind them: what
+    // you see is what gets stored, and the resolver already agreed with the
+    // backend on every cent.
+    const resolved = this.resolved(amount);
+
+    if (resolved === null) {
+      this.busy = false;
+      return;
     }
+
+    input.shares = Object.entries(resolved).map(([member_id, value]) => ({
+      member_id,
+      amount: value,
+    }));
 
     try {
       const expense = this.expense
