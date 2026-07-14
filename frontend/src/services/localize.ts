@@ -43,7 +43,10 @@ const EN = {
   edit_category: "Edit category",
   category_name: "Name",
   icon: "Icon",
-  icon_hint: "A Material Design Icons name, for example mdi:cart.",
+  icon_hint: "Search by name or by what it looks like, for example cart.",
+  icon_search: "Search an icon…",
+  icon_list_failed:
+    "The icon list could not be loaded. Type an mdi: name by hand.",
   default_split: "Default split",
   split_rule_custom: "Use a custom rule",
   split_rule_equal_hint: "Expenses of this category are split equally.",
@@ -161,7 +164,10 @@ const FR: Record<Key, string> = {
   edit_category: "Modifier la catégorie",
   category_name: "Nom",
   icon: "Icône",
-  icon_hint: "Un nom Material Design Icons, par exemple mdi:cart.",
+  icon_hint: "Cherchez par nom ou par ce que ça représente, par exemple cart.",
+  icon_search: "Rechercher une icône…",
+  icon_list_failed:
+    "La liste d'icônes n'a pas pu être chargée. Saisissez un nom mdi: à la main.",
   default_split: "Répartition par défaut",
   split_rule_custom: "Utiliser une règle personnalisée",
   split_rule_equal_hint: "Les dépenses de cette catégorie sont partagées à parts égales.",

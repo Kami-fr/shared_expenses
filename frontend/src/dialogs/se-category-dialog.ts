@@ -4,6 +4,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import "../components/se-button";
 import "../components/se-dialog";
 import "../components/se-field";
+import "../components/se-icon-picker";
 import "../components/se-split-rule-editor";
 import type { SharedExpensesApi } from "../services/api";
 import { errorMessage, type Localizer } from "../services/localize";
@@ -69,13 +70,13 @@ export class SeCategoryDialog extends LitElement {
             @value-changed=${(e: CustomEvent) => (this.name = e.detail.value)}
           ></se-field>
 
-          <se-field
+          <se-icon-picker
+            .localize=${this.localize}
             .label=${translate("icon")}
             .value=${this.icon}
-            .helper=${translate("icon_hint")}
-            placeholder="mdi:cart"
+            .color=${this.category?.color ?? "#5c6b8a"}
             @value-changed=${(e: CustomEvent) => (this.icon = e.detail.value)}
-          ></se-field>
+          ></se-icon-picker>
 
           <div>
             <label class="muted">${translate("default_split")}</label>

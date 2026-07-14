@@ -37,17 +37,21 @@ export class SeIcon extends LitElement {
     }
 
     ha-icon {
-      --mdc-icon-size: 55%;
       display: flex;
+      align-items: center;
+      justify-content: center;
     }
   `;
 
   protected render() {
+    // `--mdc-icon-size` takes a length: a percentage is invalid and silently
+    // leaves the icon at its 24px default, which overflows a small pill.
     const style = `
       background: ${this.color};
       width: ${this.size}px;
       height: ${this.size}px;
       font-size: ${Math.round(this.size * 0.35)}px;
+      --mdc-icon-size: ${Math.round(this.size * 0.55)}px;
     `;
 
     return html`
