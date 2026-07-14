@@ -36,6 +36,13 @@ export class SeDialog extends LitElement {
       background: var(--card-background-color, #fff);
       color: var(--primary-text-color);
       width: 100%;
+      /*
+       * A flex item will not shrink below its content on its own, so a single
+       * stubborn field inside could widen the dialog past the screen. The
+       * dialog is the one that decides: the content fits in it, not the other
+       * way round.
+       */
+      min-width: 0;
       max-height: 92vh;
       display: flex;
       flex-direction: column;
@@ -74,6 +81,20 @@ export class SeDialog extends LitElement {
       flex: 1;
     }
 
+    /*
+     * Sits with the buttons, outside the scrolling content: something said
+     * about what a button is about to do has to be on screen next to it. Said
+     * up in the content, a long dialog would scroll it out of sight, and
+     * whoever saw nothing happen would press again — which is the very thing
+     * the message is there to prevent.
+     *
+     * No wrapper: an empty slot renders nothing, so nothing is spaced away.
+     */
+    ::slotted([slot="banner"]) {
+      display: block;
+      margin: 12px 16px 0;
+    }
+
     .actions {
       display: flex;
       justify-content: flex-end;
@@ -103,6 +124,7 @@ export class SeDialog extends LitElement {
             <button class="close" @click=${this.close} aria-label="Fermer">×</button>
           </header>
           <div class="content"><slot></slot></div>
+          <slot name="banner"></slot>
           <div class="actions"><slot name="actions"></slot></div>
         </div>
       </div>

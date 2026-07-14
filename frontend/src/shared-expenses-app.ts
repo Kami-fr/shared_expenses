@@ -71,6 +71,7 @@ export class SharedExpensesPanel extends LitElement {
           .localize=${localize}
           .groupId=${this.groupId}
           .language=${language}
+          .userId=${this.hass.user?.id ?? null}
           @navigate-back=${this.goToDashboard}
           @group-selected=${this.handleGroupSelected}
           @group-unavailable=${this.handleGroupUnavailable}

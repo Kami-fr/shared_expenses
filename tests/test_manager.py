@@ -852,6 +852,61 @@ async def test_a_non_positive_payment_is_refused(manager: SharedExpensesManager)
         )
 
 
+async def test_a_corrected_payment_moves_the_balance(manager: SharedExpensesManager):
+    """A payment typed wrong is worth correcting, not deleting and retyping."""
+
+    group = await make_group(manager)
+    antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
+    owner = await owner_of(manager, group.id)
+
+    await manager.create_expense(
+        group_id=group.id,
+        title="Essence",
+        amount=4000,
+        paid_by_member_id=owner.id,
+        expense_date=NOW,
+    )
+
+    payment = await manager.create_payment(
+        group_id=group.id,
+        from_member_id=antonin.id,
+        to_member_id=owner.id,
+        amount=500,
+        payment_date=NOW,
+    )
+
+    await manager.update_payment(replace(payment, amount=2000))
+
+    result = await manager.get_balances(group.id)
+
+    assert result.balances == {owner.id: 0, antonin.id: 0}
+    assert result.settlements == []
+    assert (await manager.get_payment(payment.id)).amount == 2000
+
+
+async def test_a_payment_corrected_to_oneself_is_refused(
+    manager: SharedExpensesManager,
+):
+    """The rules of a payment hold on the way in and on every change after."""
+
+    group = await make_group(manager)
+    antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
+    owner = await owner_of(manager, group.id)
+
+    payment = await manager.create_payment(
+        group_id=group.id,
+        from_member_id=antonin.id,
+        to_member_id=owner.id,
+        amount=500,
+        payment_date=NOW,
+    )
+
+    with pytest.raises(InvalidPaymentError):
+        await manager.update_payment(replace(payment, to_member_id=antonin.id))
+
+    assert (await manager.get_payment(payment.id)).to_member_id == owner.id
+
+
 async def test_balances_and_settlement_end_to_end(manager: SharedExpensesManager):
     group = await make_group(manager)
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")

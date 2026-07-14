@@ -218,6 +218,13 @@ export class SharedExpensesApi {
     return this.call("create_payment", input);
   }
 
+  public updatePayment(
+    paymentId: string,
+    changes: Partial<Omit<CreatePaymentInput, "group_id">>,
+  ): Promise<Payment> {
+    return this.call("update_payment", { payment_id: paymentId, ...changes });
+  }
+
   public deletePayment(paymentId: string): Promise<null> {
     return this.call("delete_payment", { payment_id: paymentId });
   }

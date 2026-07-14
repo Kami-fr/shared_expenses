@@ -74,16 +74,22 @@ export class SeExpenseDialog extends LitElement {
   public static styles = [
     sharedStyles,
     css`
-      /* Two per row where they fit; one per row when the screen is narrow. */
+      /*
+       * Two per row where they fit; one per row when the screen is narrow.
+       *
+       * minmax(0, …) rather than 1fr: a bare 1fr keeps an automatic minimum of
+       * the content's own width, and a date input asks for more than half a
+       * phone. The column would grow to grant it and take the dialog with it.
+       */
       .pair {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         gap: 12px;
       }
 
       @media (max-width: 380px) {
         .pair {
-          grid-template-columns: 1fr;
+          grid-template-columns: minmax(0, 1fr);
         }
       }
 
@@ -272,6 +278,12 @@ export class SeExpenseDialog extends LitElement {
 
           ${this.renderSplit(amount)}
         </div>
+
+        ${this.confirmingDelete
+          ? html`<div slot="banner" class="warning">
+              ${translate("confirm_delete_expense")}
+            </div>`
+          : nothing}
 
         ${this.expense
           ? html`

@@ -6,12 +6,23 @@ import "../components/se-dialog";
 import "../components/se-field";
 import "../components/se-select";
 import type { SharedExpensesApi } from "../services/api";
-import { dateToIso, formatMoney, parseMoney, today } from "../services/format";
+import {
+  centsToInput,
+  dateToIso,
+  formatMoney,
+  isoToDateInput,
+  parseMoney,
+  today,
+} from "../services/format";
 import { errorMessage, type Localizer } from "../services/localize";
 import { sharedStyles } from "../styles/shared";
-import type { Group, Member, Settlement } from "../types";
+import type { Group, Member, Payment, Settlement } from "../types";
 
-/** Dialog recording a payment. Fires `payment-created` on success. */
+/**
+ * Dialog recording or correcting a payment.
+ *
+ * Fires `payment-saved` on success and `payment-deleted` after a deletion.
+ */
 @customElement("se-payment-dialog")
 export class SePaymentDialog extends LitElement {
   @property({ attribute: false }) public api!: SharedExpensesApi;
@@ -21,6 +32,9 @@ export class SePaymentDialog extends LitElement {
   @property({ attribute: false }) public group!: Group;
 
   @property({ attribute: false }) public members: Member[] = [];
+
+  /** Set to edit a recorded payment, leave out to record one. */
+  @property({ attribute: false }) public payment?: Payment;
 
   /** Pre-fills the dialog from a suggested reimbursement. */
   @property({ attribute: false }) public settlement?: Settlement;
@@ -39,15 +53,25 @@ export class SePaymentDialog extends LitElement {
 
   @state() private error?: string;
 
+  @state() private confirmingDelete = false;
+
   public static styles = sharedStyles;
 
   public connectedCallback(): void {
     super.connectedCallback();
 
+    if (this.payment) {
+      this.fromMember = this.payment.from_member_id;
+      this.toMember = this.payment.to_member_id;
+      this.amountInput = centsToInput(this.payment.amount);
+      this.date = isoToDateInput(this.payment.payment_date);
+      return;
+    }
+
     if (this.settlement) {
       this.fromMember = this.settlement.from_member_id;
       this.toMember = this.settlement.to_member_id;
-      this.amountInput = (this.settlement.amount / 100).toFixed(2);
+      this.amountInput = centsToInput(this.settlement.amount);
       return;
     }
 
@@ -61,9 +85,10 @@ export class SePaymentDialog extends LitElement {
     const translate = this.localize;
     const amount = parseMoney(this.amountInput);
     const options = this.members.map((member) => ({ value: member.id, label: member.name }));
+    const heading = this.payment ? translate("edit_payment") : translate("new_payment");
 
     return html`
-      <se-dialog open heading=${translate("new_payment")} @dialog-closed=${this.cancel}>
+      <se-dialog open heading=${heading} @dialog-closed=${this.cancel}>
         <div class="stack">
           ${this.error ? html`<div class="error">${this.error}</div>` : nothing}
 
@@ -104,11 +129,36 @@ export class SePaymentDialog extends LitElement {
             : nothing}
         </div>
 
+        ${this.confirmingDelete
+          ? html`<div slot="banner" class="warning">
+              ${translate("confirm_delete_payment")}
+            </div>`
+          : nothing}
+
+        ${this.payment
+          ? html`
+              <se-button
+                slot="actions"
+                variant="danger"
+                ?disabled=${this.busy}
+                @click=${this.deletePayment}
+              >
+                ${this.confirmingDelete
+                  ? translate("confirm_delete")
+                  : translate("delete")}
+              </se-button>
+              <span slot="actions" class="spacer"></span>
+            `
+          : nothing}
         <se-button slot="actions" variant="text" @click=${this.cancel}>
           ${translate("cancel")}
         </se-button>
-        <se-button slot="actions" ?disabled=${this.busy || !this.isValid(amount)} @click=${this.submit}>
-          ${translate("save")}
+        <se-button
+          slot="actions"
+          ?disabled=${this.busy || !this.isValid(amount)}
+          @click=${this.submit}
+        >
+          ${this.payment ? translate("save") : translate("create")}
         </se-button>
       </se-dialog>
     `;
@@ -139,16 +189,23 @@ export class SePaymentDialog extends LitElement {
     this.error = undefined;
 
     try {
-      const payment = await this.api.createPayment({
-        group_id: this.group.id,
-        from_member_id: this.fromMember,
-        to_member_id: this.toMember,
-        amount,
-        payment_date: dateToIso(this.date),
-      });
+      const payment = this.payment
+        ? await this.api.updatePayment(this.payment.id, {
+            from_member_id: this.fromMember,
+            to_member_id: this.toMember,
+            amount,
+            payment_date: dateToIso(this.date),
+          })
+        : await this.api.createPayment({
+            group_id: this.group.id,
+            from_member_id: this.fromMember,
+            to_member_id: this.toMember,
+            amount,
+            payment_date: dateToIso(this.date),
+          });
 
       this.dispatchEvent(
-        new CustomEvent("payment-created", {
+        new CustomEvent("payment-saved", {
           detail: { payment },
           bubbles: true,
           composed: true,
@@ -156,6 +213,34 @@ export class SePaymentDialog extends LitElement {
       );
     } catch (error) {
       this.error = errorMessage(error, this.localize);
+    } finally {
+      this.busy = false;
+    }
+  };
+
+  /** Asks first: a settlement removed puts a debt back on someone. */
+  private deletePayment = async () => {
+    if (!this.payment) {
+      return;
+    }
+
+    if (!this.confirmingDelete) {
+      this.confirmingDelete = true;
+      return;
+    }
+
+    this.busy = true;
+    this.error = undefined;
+
+    try {
+      await this.api.deletePayment(this.payment.id);
+
+      this.dispatchEvent(
+        new CustomEvent("payment-deleted", { bubbles: true, composed: true }),
+      );
+    } catch (error) {
+      this.error = errorMessage(error, this.localize);
+      this.confirmingDelete = false;
     } finally {
       this.busy = false;
     }

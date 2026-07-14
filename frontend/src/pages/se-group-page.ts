@@ -43,6 +43,20 @@ type Activity =
 
 const RECENT_ACTIVITY = 5;
 
+/** Left to right, as the bar shows them: a swipe has to follow the eye. */
+const TABS: Tab[] = ["overview", "expenses", "settlements"];
+
+/** How far a finger travels before it means to change tab, in pixels. */
+const SWIPE_MIN = 60;
+
+/**
+ * How much of the screen edge is left to Home Assistant.
+ *
+ * It opens its sidebar on a swipe from there, and losing the way out of the
+ * panel would cost more than a tab change is worth.
+ */
+const SWIPE_EDGE = 24;
+
 /** Detail of a group: balances, expenses and members. */
 @customElement("se-group-page")
 export class SeGroupPage extends LitElement {
@@ -53,6 +67,9 @@ export class SeGroupPage extends LitElement {
   @property({ type: String }) public groupId!: string;
 
   @property({ type: String }) public language = "en";
+
+  /** The Home Assistant account looking at the panel, to know who "you" is. */
+  @property({ type: String }) public userId: string | null = null;
 
   @state() private group?: Group;
 
@@ -91,6 +108,11 @@ export class SeGroupPage extends LitElement {
   @state() private prefill?: Settlement;
 
   @state() private editedExpense?: Expense;
+
+  @state() private editedPayment?: Payment;
+
+  /** Where a swipe began. Plain state: no render depends on it mid-gesture. */
+  private swipeFrom?: { x: number; y: number };
 
   @state() private busy = false;
 
@@ -137,6 +159,16 @@ export class SeGroupPage extends LitElement {
       .tabs {
         display: flex;
         border-bottom: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+      }
+
+      /*
+       * Carries the gesture, and the layout the tab content had when it was a
+       * child of the stack itself: a wrapper must not cost the spacing.
+       */
+      .swipe {
+        display: flex;
+        flex-direction: column;
+        gap: var(--se-gap);
       }
 
       .tabs button {
@@ -207,13 +239,6 @@ export class SeGroupPage extends LitElement {
         border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
       }
 
-      .actions {
-        display: flex;
-        gap: 8px;
-        justify-content: center;
-        margin-top: 8px;
-      }
-
       .titles {
         flex: 1;
         min-width: 0;
@@ -263,13 +288,10 @@ export class SeGroupPage extends LitElement {
         background: rgba(255, 255, 255, 0.12);
       }
 
-      /*
-       * Within thumb reach, and on the left: Home Assistant puts its own
-       * buttons bottom right, so this one would sit under them.
-       */
+      /* Within thumb reach, where Home Assistant puts its own add buttons. */
       .fab {
         position: fixed;
-        left: 20px;
+        right: 20px;
         bottom: 20px;
         z-index: 2;
         width: 56px;
@@ -456,15 +478,22 @@ export class SeGroupPage extends LitElement {
             ${this.renderTab("settlements", translate("tab_settlements"))}
           </div>
 
-          ${this.renderTabContent()}
+          <div
+            class="swipe"
+            @touchstart=${this.startSwipe}
+            @touchend=${this.endSwipe}
+            @touchcancel=${this.cancelSwipe}
+          >
+            ${this.renderTabContent()}
+          </div>
         </div>
       </div>
 
       <button
         class="fab"
-        aria-label=${translate("action_add_expense")}
-        title=${translate("action_add_expense")}
-        @click=${() => this.openExpense()}
+        aria-label=${this.addLabel()}
+        title=${this.addLabel()}
+        @click=${this.add}
       >
         <se-icon plain .icon=${"mdi:plus"} fallback="+" .size=${26}></se-icon>
       </button>
@@ -643,7 +672,9 @@ export class SeGroupPage extends LitElement {
       <se-balance-card
         .localize=${this.localize}
         .balances=${this.result?.balances ?? []}
+        .settlements=${this.result?.settlements ?? []}
         .members=${this.pastMembers}
+        .meId=${this.meId()}
         .currency=${this.group!.currency}
         .language=${this.language}
       ></se-balance-card>
@@ -727,12 +758,6 @@ export class SeGroupPage extends LitElement {
           ? html`<div class="empty">${translate("no_settlements")}</div>`
           : this.payments.map((payment) => this.renderPayment(payment))}
       </div>
-
-      <div class="actions">
-        <se-button @click=${() => this.openPayment()}>
-          ${translate("new_payment")}
-        </se-button>
-      </div>
     `;
   }
 
@@ -741,7 +766,7 @@ export class SeGroupPage extends LitElement {
     const to = this.memberById(payment.to_member_id);
 
     return html`
-      <div class="item">
+      <button class="item item-button" @click=${() => this.openPayment(undefined, payment)}>
         <se-icon
           icon="mdi:swap-horizontal"
           fallback="⇄"
@@ -761,7 +786,7 @@ export class SeGroupPage extends LitElement {
             ${formatMoney(payment.amount, this.group!.currency, this.language)}
           </span>
         </div>
-      </div>
+      </button>
     `;
   }
 
@@ -798,12 +823,6 @@ export class SeGroupPage extends LitElement {
         ${this.expenses.length === 0
           ? html`<div class="empty">${translate("no_expenses")}</div>`
           : this.expenses.map((expense) => this.renderExpense(expense))}
-      </div>
-
-      <div class="actions">
-        <se-button @click=${() => this.openExpense()}>
-          ${translate("new_expense")}
-        </se-button>
       </div>
     `;
   }
@@ -921,11 +940,13 @@ export class SeGroupPage extends LitElement {
           .api=${this.api}
           .localize=${this.localize}
           .group=${this.group}
-          .members=${this.members}
+          .members=${this.membersForPayment(this.editedPayment)}
+          .payment=${this.editedPayment}
           .settlement=${this.prefill}
           .language=${this.language}
           @dialog-cancelled=${this.closeDialog}
-          @payment-created=${this.handleChanged}
+          @payment-saved=${this.handleChanged}
+          @payment-deleted=${this.handleChanged}
         ></se-payment-dialog>
       `;
     }
@@ -961,6 +982,20 @@ export class SeGroupPage extends LitElement {
   }
 
   /**
+   * Which member of this group you are, if any.
+   *
+   * Nobody, when the panel is open on an account no member is tied to — a
+   * shared tablet in the kitchen, an admin looking at someone else's group.
+   */
+  private meId(): string | null {
+    if (!this.userId) {
+      return null;
+    }
+
+    return this.members.find((member) => member.user_id === this.userId)?.id ?? null;
+  }
+
+  /**
    * Who the expense dialog may offer.
    *
    * The active members, plus anyone this very expense already involves. Someone
@@ -973,15 +1008,27 @@ export class SeGroupPage extends LitElement {
       return this.members;
     }
 
-    const involved = new Set<string>([
+    return this.plusGone([
       expense.paid_by_member_id,
       ...(expense.shares ?? []).map((share) => share.member_id),
     ]);
+  }
+
+  /** The same, for a payment: someone may have left since settling up. */
+  private membersForPayment(payment?: Payment): Member[] {
+    if (!payment) {
+      return this.members;
+    }
+
+    return this.plusGone([payment.from_member_id, payment.to_member_id]);
+  }
+
+  private plusGone(involved: string[]): Member[] {
+    const ids = new Set(involved);
 
     const gone = this.pastMembers.filter(
       (member) =>
-        involved.has(member.id) &&
-        !this.members.some((active) => active.id === member.id),
+        ids.has(member.id) && !this.members.some((active) => active.id === member.id),
     );
 
     return [...this.members, ...gone];
@@ -1034,11 +1081,84 @@ export class SeGroupPage extends LitElement {
     }
   }
 
-  private openPayment(settlement?: Settlement) {
-    this.prefill = settlement;
-    this.dialog = "payment";
+  /**
+   * Change tab on a swipe, leaving a scroll alone.
+   *
+   * Measured from where the finger started to where it left: following it live
+   * would mean fighting the browser for the vertical scroll on every move.
+   * Two conditions keep the two gestures apart — far enough sideways, and
+   * decidedly more sideways than down.
+   */
+  private startSwipe = (event: TouchEvent) => {
+    const touch = event.touches[0];
+
+    // Pinching, or starting where Home Assistant expects its own gesture.
+    if (event.touches.length !== 1 || touch.clientX < SWIPE_EDGE) {
+      this.swipeFrom = undefined;
+      return;
+    }
+
+    this.swipeFrom = { x: touch.clientX, y: touch.clientY };
+  };
+
+  private endSwipe = (event: TouchEvent) => {
+    const from = this.swipeFrom;
+
+    this.swipeFrom = undefined;
+
+    if (!from) {
+      return;
+    }
+
+    const touch = event.changedTouches[0];
+    const dx = touch.clientX - from.x;
+    const dy = touch.clientY - from.y;
+
+    if (Math.abs(dx) < SWIPE_MIN || Math.abs(dx) < Math.abs(dy) * 2) {
+      return;
+    }
+
+    const next = TABS.indexOf(this.tab) + (dx < 0 ? 1 : -1);
+
+    // Stop at the ends rather than wrapping: the tabs are a row, not a loop.
+    if (next >= 0 && next < TABS.length) {
+      this.tab = TABS[next];
+    }
+  };
+
+  private cancelSwipe = () => {
+    this.swipeFrom = undefined;
+  };
+
+  /**
+   * What the plus adds, which is whatever the tab you are on is about.
+   *
+   * It is the only button of the page now: the tabs used to end on one of their
+   * own, saying the same thing twice, and the second one had to be scrolled to.
+   * On the overview, where both belong, an expense wins — it is the one you
+   * come back to enter.
+   */
+  private add = () => {
+    if (this.tab === "settlements") {
+      this.openPayment();
+      return;
+    }
+
+    this.openExpense();
+  };
+
+  private addLabel(): string {
+    return this.tab === "settlements"
+      ? this.localize("new_payment")
+      : this.localize("action_add_expense");
   }
 
+  /** A suggested settlement to record, or a recorded payment to correct. */
+  private openPayment(settlement?: Settlement, payment?: Payment) {
+    this.prefill = settlement;
+    this.editedPayment = payment;
+    this.dialog = "payment";
+  }
 
   private openExpense(expense?: Expense) {
     this.editedExpense = expense;
@@ -1049,6 +1169,7 @@ export class SeGroupPage extends LitElement {
     this.dialog = undefined;
     this.prefill = undefined;
     this.editedExpense = undefined;
+    this.editedPayment = undefined;
   };
 
   private handleChanged = () => {

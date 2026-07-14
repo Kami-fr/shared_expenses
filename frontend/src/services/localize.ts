@@ -29,6 +29,9 @@ const EN = {
   current_balance: "Current balance",
   must_receive: "is owed",
   must_pay: "owes",
+  you_owe: "You owe",
+  owes_you: "owes you",
+  you_are_settled: "You are settled up.",
   detailed_balances: "See detailed balances",
   recent_activity: "Recent activity",
   no_activity: "Nothing has happened yet.",
@@ -78,6 +81,8 @@ const EN = {
   new_expense: "New expense",
   edit_expense: "Edit expense",
   confirm_delete: "Confirm?",
+  confirm_delete_expense: "Delete this expense? It cannot be brought back, and every share it carries goes with it.",
+  confirm_delete_payment: "Delete this payment? The debt it settled comes back.",
   expense_title: "Title",
   amount: "Amount",
   paid_by: "Paid by",
@@ -119,6 +124,7 @@ const EN = {
 
   payments: "Payments",
   new_payment: "Record a payment",
+  edit_payment: "Edit payment",
   from_member: "From",
   to_member: "To",
 
@@ -170,6 +176,9 @@ const FR: Record<Key, string> = {
   current_balance: "Solde actuel",
   must_receive: "doit recevoir",
   must_pay: "doit payer",
+  you_owe: "Tu dois",
+  owes_you: "te doit",
+  you_are_settled: "Tu es à jour.",
   detailed_balances: "Voir les soldes détaillés",
   recent_activity: "Dernière activité",
   no_activity: "Rien ne s'est encore passé.",
@@ -220,6 +229,8 @@ const FR: Record<Key, string> = {
   new_expense: "Nouvelle dépense",
   edit_expense: "Modifier la dépense",
   confirm_delete: "Confirmer ?",
+  confirm_delete_expense: "Supprimer cette dépense ? Elle ne pourra pas être récupérée, et les parts qu'elle porte disparaissent avec elle.",
+  confirm_delete_payment: "Supprimer ce paiement ? La dette qu'il a soldée réapparaît.",
   expense_title: "Intitulé",
   amount: "Montant",
   paid_by: "Payé par",
@@ -261,6 +272,7 @@ const FR: Record<Key, string> = {
 
   payments: "Paiements",
   new_payment: "Enregistrer un paiement",
+  edit_payment: "Modifier le paiement",
   from_member: "De",
   to_member: "Vers",
 

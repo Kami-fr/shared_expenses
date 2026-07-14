@@ -4,14 +4,23 @@ import { customElement, property } from "lit/decorators.js";
 import { colorFor, formatMoney, initials } from "../services/format";
 import type { Localizer } from "../services/localize";
 import { sharedStyles } from "../styles/shared";
-import type { Balance, Member } from "../types";
+import type { Balance, Member, Settlement } from "../types";
 
 /**
- * The balances of a group, at a glance.
+ * What you owe, and what the rest of the group owes.
  *
- * Two members face each other, which reads instantly and covers the common
- * household case. Beyond two, a face-off would hide people, so it falls back to
- * a list carrying the same colours.
+ * Answers "what do I do?" first, because that is what the card is opened for.
+ * Yours reads as a sentence — you owe Stéphane 30 — and the others follow
+ * underneath, as transfers.
+ *
+ * A transfer, never a net balance: "Antonin must pay 30" never said to whom,
+ * and someone owing two people at once has a total matching no transfer they
+ * could actually make. It only worked with two, where the balance is the
+ * transfer.
+ *
+ * With no member tied to the account looking — a tablet in the kitchen, an
+ * admin passing by — there is no "you", so it falls back to the group's own
+ * view: the face-off with two, the transfers beyond.
  */
 @customElement("se-balance-card")
 export class SeBalanceCard extends LitElement {
@@ -19,7 +28,13 @@ export class SeBalanceCard extends LitElement {
 
   @property({ attribute: false }) public balances: Balance[] = [];
 
+  /** Who pays whom: the shortest way to clear the balances above. */
+  @property({ attribute: false }) public settlements: Settlement[] = [];
+
   @property({ attribute: false }) public members: Member[] = [];
+
+  /** Which member you are, or null when the account is nobody in this group. */
+  @property({ type: String }) public meId: string | null = null;
 
   @property({ type: String }) public currency = "EUR";
 
@@ -68,6 +83,7 @@ export class SeBalanceCard extends LitElement {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        min-width: 0;
       }
 
       .verdict {
@@ -89,6 +105,90 @@ export class SeBalanceCard extends LitElement {
         font-size: 20px;
         border-left: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
         border-right: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+      }
+
+      .mine {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 16px 14px;
+      }
+
+      .sentence {
+        font-size: 15px;
+        line-height: 1.5;
+      }
+
+      .sentence .figure {
+        font-size: 18px;
+        margin: 0 2px;
+      }
+
+      /*
+       * The rest of the group, set back from yours: still there to read, never
+       * competing with the line you opened the card for.
+       */
+      .others {
+        border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        padding: 4px 0 4px;
+        font-size: 13px;
+      }
+
+      .others .party .avatar {
+        width: 24px;
+        height: 24px;
+        font-size: 10px;
+      }
+
+      .others .transfer {
+        padding: 8px 16px;
+      }
+
+      .others .transfer + .transfer {
+        border-top: none;
+      }
+
+      .others .name,
+      .others .amount {
+        font-size: 13px;
+      }
+
+      .transfer {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+      }
+
+      .transfer + .transfer {
+        border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+      }
+
+      /* Both names share what is left once the amount has its room. */
+      .party {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 1;
+        min-width: 0;
+      }
+
+      .party .avatar {
+        width: 28px;
+        height: 28px;
+        font-size: 11px;
+      }
+
+      .arrow {
+        color: var(--secondary-text-color);
+        flex: 0 0 auto;
+      }
+
+      .transfer .amount {
+        font-size: 15px;
+        font-weight: 600;
+        white-space: nowrap;
+        flex: 0 0 auto;
       }
 
       .row {
@@ -133,14 +233,107 @@ export class SeBalanceCard extends LitElement {
       return html`<div class="settled muted">${this.localize("balance_settled")}</div>`;
     }
 
-    // Two people owing each other is the whole story, so face them off. Judged
-    // on the non-zero balances rather than the member count: a member who left
-    // with nothing outstanding is still listed, and must not spoil the duel.
+    // Balances that do not settle would leave the card blank while money is
+    // plainly owed. Say what is owed rather than nothing.
+    if (this.settlements.length === 0) {
+      return html`<div>${active.map((balance) => this.renderRow(balance))}</div>`;
+    }
+
+    if (this.meId === null) {
+      return this.renderGroupView(active);
+    }
+
+    const mine = this.settlements.filter(
+      (settlement) =>
+        settlement.from_member_id === this.meId || settlement.to_member_id === this.meId,
+    );
+
+    const others = this.settlements.filter((settlement) => !mine.includes(settlement));
+
+    return html`
+      ${mine.length === 0
+        ? html`<div class="settled muted">${this.localize("you_are_settled")}</div>`
+        : mine.map((settlement) => this.renderMine(settlement))}
+      ${others.length === 0
+        ? nothing
+        : html`
+            <div class="others">
+              ${others.map((settlement) => this.renderTransfer(settlement))}
+            </div>
+          `}
+    `;
+  }
+
+  /** No "you" to speak from: show the group as it stands. */
+  private renderGroupView(active: Balance[]) {
+    // Judged on the non-zero balances rather than the member count: a member
+    // who left with nothing outstanding is still listed, and must not spoil the
+    // duel.
     if (active.length === 2) {
       return this.renderDuel(active);
     }
 
-    return html`<div>${active.map((balance) => this.renderRow(balance))}</div>`;
+    return html`
+      <div>${this.settlements.map((settlement) => this.renderTransfer(settlement))}</div>
+    `;
+  }
+
+  /** Your own line, as a sentence: the one thing you came to find out. */
+  private renderMine(settlement: Settlement) {
+    const translate = this.localize;
+    const owing = settlement.from_member_id === this.meId;
+    const otherId = owing ? settlement.to_member_id : settlement.from_member_id;
+    const other = this.memberById(otherId);
+    const name = other?.name ?? "?";
+
+    const figure = html`
+      <strong class=${`figure ${owing ? "negative" : "positive"}`}>
+        ${formatMoney(settlement.amount, this.currency, this.language)}
+      </strong>
+    `;
+
+    return html`
+      <div class="mine">
+        <div class="avatar" style=${`background:${other?.color ?? colorFor(otherId)}`}>
+          ${initials(name)}
+        </div>
+        <div class="sentence">
+          ${owing
+            ? html`${translate("you_owe")} ${figure} ${translate("to")} ${name}`
+            : html`${name} ${translate("owes_you")} ${figure}`}
+        </div>
+      </div>
+    `;
+  }
+
+  /** One transfer, as a gesture to make: who pays, to whom, how much. */
+  private renderTransfer(settlement: Settlement) {
+    return html`
+      <div class="transfer">
+        ${this.renderParty(settlement.from_member_id)}
+        <span class="arrow">→</span>
+        ${this.renderParty(settlement.to_member_id)}
+        <span class="amount">
+          ${formatMoney(settlement.amount, this.currency, this.language)}
+        </span>
+      </div>
+    `;
+  }
+
+  private renderParty(memberId: string) {
+    const member = this.memberById(memberId);
+    const name = member?.name ?? "?";
+
+    return html`
+      <span class="party" title=${name}>
+        <span
+          class="avatar"
+          style=${`background:${member?.color ?? colorFor(memberId)}`}
+          >${initials(name)}</span
+        >
+        <span class="name">${name}</span>
+      </span>
+    `;
   }
 
   private renderDuel(active: Balance[]) {

@@ -106,6 +106,19 @@ export const sharedStyles = css`
     font-size: 14px;
   }
 
+  /*
+   * What is about to happen, spelled out before it does. Outlined rather than
+   * filled like .error: nothing has gone wrong yet, and it must not be mistaken
+   * for something that has.
+   */
+  .warning {
+    border: 1px solid var(--error-color, #db4437);
+    color: var(--error-color, #db4437);
+    padding: 12px 16px;
+    border-radius: var(--se-radius);
+    font-size: 14px;
+  }
+
   button {
     font-family: inherit;
   }
