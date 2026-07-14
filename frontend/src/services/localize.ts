@@ -20,12 +20,6 @@ const EN = {
   save: "Save",
   create: "Create",
 
-  tab_overview: "Overview",
-  tab_balances: "Balances",
-  tab_expenses: "Expenses",
-  tab_settlements: "Reimbursements",
-  tab_statistics: "Stats",
-  tab_categories: "Categories",
 
   statistics: "Statistics",
   period_all: "All time",
@@ -45,12 +39,13 @@ const EN = {
   owes_you: "owes you",
   you_are_settled: "You are settled up.",
   detailed_balances: "See detailed balances",
-  recent_activity: "Recent activity",
   no_activity: "Nothing has happened yet.",
+  search: "Search an expense, a person…",
+  no_match: "Nothing matches.",
   a_settlement: "Reimbursement",
   see_all: "See all",
   action_add_expense: "Add expense",
-  no_settlements: "No reimbursement yet.",
+  fab_hint: "Add an expense — drag to reimburse instead",
 
   categories: "Categories",
   no_categories: "No category yet. A category carries a default split rule.",
@@ -83,9 +78,7 @@ const EN = {
   rule_shares: "Shares",
 
   balance_settled: "Everything is settled.",
-  owes: "owes",
   to: "to",
-  reimbursements: "To reimburse",
   settle_up: "Settle up",
 
   expenses: "Expenses",
@@ -134,7 +127,6 @@ const EN = {
   role_admin: "Admin",
   role_member: "Member",
 
-  payments: "Reimbursements made",
   new_payment: "Record a reimbursement",
   edit_payment: "Edit reimbursement",
   from_member: "From",
@@ -189,12 +181,6 @@ const FR: Record<Key, string> = {
   save: "Enregistrer",
   create: "Créer",
 
-  tab_overview: "Aperçu",
-  tab_balances: "Soldes",
-  tab_expenses: "Dépenses",
-  tab_settlements: "Remboursements",
-  tab_statistics: "Stats",
-  tab_categories: "Catégories",
 
   statistics: "Statistiques",
   period_all: "Tout",
@@ -214,12 +200,13 @@ const FR: Record<Key, string> = {
   owes_you: "te doit",
   you_are_settled: "Tu es à jour.",
   detailed_balances: "Voir les soldes détaillés",
-  recent_activity: "Dernière activité",
   no_activity: "Rien ne s'est encore passé.",
+  search: "Chercher une dépense, une personne…",
+  no_match: "Aucun résultat.",
   a_settlement: "Remboursement",
   see_all: "Voir tout",
   action_add_expense: "Ajouter dépense",
-  no_settlements: "Aucun remboursement pour l'instant.",
+  fab_hint: "Ajouter une dépense — glisser pour rembourser",
 
   categories: "Catégories",
   no_categories:
@@ -253,9 +240,7 @@ const FR: Record<Key, string> = {
   rule_shares: "Partage",
 
   balance_settled: "Tout est réglé.",
-  owes: "doit",
   to: "à",
-  reimbursements: "À rembourser",
   settle_up: "Rembourser",
 
   expenses: "Dépenses",
@@ -304,7 +289,6 @@ const FR: Record<Key, string> = {
   role_admin: "Administrateur",
   role_member: "Membre",
 
-  payments: "Remboursements effectués",
   new_payment: "Enregistrer un remboursement",
   edit_payment: "Modifier le remboursement",
   from_member: "De",

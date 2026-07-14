@@ -107,11 +107,42 @@ export class SeBalanceCard extends LitElement {
         border-right: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
       }
 
+      /*
+       * A line of the balance is also the way to clear it.
+       *
+       * Every one of them stands for a transfer someone has to make, so it
+       * opens the reimbursement filled in with itself: the figure you are
+       * looking at is the one you are about to pay.
+       */
+      .line-button {
+        width: 100%;
+        border: none;
+        background: none;
+        color: inherit;
+        font-family: inherit;
+        font-size: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .line-button:hover:not([disabled]) {
+        background: var(--secondary-background-color, #f6f6f6);
+      }
+
+      .line-button[disabled] {
+        cursor: default;
+      }
+
       .mine {
         display: flex;
         align-items: center;
         gap: 12px;
         padding: 8px 16px 14px;
+      }
+
+      .mine .chevron {
+        margin-left: auto;
+        color: var(--secondary-text-color);
       }
 
       .sentence {
@@ -279,6 +310,23 @@ export class SeBalanceCard extends LitElement {
     `;
   }
 
+  /**
+   * Ask to record the reimbursement a line stands for.
+   *
+   * The dialog opens filled in with it, which is the whole trick: the figure
+   * you are looking at is the one you are about to pay, so nothing needs
+   * retyping — and nothing can be mistyped either.
+   */
+  private settle(settlement: Settlement) {
+    this.dispatchEvent(
+      new CustomEvent("settle-up", {
+        detail: { settlement },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
   /** Your own line, as a sentence: the one thing you came to find out. */
   private renderMine(settlement: Settlement) {
     const translate = this.localize;
@@ -294,7 +342,11 @@ export class SeBalanceCard extends LitElement {
     `;
 
     return html`
-      <div class="mine">
+      <button
+        class="mine line-button"
+        title=${translate("settle_up")}
+        @click=${() => this.settle(settlement)}
+      >
         <div class="avatar" style=${`background:${other?.color ?? colorFor(otherId)}`}>
           ${initials(name)}
         </div>
@@ -303,21 +355,26 @@ export class SeBalanceCard extends LitElement {
             ? html`${translate("you_owe")} ${figure} ${translate("to")} ${name}`
             : html`${name} ${translate("owes_you")} ${figure}`}
         </div>
-      </div>
+        <span class="chevron">›</span>
+      </button>
     `;
   }
 
   /** One transfer, as a gesture to make: who pays, to whom, how much. */
   private renderTransfer(settlement: Settlement) {
     return html`
-      <div class="transfer">
+      <button
+        class="transfer line-button"
+        title=${this.localize("settle_up")}
+        @click=${() => this.settle(settlement)}
+      >
         ${this.renderParty(settlement.from_member_id)}
         <span class="arrow">→</span>
         ${this.renderParty(settlement.to_member_id)}
         <span class="amount">
           ${formatMoney(settlement.amount, this.currency, this.language)}
         </span>
-      </div>
+      </button>
     `;
   }
 
@@ -351,12 +408,21 @@ export class SeBalanceCard extends LitElement {
       ? [mine, active.find((balance) => balance !== mine)!]
       : [...active].sort((a, b) => b.amount - a.amount);
 
+    // With two balances there is exactly one transfer to make, and the duel is
+    // both sides of it: pressing it records that very reimbursement.
+    const only = this.settlements[0];
+
     return html`
-      <div class="duel">
+      <button
+        class="duel line-button"
+        title=${this.localize("settle_up")}
+        ?disabled=${only === undefined}
+        @click=${() => only && this.settle(only)}
+      >
         ${this.renderSide(first, false)}
         <div class="swap">⇄</div>
         ${this.renderSide(second, true)}
-      </div>
+      </button>
     `;
   }
 

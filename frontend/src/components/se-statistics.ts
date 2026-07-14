@@ -1,4 +1,4 @@
-import { LitElement, type PropertyValues, css, html, nothing } from "lit";
+import { LitElement, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
 import "./se-bar-chart";
@@ -17,6 +17,9 @@ const ALL = "all";
  *
  * Reimbursements are left out throughout: moving money between members is not
  * spending it, and counting it would say the household spent 100 on a 90 shop.
+ *
+ * Fetches once, on connect. Its dialog is built when opened and thrown away
+ * when closed, so that is every time it is looked at.
  */
 @customElement("se-statistics")
 export class SeStatistics extends LitElement {
@@ -33,16 +36,6 @@ export class SeStatistics extends LitElement {
 
   /** Which member you are, to point out your own share. */
   @property({ type: String }) public meId: string | null = null;
-
-  /**
-   * Bumped by the page whenever the group's data changed.
-   *
-   * These figures are fetched, not derived from what the page already holds, so
-   * nothing else would tell this component that an expense was just added under
-   * it. A number rather than remounting: remounting would lose the year you
-   * picked, and coming back to "All time" after every save is its own bug.
-   */
-  @property({ type: Number }) public version = 0;
 
   @property({ type: String }) public currency = "EUR";
 
@@ -141,14 +134,6 @@ export class SeStatistics extends LitElement {
   public connectedCallback(): void {
     super.connectedCallback();
     void this.load();
-  }
-
-  protected updated(changed: PropertyValues): void {
-    // Not on the first update: connectedCallback has just fetched. `get`
-    // returns the previous value, undefined only on that very first pass.
-    if (changed.has("version") && changed.get("version") !== undefined) {
-      void this.load();
-    }
   }
 
   protected render() {

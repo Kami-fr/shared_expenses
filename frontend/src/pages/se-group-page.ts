@@ -1,17 +1,17 @@
 import { LitElement, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import { keyed } from "lit/directives/keyed.js";
 
 import "../components/se-balance-card";
 import "../components/se-button";
+import "../components/se-field";
 import "../components/se-icon";
 import "../components/se-menu-button";
-import "../components/se-statistics";
 import "../dialogs/se-categories-dialog";
 import "../dialogs/se-expense-dialog";
 import "../dialogs/se-history-dialog";
 import "../dialogs/se-member-dialog";
 import "../dialogs/se-payment-dialog";
+import "../dialogs/se-statistics-dialog";
 import type { SharedExpensesApi } from "../services/api";
 import {
   colorFor,
@@ -31,9 +31,13 @@ import type {
   Settlement,
 } from "../types";
 
-type Tab = "overview" | "expenses" | "settlements" | "statistics";
-
-type Dialog = "expense" | "payment" | "member" | "categories" | "history";
+type Dialog =
+  | "expense"
+  | "payment"
+  | "member"
+  | "categories"
+  | "history"
+  | "statistics";
 
 /**
  * One thing that happened in the group, expense or payment alike.
@@ -46,19 +50,11 @@ type Activity =
   | { kind: "expense"; at: string; addedAt: string; expense: Expense }
   | { kind: "payment"; at: string; addedAt: string; payment: Payment };
 
-/** Left to right, as the bar shows them: a swipe has to follow the eye. */
-const TABS: Tab[] = ["overview", "expenses", "settlements", "statistics"];
+/** Below this, the list is short enough to read: a search box would be noise. */
+const SEARCH_FROM = 8;
 
-/** How far a finger travels before it means to change tab, in pixels. */
-const SWIPE_MIN = 60;
-
-/**
- * How much of the screen edge is left to Home Assistant.
- *
- * It opens its sidebar on a swipe from there, and losing the way out of the
- * panel would cost more than a tab change is worth.
- */
-const SWIPE_EDGE = 24;
+/** How far the plus is dragged before it means a reimbursement, in pixels. */
+const FAB_DRAG = 40;
 
 /** Detail of a group: balances, expenses and members. */
 @customElement("se-group-page")
@@ -100,7 +96,8 @@ export class SeGroupPage extends LitElement {
 
   @state() private result?: GroupBalances;
 
-  @state() private tab: Tab = "overview";
+  /** What is typed in the search box. Filters the list, never the balance. */
+  @state() private query = "";
 
   @state() private loading = true;
 
@@ -114,39 +111,24 @@ export class SeGroupPage extends LitElement {
 
   @state() private editedPayment?: Payment;
 
-  /** Where a swipe began. Plain state: no render depends on it mid-gesture. */
-  private swipeFrom?: { x: number; y: number };
+  /** Where the plus was pressed. The render does follow this one, via below. */
+  private fabFrom?: { x: number; y: number };
+
+  /** The plus is being dragged: it would record a reimbursement, not spend. */
+  @state() private addingPayment = false;
+
+  /** The drag already acted; swallow the click the browser sends after it. */
+  private draggedAway = false;
 
   @state() private busy = false;
 
   @state() private confirmingDelete = false;
 
-  /**
-   * Bumped on every successful load.
-   *
-   * The statistics fetch their own figures rather than deriving them from
-   * what is here, so they need telling when the data moved under them.
-   */
-  @state() private version = 0;
-
   public static styles = [
     sharedStyles,
     css`
-      /*
-       * A column filling the screen, so the gesture area does too.
-       *
-       * The swipe zone used to be as tall as whatever the tab held: below a
-       * short list the empty space belonged to the page, and a finger landing
-       * there found nothing listening. The height is handed down from here to
-       * .swipe so the emptiness is part of the tab, which is what it looks like.
-       *
-       * dvh, not vh: on a phone vh counts the address bar even while it is
-       * showing, which would leave the page scrolling by its height for nothing.
-       */
       :host {
-        display: flex;
-        flex-direction: column;
-        min-height: 100dvh;
+        display: block;
         position: relative;
       }
 
@@ -163,20 +145,10 @@ export class SeGroupPage extends LitElement {
         z-index: 3;
       }
 
-      /* Takes what the toolbar leaves, and passes it on to the stack. */
       .page {
         padding: 16px;
         max-width: 720px;
-        width: 100%;
         margin: 0 auto;
-        box-sizing: border-box;
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-      }
-
-      .page > .stack {
-        flex: 1;
       }
 
       .header {
@@ -188,65 +160,6 @@ export class SeGroupPage extends LitElement {
         padding: 8px 16px;
         min-height: 64px;
         box-sizing: border-box;
-      }
-
-      .tabs {
-        display: flex;
-        border-bottom: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
-      }
-
-      /*
-       * Carries the gesture, and the layout the tab content had when it was a
-       * child of the stack itself: a wrapper must not cost the spacing.
-       *
-       * touch-action is what makes the gesture arrive at all. Left to itself a
-       * browser claims a sideways drag for its own back-and-forward navigation,
-       * and once it does it cancels the touch rather than ending it — so
-       * touchend never fires and the tab never changes. pan-y hands it the
-       * vertical scroll and keeps the horizontal; pinch-zoom stays, because
-       * taking zoom away from someone is not a trade worth making for a tab.
-       */
-      .swipe {
-        display: flex;
-        flex-direction: column;
-        gap: var(--se-gap);
-        touch-action: pan-y pinch-zoom;
-        /* Down to the bottom of the screen: the empty part swipes too. */
-        flex: 1;
-      }
-
-      .tabs button {
-        flex: 1;
-        background: none;
-        border: none;
-        border-bottom: 2px solid transparent;
-        padding: 12px 4px;
-        font-size: 14px;
-        color: var(--secondary-text-color);
-        cursor: pointer;
-      }
-
-      .tabs button[aria-selected="true"] {
-        color: var(--primary-color, #03a9f4);
-        border-bottom-color: var(--primary-color, #03a9f4);
-        font-weight: 500;
-      }
-
-      /*
-       * The whole activity, scrolling inside the card.
-       *
-       * Capped at half the screen so the balance above and the tabs stay in
-       * view: the overview would otherwise become a list you scroll past to
-       * reach anything else. A short list simply does not fill it — max-height
-       * asks for nothing.
-       *
-       * overscroll-behavior keeps a flick at the end of the list from carrying
-       * on into the page behind it.
-       */
-      .scroller {
-        max-height: 50vh;
-        overflow-y: auto;
-        overscroll-behavior: contain;
       }
 
       /*
@@ -305,18 +218,6 @@ export class SeGroupPage extends LitElement {
 
       .chevron {
         color: var(--secondary-text-color);
-      }
-
-      .settlement {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 12px 16px;
-        font-size: 14px;
-      }
-
-      .settlement + .settlement {
-        border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
       }
 
       .titles {
@@ -385,7 +286,36 @@ export class SeGroupPage extends LitElement {
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: transform 0.12s ease;
+        transition: transform 0.12s ease, background 0.12s ease;
+        /*
+         * The drag is the button's own: without this the browser would scroll
+         * the page under the finger and cancel the pointer, and the plus would
+         * only ever add an expense.
+         */
+        touch-action: none;
+      }
+
+      /* Dragged: it says what it would do now, before the finger lifts. */
+      .fab.reimbursing {
+        background: var(--se-positive);
+        transform: scale(1.08);
+      }
+
+      .fab-hint {
+        position: fixed;
+        right: 20px;
+        bottom: 88px;
+        z-index: 2;
+        padding: 8px 14px;
+        border-radius: 16px;
+        background: var(--se-positive);
+        color: #fff;
+        font-size: 13px;
+        font-weight: 500;
+        white-space: nowrap;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        /* Never under the finger that is dragging past it. */
+        pointer-events: none;
       }
 
       .fab:hover {
@@ -474,13 +404,6 @@ export class SeGroupPage extends LitElement {
         font-size: 13px;
       }
 
-      .section-head {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 12px 16px 4px;
-      }
-
       .settled-amount {
         color: var(--se-positive);
       }
@@ -541,31 +464,29 @@ export class SeGroupPage extends LitElement {
 
           ${this.error ? html`<div class="error">${this.error}</div>` : nothing}
 
-          <div class="tabs" role="tablist">
-            ${this.renderTab("overview", translate("tab_overview"))}
-            ${this.renderTab("expenses", translate("tab_expenses"))}
-            ${this.renderTab("settlements", translate("tab_settlements"))}
-            ${this.renderTab("statistics", translate("tab_statistics"))}
-          </div>
-
-          <div
-            class="swipe"
-            @touchstart=${this.startSwipe}
-            @touchend=${this.endSwipe}
-            @touchcancel=${this.cancelSwipe}
-          >
-            ${this.renderTabContent()}
-          </div>
+          ${this.renderHome()}
         </div>
       </div>
 
+      ${this.addingPayment
+        ? html`<div class="fab-hint">${translate("new_payment")}</div>`
+        : nothing}
       <button
-        class="fab"
-        aria-label=${this.addLabel()}
-        title=${this.addLabel()}
-        @click=${this.add}
+        class=${`fab ${this.addingPayment ? "reimbursing" : ""}`}
+        aria-label=${translate("action_add_expense")}
+        title=${translate("fab_hint")}
+        @click=${this.fabClick}
+        @pointerdown=${this.fabDown}
+        @pointermove=${this.fabMove}
+        @pointerup=${this.fabUp}
+        @pointercancel=${this.fabCancel}
       >
-        <se-icon plain .icon=${"mdi:plus"} fallback="+" .size=${26}></se-icon>
+        <se-icon
+          plain
+          .icon=${this.addingPayment ? "mdi:swap-horizontal" : "mdi:plus"}
+          fallback=${this.addingPayment ? "⇄" : "+"}
+          .size=${26}
+        ></se-icon>
       </button>
 
       ${this.renderDialog()}
@@ -648,6 +569,9 @@ export class SeGroupPage extends LitElement {
       <button role="menuitem" @click=${() => this.openDialog("categories")}>
         ${translate("categories")}
       </button>
+      <button role="menuitem" @click=${() => this.openDialog("statistics")}>
+        ${translate("statistics")}
+      </button>
       <button role="menuitem" @click=${() => this.openDialog("history")}>
         ${translate("group_history")}
       </button>
@@ -718,58 +642,14 @@ export class SeGroupPage extends LitElement {
     }
   };
 
-  private renderTab(tab: Tab, label: string) {
-    return html`
-      <button role="tab" aria-selected=${this.tab === tab} @click=${() => (this.tab = tab)}>
-        ${label}
-      </button>
-    `;
-  }
-
-  private renderTabContent() {
-    if (this.tab === "overview") {
-      return this.renderOverview();
-    }
-
-    if (this.tab === "expenses") {
-      return this.renderExpenses();
-    }
-
-    if (this.tab === "statistics") {
-      return this.renderStatistics();
-    }
-
-    return this.renderSettlements();
-  }
-
   /**
-   * Keyed on the group, so switching group rebuilds it.
+   * The group, on one page: what is owed, then everything that happened.
    *
-   * It fetches once, on connect: without the key it would keep the figures of
-   * the group you just left, which is worse than a moment of loading.
+   * Expenses and reimbursements were on separate tabs, so a debt and the
+   * payment clearing it never met, and the overview was a third view showing a
+   * truncated copy of both. One list, scrolling with the page.
    */
-  private renderStatistics() {
-    return keyed(
-      this.groupId,
-      html`
-        <se-statistics
-          .api=${this.api}
-          .localize=${this.localize}
-          .groupId=${this.groupId}
-          .members=${this.pastMembers}
-          .categories=${this.categories}
-          .meId=${this.meId()}
-          .version=${this.version}
-          .currency=${this.group!.currency}
-          .language=${this.language}
-        ></se-statistics>
-      `,
-    );
-  }
-
-  private renderOverview() {
-    const translate = this.localize;
-
+  private renderHome() {
     return html`
       <se-balance-card
         .localize=${this.localize}
@@ -779,15 +659,57 @@ export class SeGroupPage extends LitElement {
         .meId=${this.meId()}
         .currency=${this.group!.currency}
         .language=${this.language}
+        @settle-up=${this.settleUp}
       ></se-balance-card>
 
-      <div class="card">
-        <div class="section-head">
-          <h3>${translate("recent_activity")}</h3>
+      ${this.renderSearch()} ${this.renderActivityCard()}
+    `;
+  }
+
+  /**
+   * Shown once there is enough to look for something in.
+   *
+   * Judged on everything the group holds, never on what is left after
+   * filtering: the box would vanish under your fingers the moment you narrowed
+   * it down, taking your own query with it.
+   */
+  private renderSearch() {
+    if (this.activity().length < SEARCH_FROM) {
+      return nothing;
+    }
+
+    return html`
+      <se-field
+        .value=${this.query}
+        .label=${""}
+        placeholder=${this.localize("search")}
+        @value-changed=${(e: CustomEvent) => (this.query = e.detail.value)}
+      ></se-field>
+    `;
+  }
+
+  private renderActivityCard() {
+    const entries = this.matching();
+
+    if (entries.length === 0) {
+      return html`
+        <div class="card">
+          <div class="empty">
+            ${this.query.trim()
+              ? this.localize("no_match")
+              : this.localize("no_activity")}
+          </div>
         </div>
-        <!-- Everything, scrolling within the card rather than pushing the
-             page down: the balance above stays put while you look back. -->
-        <div class="scroller">${this.renderActivity()}</div>
+      `;
+    }
+
+    return html`
+      <div class="card">
+        ${entries.map((entry) =>
+          entry.kind === "expense"
+            ? this.renderExpense(entry.expense)
+            : this.renderPayment(entry.payment),
+        )}
       </div>
     `;
   }
@@ -822,40 +744,6 @@ export class SeGroupPage extends LitElement {
     return entries.sort(
       (a, b) => b.at.localeCompare(a.at) || b.addedAt.localeCompare(a.addedAt),
     );
-  }
-
-  private renderActivity() {
-    const entries = this.activity();
-
-    if (entries.length === 0) {
-      return html`<div class="empty">${this.localize("no_activity")}</div>`;
-    }
-
-    return entries.map((entry) =>
-      entry.kind === "expense"
-        ? this.renderExpense(entry.expense)
-        : this.renderPayment(entry.payment),
-    );
-  }
-
-  private renderSettlements() {
-    const translate = this.localize;
-
-    return html`
-      <div class="card">
-        <h3 class="section-title">${translate("reimbursements")}</h3>
-        ${(this.result?.settlements ?? []).length === 0
-          ? html`<div class="empty">${translate("balance_settled")}</div>`
-          : this.result!.settlements.map((s) => this.renderSettlement(s))}
-      </div>
-
-      <div class="card">
-        <h3 class="section-title">${translate("payments")}</h3>
-        ${this.payments.length === 0
-          ? html`<div class="empty">${translate("no_settlements")}</div>`
-          : this.payments.map((payment) => this.renderPayment(payment))}
-      </div>
-    `;
   }
 
   private renderPayment(payment: Payment) {
@@ -893,40 +781,6 @@ export class SeGroupPage extends LitElement {
 
 
 
-
-  private renderSettlement(settlement: Settlement) {
-    const translate = this.localize;
-    const from = this.memberById(settlement.from_member_id);
-    const to = this.memberById(settlement.to_member_id);
-
-    return html`
-      <div class="settlement">
-        <span>
-          <strong>${from?.name ?? "?"}</strong> ${translate("owes")}
-          <strong class="amount">
-            ${formatMoney(settlement.amount, this.group!.currency, this.language)}
-          </strong>
-          ${translate("to")} <strong>${to?.name ?? "?"}</strong>
-        </span>
-        <span class="spacer"></span>
-        <se-button variant="text" @click=${() => this.openPayment(settlement)}>
-          ${translate("settle_up")}
-        </se-button>
-      </div>
-    `;
-  }
-
-  private renderExpenses() {
-    const translate = this.localize;
-
-    return html`
-      <div class="card">
-        ${this.expenses.length === 0
-          ? html`<div class="empty">${translate("no_expenses")}</div>`
-          : this.expenses.map((expense) => this.renderExpense(expense))}
-      </div>
-    `;
-  }
 
   private renderExpense(expense: Expense) {
     const translate = this.localize;
@@ -1054,6 +908,21 @@ export class SeGroupPage extends LitElement {
           @payment-saved=${this.handleChanged}
           @payment-deleted=${this.handleChanged}
         ></se-payment-dialog>
+      `;
+    }
+
+    if (this.dialog === "statistics") {
+      return html`
+        <se-statistics-dialog
+          .api=${this.api}
+          .localize=${this.localize}
+          .group=${this.group}
+          .members=${this.pastMembers}
+          .categories=${this.categories}
+          .meId=${this.meId()}
+          .language=${this.language}
+          @dialog-cancelled=${this.closeDialog}
+        ></se-statistics-dialog>
       `;
     }
 
@@ -1202,7 +1071,6 @@ export class SeGroupPage extends LitElement {
       this.expenses = expenses;
       this.payments = payments;
       this.result = result;
-      this.version += 1;
     } catch (error) {
       this.error = errorMessage(error, this.localize);
 
@@ -1219,76 +1087,127 @@ export class SeGroupPage extends LitElement {
   }
 
   /**
-   * Change tab on a swipe, leaving a scroll alone.
+   * The plus adds an expense, and is dragged to reimburse instead.
    *
-   * Measured from where the finger started to where it left: following it live
-   * would mean fighting the browser for the vertical scroll on every move.
-   * Two conditions keep the two gestures apart — far enough sideways, and
-   * decidedly more sideways than down.
+   * An expense is what you come back to enter; a reimbursement happens a few
+   * times a month. Making the common one cost a tap and the rare one a gesture
+   * beats a menu that charges both of them two taps.
+   *
+   * Any direction away from the corner counts, and generously: at the bottom
+   * right of a phone the room to move is up and left, and a thumb is not a
+   * pointing device.
    */
-  private startSwipe = (event: TouchEvent) => {
-    const touch = event.touches[0];
+  private fabDown = (event: PointerEvent) => {
+    // Capture, or a drag leaving the button would never report its end and the
+    // plus would sit there thinking it is still being dragged.
+    (event.target as HTMLElement).setPointerCapture(event.pointerId);
 
-    // Pinching, or starting where Home Assistant expects its own gesture.
-    if (event.touches.length !== 1 || touch.clientX < SWIPE_EDGE) {
-      this.swipeFrom = undefined;
-      return;
-    }
-
-    this.swipeFrom = { x: touch.clientX, y: touch.clientY };
+    this.fabFrom = { x: event.clientX, y: event.clientY };
+    this.addingPayment = false;
   };
 
-  private endSwipe = (event: TouchEvent) => {
-    const from = this.swipeFrom;
-
-    this.swipeFrom = undefined;
-
-    if (!from) {
+  private fabMove = (event: PointerEvent) => {
+    if (!this.fabFrom) {
       return;
     }
 
-    const touch = event.changedTouches[0];
-    const dx = touch.clientX - from.x;
-    const dy = touch.clientY - from.y;
+    const dx = event.clientX - this.fabFrom.x;
+    const dy = event.clientY - this.fabFrom.y;
 
-    if (Math.abs(dx) < SWIPE_MIN || Math.abs(dx) < Math.abs(dy) * 2) {
+    // Up or left only: a tap drifts a little, and it must never buy the wrong
+    // dialog. Away from the corner is a move nobody makes by accident.
+    this.addingPayment = dy < -FAB_DRAG || dx < -FAB_DRAG;
+  };
+
+  private fabUp = () => {
+    if (!this.fabFrom) {
       return;
     }
 
-    const next = TABS.indexOf(this.tab) + (dx < 0 ? 1 : -1);
+    const payment = this.addingPayment;
 
-    // Stop at the ends rather than wrapping: the tabs are a row, not a loop.
-    if (next >= 0 && next < TABS.length) {
-      this.tab = TABS[next];
+    this.fabFrom = undefined;
+    this.addingPayment = false;
+
+    if (payment) {
+      // A click follows a pointerup, and it would open the expense on top.
+      this.draggedAway = true;
+      this.openPayment();
     }
   };
 
-  private cancelSwipe = () => {
-    this.swipeFrom = undefined;
+  private fabCancel = () => {
+    this.fabFrom = undefined;
+    this.addingPayment = false;
   };
 
   /**
-   * What the plus adds, which is whatever the tab you are on is about.
+   * A plain press: the expense.
    *
-   * It is the only button of the page now: the tabs used to end on one of their
-   * own, saying the same thing twice, and the second one had to be scrolled to.
-   * On the overview, where both belong, an expense wins — it is the one you
-   * come back to enter.
+   * Left to the click rather than done on pointerup, so that pressing Enter on
+   * the focused button works too — a keyboard raises no pointer at all.
    */
-  private add = () => {
-    if (this.tab === "settlements") {
-      this.openPayment();
+  private fabClick = () => {
+    if (this.draggedAway) {
+      this.draggedAway = false;
       return;
     }
 
     this.openExpense();
   };
 
-  private addLabel(): string {
-    return this.tab === "settlements"
-      ? this.localize("new_payment")
-      : this.localize("action_add_expense");
+  /**
+   * The activity, filtered by what is typed.
+   *
+   * Matched on everything a row shows — title, description, category, the
+   * people — because that is what someone types: they look for "carrefour",
+   * "antonin" or "essence" without thinking about which field it is.
+   *
+   * The balance above never moves with it: it is the group's, not the list's,
+   * and a total that shrank as you typed would be a lie.
+   */
+  private matching(): Activity[] {
+    const needle = this.query.trim().toLowerCase();
+    const entries = this.activity();
+
+    if (!needle) {
+      return entries;
+    }
+
+    return entries.filter((entry) => this.haystack(entry).includes(needle));
   }
+
+  private haystack(entry: Activity): string {
+    const nameOf = (id: string) => this.memberById(id)?.name ?? "";
+
+    if (entry.kind === "payment") {
+      return [
+        this.localize("a_settlement"),
+        entry.payment.description ?? "",
+        nameOf(entry.payment.from_member_id),
+        nameOf(entry.payment.to_member_id),
+      ]
+        .join(" ")
+        .toLowerCase();
+    }
+
+    const expense = entry.expense;
+    const category = this.categories.find((c) => c.id === expense.category_id);
+
+    return [
+      expense.title,
+      expense.description ?? "",
+      category?.name ?? "",
+      nameOf(expense.paid_by_member_id),
+    ]
+      .join(" ")
+      .toLowerCase();
+  }
+
+  /** Record the reimbursement a balance line stands for, filled in with it. */
+  private settleUp = (event: CustomEvent) => {
+    this.openPayment(event.detail.settlement);
+  };
 
   /** What the journal can still send you to: everything not deleted. */
   private openable(): Set<string> {

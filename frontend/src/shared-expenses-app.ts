@@ -11,7 +11,13 @@ import type { HomeAssistant, Route } from "./types";
  * Root of the Shared Expenses panel.
  *
  * Home Assistant sets `hass`, `narrow`, `route` and `panel` on this element.
- * Navigation is kept in the URL so that the back button works.
+ *
+ * The panel occupies a single history entry. Where you are inside it is kept in
+ * the URL, so a link still lands where it points and a reload comes back to the
+ * same place — but moving between groups replaces that entry rather than
+ * stacking new ones. Back therefore leaves the panel, wherever you are in it,
+ * instead of walking you through the groups you happened to open: the group
+ * switcher in the header is the way between them, and it is the only one.
  */
 @customElement("shared-expenses-panel")
 export class SharedExpensesPanel extends LitElement {
@@ -89,10 +95,10 @@ export class SharedExpensesPanel extends LitElement {
   }
 
   /**
-   * Go back to where you were.
+   * Open where the address says, or where you last were.
    *
-   * The URL always wins, so a link or the back button still lands where it
-   * points. Only an unqualified visit falls back to the last group opened.
+   * The URL always wins, so a link or a reload lands where it points. Only an
+   * unqualified visit falls back to the last group opened.
    */
   private syncFromRoute = () => {
     const path = this.route?.path ?? window.location.pathname;
@@ -115,7 +121,7 @@ export class SharedExpensesPanel extends LitElement {
 
     if (remembered) {
       this.groupId = remembered;
-      this.pushPath(`/group/${remembered}`);
+      this.replacePath(`/group/${remembered}`);
       return;
     }
 
@@ -128,12 +134,12 @@ export class SharedExpensesPanel extends LitElement {
     this.groupId = groupId;
 
     rememberGroup(groupId);
-    this.pushPath(`/group/${groupId}`);
+    this.replacePath(`/group/${groupId}`);
   };
 
   private goToDashboard = () => {
     this.groupId = undefined;
-    this.pushPath("");
+    this.replacePath("");
   };
 
   /**
@@ -147,10 +153,19 @@ export class SharedExpensesPanel extends LitElement {
     this.goToDashboard();
   };
 
-  private pushPath(suffix: string) {
+  /**
+   * Say where you are without adding a step to go back through.
+   *
+   * replaceState, never pushState: every group opened used to leave an entry
+   * behind, so back walked you through them and out via the group list. The
+   * URL still describes where you are — a link, a reload, a shared address all
+   * land right — it simply is not a trail.
+   */
+  private replacePath(suffix: string) {
     const prefix = this.route?.prefix ?? window.location.pathname.split("/")[1];
+    const base = prefix.startsWith("/") ? prefix : `/${prefix}`;
 
-    history.pushState(null, "", `${prefix.startsWith("/") ? prefix : `/${prefix}`}${suffix}`);
+    history.replaceState(null, "", `${base}${suffix}`);
   }
 }
 
