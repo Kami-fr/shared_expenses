@@ -1,11 +1,12 @@
 import { resolve } from "node:path";
 import { defineConfig } from "vite";
 
-// The panel is served by Home Assistant as a single ES module from the `www/`
-// folder of the integration, at /shared_expenses_frontend/index.js.
+// This project lives outside the integration on purpose: only its output ships.
+// Home Assistant serves the bundle as a single ES module from the `www/` folder
+// of the integration, at /shared_expenses_frontend/index.js.
 export default defineConfig({
   build: {
-    outDir: resolve(__dirname, "../www"),
+    outDir: resolve(__dirname, "../custom_components/shared_expenses/www"),
     // `www/` is versioned and holds a .gitkeep: never wipe it.
     emptyOutDir: false,
     target: "esnext",

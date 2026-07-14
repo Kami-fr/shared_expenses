@@ -17,6 +17,11 @@ from custom_components.shared_expenses.manager import (
 )
 from custom_components.shared_expenses.storage.database import Database
 
+# `pytest-homeassistant-custom-component` is deliberately not used: it pulls in
+# `homeassistant.runner`, which imports the Unix-only `fcntl`, so it cannot be
+# installed here without breaking collection of every test. The WebSocket tests
+# drive the real schemas and handlers directly instead.
+
 
 class FakeConfig:
     """Minimal stand-in for `hass.config`."""

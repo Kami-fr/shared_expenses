@@ -2,6 +2,7 @@ import { LitElement, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
 import "../components/se-button";
+import "../dialogs/se-category-dialog";
 import "../dialogs/se-expense-dialog";
 import "../dialogs/se-member-dialog";
 import "../dialogs/se-payment-dialog";
@@ -11,7 +12,7 @@ import { errorMessage, type Localizer } from "../services/localize";
 import { sharedStyles } from "../styles/shared";
 import type { Category, Expense, Group, GroupBalances, Member, Settlement } from "../types";
 
-type Tab = "balances" | "expenses" | "members";
+type Tab = "balances" | "expenses" | "members" | "categories";
 
 /** Detail of a group: balances, expenses and members. */
 @customElement("se-group-page")
@@ -40,9 +41,11 @@ export class SeGroupPage extends LitElement {
 
   @state() private error?: string;
 
-  @state() private dialog?: "expense" | "payment" | "member";
+  @state() private dialog?: "expense" | "payment" | "member" | "category";
 
   @state() private prefill?: Settlement;
+
+  @state() private editedCategory?: Category;
 
   public static styles = [
     sharedStyles,
@@ -112,6 +115,24 @@ export class SeGroupPage extends LitElement {
         font-weight: 500;
       }
 
+      .item-button {
+        border: none;
+        background: none;
+        color: inherit;
+        width: 100%;
+        text-align: left;
+        cursor: pointer;
+        font-family: inherit;
+      }
+
+      .item-button:hover {
+        background: var(--secondary-background-color, #f6f6f6);
+      }
+
+      .chevron {
+        color: var(--secondary-text-color);
+      }
+
       .settlement {
         display: flex;
         align-items: center;
@@ -164,6 +185,7 @@ export class SeGroupPage extends LitElement {
           ${this.renderTab("balances", translate("tab_balances"))}
           ${this.renderTab("expenses", translate("tab_expenses"))}
           ${this.renderTab("members", translate("tab_members"))}
+          ${this.renderTab("categories", translate("tab_categories"))}
         </div>
 
         ${this.renderTabContent()}
@@ -190,7 +212,57 @@ export class SeGroupPage extends LitElement {
       return this.renderExpenses();
     }
 
+    if (this.tab === "categories") {
+      return this.renderCategories();
+    }
+
     return this.renderMembers();
+  }
+
+  private renderCategories() {
+    const translate = this.localize;
+
+    return html`
+      <div class="card">
+        ${this.categories.length === 0
+          ? html`<div class="empty">${translate("no_categories")}</div>`
+          : this.categories.map((category) => this.renderCategory(category))}
+      </div>
+
+      <div class="actions">
+        <se-button @click=${() => this.openCategory()}>
+          ${translate("new_category")}
+        </se-button>
+      </div>
+    `;
+  }
+
+  private renderCategory(category: Category) {
+    return html`
+      <button class="item item-button" @click=${() => this.openCategory(category)}>
+        <div class="avatar" style=${`background:${category.color ?? colorFor(category.id)}`}>
+          ${category.name.charAt(0).toUpperCase()}
+        </div>
+        <div class="info">
+          <div class="title">${category.name}</div>
+          <div class="muted">${this.describeRule(category)}</div>
+        </div>
+        <span class="chevron">›</span>
+      </button>
+    `;
+  }
+
+  /** Summarize a split rule in one line, for the category list. */
+  private describeRule(category: Category): string {
+    const rule = category.split_rule;
+
+    if (!rule || rule.cap === null) {
+      return this.localize("rule_equal");
+    }
+
+    const cap = formatMoney(rule.cap, this.group!.currency, this.language);
+
+    return `${this.localize("rule_capped")} ${cap}`;
   }
 
   private renderBalances() {
@@ -364,6 +436,21 @@ export class SeGroupPage extends LitElement {
       `;
     }
 
+    if (this.dialog === "category") {
+      return html`
+        <se-category-dialog
+          .api=${this.api}
+          .localize=${this.localize}
+          .group=${this.group}
+          .members=${this.members}
+          .category=${this.editedCategory}
+          .language=${this.language}
+          @dialog-cancelled=${this.closeDialog}
+          @category-saved=${this.handleChanged}
+        ></se-category-dialog>
+      `;
+    }
+
     return html`
       <se-member-dialog
         .api=${this.api}
@@ -408,9 +495,15 @@ export class SeGroupPage extends LitElement {
     this.dialog = "payment";
   }
 
+  private openCategory(category?: Category) {
+    this.editedCategory = category;
+    this.dialog = "category";
+  }
+
   private closeDialog = () => {
     this.dialog = undefined;
     this.prefill = undefined;
+    this.editedCategory = undefined;
   };
 
   private handleChanged = () => {

@@ -25,12 +25,20 @@
 - [x] WebSocket API (27 commands)
 - [x] Panel registration
 - [x] Lit 3 frontend: dashboard, group detail, dialogs
+- [x] Category management and split rule editor in the panel
 
 ## Sprint 5 — Quality
 
 - [x] Unit tests for the helpers
 - [x] Manager tests against SQLite
-- [ ] WebSocket tests with `pytest-homeassistant-custom-component`
+- [x] Panel tests binding the real Home Assistant signatures
+- [ ] WebSocket tests
+
+  `pytest-homeassistant-custom-component` cannot be installed on Windows:
+  it pulls in `homeassistant.runner`, which imports the Unix-only `fcntl`,
+  and its pytest11 entry point then breaks collection of every test. Needs a
+  Linux environment, or CI only.
+
 - [ ] Frontend tests
 
 ## Sprint 6 — Release

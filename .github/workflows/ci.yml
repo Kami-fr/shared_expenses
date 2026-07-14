@@ -36,7 +36,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: custom_components/shared_expenses/frontend
+        working-directory: frontend
 
     steps:
       - uses: actions/checkout@v4
@@ -45,7 +45,7 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: custom_components/shared_expenses/frontend/package-lock.json
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -58,9 +58,10 @@ jobs:
 
       - name: Fail if the committed bundle is stale
         run: |
-          if ! git diff --quiet -- ../www/index.js; then
+          bundle=../custom_components/shared_expenses/www/index.js
+          if ! git diff --quiet -- "$bundle"; then
             echo "::error::www/index.js is out of date. Run the frontend build and commit the result."
-            git diff --stat -- ../www/index.js
+            git diff --stat -- "$bundle"
             exit 1
           fi
 

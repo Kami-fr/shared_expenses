@@ -39,6 +39,9 @@ class FakeHass:
         self.http = FakeHttp()
         self.bus = FakeBus()
 
+    async def async_add_executor_job(self, func, *args):
+        return func(*args)
+
 
 def test_register_panel_matches_the_home_assistant_signature():
     signature = inspect.signature(panel_custom.async_register_panel)
@@ -62,6 +65,46 @@ async def test_the_bundle_is_where_the_panel_says_it_is():
     """A missing bundle would leave the panel loading forever."""
 
     assert (panel.WWW_PATH / panel.BUNDLE_NAME).is_file()
+
+
+async def test_the_module_url_is_versioned():
+    """A stable URL kept serving the previous panel from the browser cache."""
+
+    url = panel._module_url()
+
+    assert url.startswith(f"{panel.STATIC_URL}/{panel.BUNDLE_NAME}?v=")
+
+
+async def test_the_module_url_changes_when_the_bundle_changes(tmp_path, monkeypatch):
+    """This is the whole point: an update must invalidate the cache by itself."""
+
+    bundle = tmp_path / panel.BUNDLE_NAME
+    bundle.write_text("first", encoding="utf-8")
+
+    monkeypatch.setattr(panel, "WWW_PATH", tmp_path)
+
+    import os
+
+    os.utime(bundle, (1_000_000, 1_000_000))
+    before = panel._module_url()
+
+    bundle.write_text("second", encoding="utf-8")
+    os.utime(bundle, (2_000_000, 2_000_000))
+    after = panel._module_url()
+
+    assert before != after
+
+
+async def test_a_missing_bundle_still_registers_the_panel(tmp_path, monkeypatch):
+    """Better a visibly broken panel than a silent setup failure."""
+
+    monkeypatch.setattr(panel, "WWW_PATH", tmp_path)
+
+    hass = FakeHass()
+
+    await panel.async_register_panel(hass)
+
+    assert panel.PANEL_URL in hass.data["frontend_panels"]
 
 
 async def test_reloading_does_not_duplicate_the_static_route():

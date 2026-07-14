@@ -13,8 +13,11 @@ htmlcov/
 config/
 
 # Frontend
+#
+# The Vite project lives in frontend/, outside the integration: only its output
+# ships. custom_components/shared_expenses/ then holds nothing but what runs.
 node_modules/
-custom_components/shared_expenses/frontend/dist/
+frontend/dist/
 
 # The built panel is committed on purpose: HACS ships the repository as is and
 # never runs a build, so custom_components/shared_expenses/www/index.js must be
