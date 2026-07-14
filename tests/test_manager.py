@@ -693,6 +693,55 @@ async def test_a_new_member_stays_out_of_a_past_expense(
     assert clara.id not in replayed
 
 
+async def test_an_equal_split_is_remembered_as_one(manager: SharedExpensesManager):
+    """Reopening must show "the whole expense", not the amounts spelled out."""
+
+    group = await make_group(manager)
+    antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
+    owner = await owner_of(manager, group.id)
+
+    # What the dialog sends for a plain equal split: the resolved shares, and
+    # the rule as filled in.
+    expense = await manager.create_expense(
+        group_id=group.id,
+        title="Restaurant",
+        amount=5000,
+        paid_by_member_id=owner.id,
+        expense_date=NOW,
+        shares=[share_input(owner.id, 2500), share_input(antonin.id, 2500)],
+        split_rule=SplitRule(),
+    )
+
+    rule = (await manager.get_expense(expense.id)).split_rule
+
+    assert rule is not None
+    assert rule.envelope is None
+    assert set(rule.participants) == {owner.id, antonin.id}
+
+
+async def test_explicit_shares_still_carry_their_rule(manager: SharedExpensesManager):
+    """The shares are the truth, but the rule has to travel with them."""
+
+    group = await make_group(manager)
+    antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
+    owner = await owner_of(manager, group.id)
+
+    expense = await manager.create_expense(
+        group_id=group.id,
+        title="Courses",
+        amount=8542,
+        paid_by_member_id=owner.id,
+        expense_date=NOW,
+        shares=[share_input(owner.id, 8042), share_input(antonin.id, 500)],
+        split_rule=SplitRule(envelope=1000),
+    )
+
+    reloaded = await manager.get_expense(expense.id)
+
+    assert reloaded.split_rule.envelope == 1000
+    assert await shares_of(manager, expense.id) == {owner.id: 8042, antonin.id: 500}
+
+
 async def test_a_payment_to_oneself_is_refused(manager: SharedExpensesManager):
     group = await make_group(manager)
     owner = (await manager.list_group_members(group.id))[0]

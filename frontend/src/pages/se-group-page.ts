@@ -40,6 +40,11 @@ export class SeGroupPage extends LitElement {
 
   @state() private group?: Group;
 
+  /** Every group the user belongs to, for the switcher. */
+  @state() private groups: Group[] = [];
+
+  @state() private menu?: "groups" | "more";
+
   /** Members still in the group: who can be picked for anything new. */
   @state() private members: Member[] = [];
 
@@ -75,20 +80,17 @@ export class SeGroupPage extends LitElement {
 
   @state() private busy = false;
 
+  @state() private confirmingDelete = false;
+
   public static styles = [
     sharedStyles,
     css`
       :host {
         display: block;
+        position: relative;
         padding: 16px;
         max-width: 720px;
         margin: 0 auto;
-      }
-
-      .header {
-        display: flex;
-        align-items: center;
-        gap: 12px;
       }
 
       .back {
@@ -180,6 +182,121 @@ export class SeGroupPage extends LitElement {
         margin-top: 8px;
       }
 
+      .header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .titles {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .titles h1 {
+        font-size: 18px;
+      }
+
+      .switcher {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: none;
+        border: none;
+        padding: 2px 0 0;
+        cursor: pointer;
+        color: var(--secondary-text-color);
+        font-family: inherit;
+        font-size: 15px;
+        max-width: 100%;
+      }
+
+      .switcher .current {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .switcher .caret {
+        font-size: 12px;
+      }
+
+      .icon {
+        background: none;
+        border: none;
+        color: var(--primary-text-color);
+        font-size: 18px;
+        cursor: pointer;
+        padding: 6px;
+        border-radius: 50%;
+        flex: 0 0 auto;
+      }
+
+      .icon:hover {
+        background: var(--secondary-background-color, #f1f1f1);
+      }
+
+      .scrim {
+        position: fixed;
+        inset: 0;
+        z-index: 4;
+      }
+
+      .menu {
+        position: absolute;
+        z-index: 5;
+        top: 56px;
+        left: 16px;
+        right: 16px;
+        max-width: 320px;
+        padding: 6px;
+        background: var(--card-background-color, #fff);
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        border-radius: 10px;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        display: flex;
+        flex-direction: column;
+      }
+
+      .menu button {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: none;
+        border: none;
+        text-align: left;
+        padding: 10px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        color: var(--primary-text-color);
+        font-family: inherit;
+        font-size: 14px;
+      }
+
+      .menu button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+
+      .menu button:hover {
+        background: var(--secondary-background-color, #f1f1f1);
+      }
+
+      .menu .current-item {
+        font-weight: 600;
+        color: var(--primary-color, #03a9f4);
+      }
+
+      .menu .separated {
+        border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        margin-top: 4px;
+        padding-top: 12px;
+      }
+
+      .menu .danger {
+        color: var(--error-color, #db4437);
+      }
+
       .section-title {
         padding: 12px 16px 4px;
       }
@@ -264,17 +381,7 @@ export class SeGroupPage extends LitElement {
 
     return html`
       <div class="stack">
-        <div class="header">
-          <button class="back" @click=${this.goBack} aria-label=${translate("back")}>‹</button>
-          <h1>${this.group.name}</h1>
-          ${this.group.archived
-            ? html`<span class="archived-tag">${translate("archived")}</span>`
-            : nothing}
-          <span class="spacer"></span>
-          <se-button variant="text" ?disabled=${this.busy} @click=${this.toggleArchive}>
-            ${this.group.archived ? translate("restore") : translate("archive")}
-          </se-button>
-        </div>
+        ${this.renderHeader()}
 
         ${this.group.archived
           ? html`<div class="banner">${translate("archived_hint")}</div>`
@@ -296,6 +403,144 @@ export class SeGroupPage extends LitElement {
       ${this.renderDialog()}
     `;
   }
+
+  private renderHeader() {
+    const translate = this.localize;
+    const group = this.group!;
+
+    return html`
+      <div class="header">
+        <button class="back" @click=${this.goBack} aria-label=${translate("back")}>
+          ‹
+        </button>
+
+        <div class="titles">
+          <h1>${translate("app_title")}</h1>
+          <button class="switcher" @click=${() => this.openMenu("groups")}>
+            <span class="current">${group.name}</span>
+            <span class="caret">⌄</span>
+            ${group.archived
+              ? html`<span class="archived-tag">${translate("archived")}</span>`
+              : nothing}
+          </button>
+        </div>
+
+        <button
+          class="icon"
+          aria-label=${translate("members")}
+          @click=${() => (this.dialog = "member")}
+        >
+          👥
+        </button>
+        <button
+          class="icon"
+          aria-label=${translate("more")}
+          @click=${() => this.openMenu("more")}
+        >
+          ⋮
+        </button>
+
+        ${this.menu ? this.renderMenu() : nothing}
+      </div>
+
+      ${group.archived
+        ? html`<div class="banner">${translate("archived_hint")}</div>`
+        : nothing}
+    `;
+  }
+
+  private renderMenu() {
+    // A click anywhere else closes it, so the menu never traps the page.
+    return html`
+      <div class="scrim" @click=${() => (this.menu = undefined)}></div>
+      <div class="menu" role="menu">
+        ${this.menu === "groups" ? this.renderGroupMenu() : this.renderMoreMenu()}
+      </div>
+    `;
+  }
+
+  private renderGroupMenu() {
+    return html`
+      ${this.groups.map(
+        (group) => html`
+          <button
+            role="menuitem"
+            class=${group.id === this.groupId ? "current-item" : ""}
+            @click=${() => this.switchTo(group)}
+          >
+            ${group.name}
+            ${group.archived
+              ? html`<span class="archived-tag">${this.localize("archived")}</span>`
+              : nothing}
+          </button>
+        `,
+      )}
+      <button role="menuitem" class="separated" @click=${this.goBack}>
+        ${this.localize("all_groups")}
+      </button>
+    `;
+  }
+
+  private renderMoreMenu() {
+    const translate = this.localize;
+
+    return html`
+      <button role="menuitem" ?disabled=${this.busy} @click=${this.toggleArchive}>
+        ${this.group!.archived ? translate("restore") : translate("archive")}
+      </button>
+      <button
+        role="menuitem"
+        class="danger separated"
+        ?disabled=${this.busy}
+        @click=${this.deleteGroup}
+      >
+        ${this.confirmingDelete ? translate("confirm_delete") : translate("delete_group")}
+      </button>
+    `;
+  }
+
+  private openMenu(menu: "groups" | "more") {
+    this.menu = this.menu === menu ? undefined : menu;
+    this.confirmingDelete = false;
+  }
+
+  private switchTo(group: Group) {
+    this.menu = undefined;
+
+    if (group.id === this.groupId) {
+      return;
+    }
+
+    this.dispatchEvent(
+      new CustomEvent("group-selected", {
+        detail: { groupId: group.id },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
+  private deleteGroup = async () => {
+    // Deleting takes every expense with it: ask once, in place.
+    if (!this.confirmingDelete) {
+      this.confirmingDelete = true;
+      return;
+    }
+
+    this.busy = true;
+
+    try {
+      await this.api.deleteGroup(this.groupId);
+
+      this.menu = undefined;
+      this.goBack();
+    } catch (error) {
+      this.error = errorMessage(error, this.localize);
+      this.confirmingDelete = false;
+    } finally {
+      this.busy = false;
+    }
+  };
 
   private renderTab(tab: Tab, label: string) {
     return html`
@@ -708,18 +953,28 @@ export class SeGroupPage extends LitElement {
     this.error = undefined;
 
     try {
-      const [group, members, pastMembers, categories, expenses, payments, result] =
-        await Promise.all([
-          this.api.getGroup(this.groupId),
-          this.api.listMembers(this.groupId),
-          this.api.listMembers(this.groupId, true),
-          this.api.listCategories(this.groupId),
-          this.api.listExpenses(this.groupId),
-          this.api.listPayments(this.groupId),
-          this.api.getBalances(this.groupId),
-        ]);
+      const [
+        group,
+        groups,
+        members,
+        pastMembers,
+        categories,
+        expenses,
+        payments,
+        result,
+      ] = await Promise.all([
+        this.api.getGroup(this.groupId),
+        this.api.listGroups(),
+        this.api.listMembers(this.groupId),
+        this.api.listMembers(this.groupId, true),
+        this.api.listCategories(this.groupId),
+        this.api.listExpenses(this.groupId),
+        this.api.listPayments(this.groupId),
+        this.api.getBalances(this.groupId),
+      ]);
 
       this.group = group;
+      this.groups = groups;
       this.members = members;
       this.pastMembers = pastMembers;
       this.categories = categories;
@@ -771,6 +1026,7 @@ export class SeGroupPage extends LitElement {
 
     try {
       this.group = await this.api.archiveGroup(this.group.id, !this.group.archived);
+      this.menu = undefined;
     } catch (error) {
       this.error = errorMessage(error, this.localize);
     } finally {

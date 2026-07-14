@@ -338,6 +338,11 @@ export class SeSplitRuleEditor extends LitElement {
     `;
   }
 
+  /** The rule as filled in, for the caller to store alongside the shares. */
+  public currentRule(): SplitRule | null {
+    return this.build();
+  }
+
   /** The shares this rule resolves to, for the caller to store. */
   public resolved(): Record<string, number> | null {
     const payer =

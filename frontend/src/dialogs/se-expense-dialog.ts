@@ -304,6 +304,9 @@ export class SeExpenseDialog extends LitElement {
         member_id,
         amount: value,
       })),
+      // The shares are the truth, but the rule has to travel with them, or
+      // reopening the expense could only ever spell the amounts back out.
+      split_rule: this.editor?.currentRule() ?? null,
     };
 
     try {
@@ -316,6 +319,7 @@ export class SeExpenseDialog extends LitElement {
             category_id: input.category_id,
             description: input.description,
             shares: input.shares,
+            split_rule: input.split_rule,
           })
         : await this.api.createExpense(input);
 
