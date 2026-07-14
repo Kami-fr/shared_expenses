@@ -2,15 +2,18 @@ import { LitElement, type PropertyValues, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
 import "./se-field";
-import {
-  centsToInput,
-  colorFor,
-  formatMoney,
-  initials,
-  parseMoney,
-} from "../services/format";
+import "./se-select";
+import { colorFor, formatMoney, initials, parseMoney } from "../services/format";
 import type { Localizer } from "../services/localize";
 import { resolveShares } from "../services/splits";
+import {
+  FULL_PERCENT,
+  modeOf,
+  parsePercent,
+  ruleFor,
+  stateOf,
+  type Mode,
+} from "../services/split-modes";
 import { sharedStyles } from "../styles/shared";
 import type { Member, SplitRule } from "../types";
 
@@ -18,14 +21,19 @@ import type { Member, SplitRule } from "../types";
 const SAMPLE = 8542;
 
 /**
- * Editor for a default split rule.
+ * Every way of saying it, in the order they are reached for.
  *
- * Two steps of the same shape: an amount shared equally between the members
- * ticked, then whatever is left, handed to the members ticked below, either
- * equally or by the amounts typed.
+ * `custom` is last and always there. It is the only one that can put an amount
+ * shared up front *and* exact figures on what is left — 10 shared, then 8 for
+ * one and 4 for the other — so hiding it would take that away.
+ */
+const MODES: Mode[] = ["equal", "exact", "percent", "partial", "custom"];
+
+/**
+ * Editor for a split rule.
  *
  * Fires `rule-changed` with `event.detail.rule`, a SplitRule or null when the
- * expenses should simply be split equally.
+ * expense should simply be split equally.
  */
 @customElement("se-split-rule-editor")
 export class SeSplitRuleEditor extends LitElement {
@@ -55,14 +63,24 @@ export class SeSplitRuleEditor extends LitElement {
 
   @state() private enabled = false;
 
-  @state() private envelopeInput = "";
+  @state() private mode: Mode = "equal";
 
+  /** Who takes part. In `partial`, who shares the amount put in. */
   @state() private participants: Set<string> = new Set();
 
-  /** Members taking the remainder. None ticked means whoever paid takes it. */
-  @state() private takers: Set<string> = new Set();
+  @state() private envelopeInput = "";
 
+  /** What each is down for, in `exact`. Empty means an equal share of it. */
   @state() private amounts: Record<string, string> = {};
+
+  /** What share each takes, in `percent`. Empty means an equal share of it. */
+  @state() private percents: Record<string, string> = {};
+
+  /** Who takes what is left, in `partial`. Empty means whoever paid. */
+  @state() private restTo = "";
+
+  /** Who takes what is left, in `custom`. Empty means whoever paid. */
+  @state() private takers: Set<string> = new Set();
 
   public static styles = [
     sharedStyles,
@@ -80,52 +98,76 @@ export class SeSplitRuleEditor extends LitElement {
 
       .panel {
         margin-top: 12px;
-        padding: 12px;
-        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
-        border-radius: 8px;
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 14px;
       }
 
       .member-row {
         display: flex;
         align-items: center;
         gap: 10px;
-        padding: 4px 0;
+        padding: 3px 0;
       }
 
       .member-row .name {
         flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
         font-size: 14px;
       }
 
+      /* What this row comes to, next to the person it happens to. */
+      .member-row .share {
+        font-size: 13px;
+        font-variant-numeric: tabular-nums;
+        color: var(--secondary-text-color);
+        white-space: nowrap;
+      }
+
       .member-row se-field {
-        width: 110px;
+        width: 116px;
+      }
+
+      .total {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        padding: 8px 0 0;
+        font-size: 14px;
+        font-variant-numeric: tabular-nums;
       }
 
       input[type="checkbox"] {
         width: 20px;
         height: 20px;
         accent-color: var(--primary-color, #03a9f4);
+        flex: 0 0 auto;
       }
 
-      .preview {
-        font-size: 13px;
-        line-height: 1.6;
-        padding: 10px;
-        border-radius: 8px;
-        background: var(--secondary-background-color, #f1f1f1);
-      }
-
-      .preview .line {
+      .rest {
         display: flex;
-        justify-content: space-between;
-        gap: 8px;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        font-size: 14px;
       }
 
-      .preview strong {
+      .rest se-select {
+        min-width: 150px;
+        flex: 1;
+      }
+
+      .rest .figure {
         font-variant-numeric: tabular-nums;
+        font-weight: 500;
+      }
+
+      .warn {
+        font-size: 13px;
+        color: var(--error-color, #db4437);
       }
     `,
   ];
@@ -134,30 +176,20 @@ export class SeSplitRuleEditor extends LitElement {
     super.connectedCallback();
 
     this.enabled = this.required || this.rule !== null;
+    this.mode = modeOf(this.rule);
 
-    this.envelopeInput =
-      this.rule?.envelope != null ? centsToInput(this.rule.envelope) : "";
-
-    this.participants = new Set(
-      this.rule?.participants ?? this.members.map((member) => member.id),
+    const state = stateOf(
+      this.rule,
+      this.members.map((member) => member.id),
+      this.payerId,
     );
 
-    // On a real expense, show what will happen rather than leaving every box
-    // clear: an unset remainder means the payer takes it, so tick them. On a
-    // lasting category rule there is no payer yet, so it stays unset and reads
-    // as "whoever pays".
-    const takers = this.rule?.remainder?.members;
-
-    this.takers = new Set(
-      takers ?? (this.payerId ? [this.payerId] : []),
-    );
-
-    this.amounts = Object.fromEntries(
-      Object.entries(this.rule?.remainder?.fixed ?? {}).map(([id, amount]) => [
-        id,
-        centsToInput(amount),
-      ]),
-    );
+    this.participants = state.participants;
+    this.envelopeInput = state.envelopeInput;
+    this.amounts = state.amounts;
+    this.percents = state.percents;
+    this.takers = state.takers;
+    this.restTo = this.mode === "partial" ? state.restTo : "";
   }
 
   protected willUpdate(changed: PropertyValues): void {
@@ -167,14 +199,10 @@ export class SeSplitRuleEditor extends LitElement {
 
     const previous = changed.get("payerId") as string | null | undefined;
 
-    // While the remainder is still just "whoever paid", let it follow a change
-    // of payer. Once it has been touched, it is a deliberate choice: leave it.
-    const untouched =
-      previous != null && this.takers.size === 1 && this.takers.has(previous);
-
-    if (untouched && this.payerId) {
-      this.takers = new Set([this.payerId]);
-      this.amounts = {};
+    // While the rest is still going to whoever paid, let it follow a change of
+    // payer. Once pointed at someone, it is a choice: leave it.
+    if (previous != null && this.restTo === previous) {
+      this.restTo = this.payerId ?? "";
     }
   }
 
@@ -210,67 +238,271 @@ export class SeSplitRuleEditor extends LitElement {
     `;
   }
 
-  /** What the preview runs on: the real expense, or a sample. */
+  /** What the panel works on: the real expense, or a sample to stand for one. */
   private get previewAmount(): number {
     return this.amount != null && this.amount > 0 ? this.amount : SAMPLE;
   }
 
   private renderPanel() {
     const translate = this.localize;
-    const envelope = parseMoney(this.envelopeInput);
-
-    // The remainder only exists once the envelope stops covering everything.
-    const hasRemainder =
-      this.envelopeInput.trim() !== "" &&
-      envelope !== null &&
-      envelope < this.previewAmount;
+    const shares = this.shares();
 
     return html`
       <div class="panel">
-        <div>
-          <se-field
-            .label=${translate("envelope_label")}
-            .value=${this.envelopeInput}
-            .suffix=${this.currency}
-            .helper=${translate("envelope_hint")}
-            decimal
-            placeholder=${translate("envelope_all")}
-            @value-changed=${(e: CustomEvent) => this.setEnvelope(e.detail.value)}
-          ></se-field>
+        <se-select
+          .label=${translate("split_how")}
+          .value=${this.mode}
+          .options=${MODES.map((mode) => ({
+            value: mode,
+            label: translate(`split_${mode}`),
+          }))}
+          @value-changed=${(e: CustomEvent) => this.pick(e.detail.value as Mode)}
+        ></se-select>
 
-          <div class="muted" style="margin-top:8px">
-            ${translate("shared_between")}
-          </div>
-          ${this.members.map((member) => this.renderParticipant(member))}
-        </div>
-
-        ${hasRemainder ? this.renderRemainder() : nothing} ${this.renderPreview()}
+        ${this.mode === "equal" ? this.renderEqual(shares) : nothing}
+        ${this.mode === "exact" ? this.renderExact(shares) : nothing}
+        ${this.mode === "percent" ? this.renderPercent(shares) : nothing}
+        ${this.mode === "partial" ? this.renderPartial(shares) : nothing}
+        ${this.mode === "custom" ? this.renderCustom(shares) : nothing}
+        ${shares === null
+          ? html`<div class="warn">${translate("rule_invalid")}</div>`
+          : nothing}
       </div>
     `;
   }
 
-  private renderParticipant(member: Member) {
+  /** Tick who is in. What each pays shows next to them, live. */
+  private renderEqual(shares: Record<string, number> | null) {
     return html`
-      <div class="member-row">
-        <input
-          type="checkbox"
-          .checked=${this.participants.has(member.id)}
-          @change=${() => this.toggleParticipant(member.id)}
-        />
-        ${this.renderAvatar(member)}
-        <span class="name">${member.name}</span>
+      <div>
+        <div class="muted">${this.localize("split_equal_hint")}</div>
+        ${this.members.map(
+          (member) => html`
+            <div class="member-row">
+              <input
+                type="checkbox"
+                .checked=${this.participants.has(member.id)}
+                @change=${() => this.toggleParticipant(member.id)}
+              />
+              ${this.renderAvatar(member)}
+              <span class="name">${member.name}</span>
+              <span class="share">${this.shareOf(shares, member.id)}</span>
+            </div>
+          `,
+        )}
       </div>
     `;
   }
 
-  private renderRemainder() {
+  /** Type what each owes. An empty field takes an equal cut of what is left. */
+  private renderExact(shares: Record<string, number> | null) {
+    return html`
+      <div>
+        <div class="muted">${this.localize("split_exact_hint")}</div>
+        ${this.members.map(
+          (member) => html`
+            <div class="member-row">
+              <input
+                type="checkbox"
+                .checked=${this.participants.has(member.id)}
+                @change=${() => this.toggleParticipant(member.id)}
+              />
+              ${this.renderAvatar(member)}
+              <span class="name">${member.name}</span>
+              <!--
+                An empty field says what it would come to, in grey: that is
+                what a placeholder is for, and it is the answer to the only
+                question this mode raises — "so what do I pay, then?"
+              -->
+              <se-field
+                .value=${this.amounts[member.id] ?? ""}
+                .suffix=${this.currency}
+                .disabled=${!this.participants.has(member.id)}
+                decimal
+                placeholder=${this.shareOf(shares, member.id) ||
+                this.localize("split_the_rest_short")}
+                @value-changed=${(e: CustomEvent) =>
+                  this.setAmount(member.id, e.detail.value)}
+              ></se-field>
+            </div>
+          `,
+        )}
+      </div>
+    `;
+  }
+
+  /**
+   * Type what share each owes. An empty field takes an equal cut of the rest.
+   *
+   * The running total is there because the one thing that goes wrong here is
+   * arithmetic: shares that do not reach a hundred leave money on nobody, and
+   * shares past it are not shares at all.
+   */
+  private renderPercent(shares: Record<string, number> | null) {
+    const translate = this.localize;
+    const total = this.percentTotal();
+
+    return html`
+      <div>
+        <div class="muted">${translate("split_percent_hint")}</div>
+        ${this.members.map(
+          (member) => html`
+            <div class="member-row">
+              <input
+                type="checkbox"
+                .checked=${this.participants.has(member.id)}
+                @change=${() => this.toggleParticipant(member.id)}
+              />
+              ${this.renderAvatar(member)}
+              <span class="name">${member.name}</span>
+              <span class="share">${this.shareOf(shares, member.id)}</span>
+              <se-field
+                .value=${this.percents[member.id] ?? ""}
+                .suffix=${"%"}
+                .disabled=${!this.participants.has(member.id)}
+                decimal
+                placeholder="—"
+                @value-changed=${(e: CustomEvent) =>
+                  this.setPercent(member.id, e.detail.value)}
+              ></se-field>
+            </div>
+          `,
+        )}
+
+        <div class="total">
+          <span class="muted">${translate("split_percent_total")}</span>
+          <strong class=${total > FULL_PERCENT ? "negative" : ""}>
+            ${(total / 100).toFixed(total % 100 === 0 ? 0 : 2)} %
+          </strong>
+        </div>
+        ${total > FULL_PERCENT
+          ? html`<div class="warn">${translate("split_percent_over")}</div>`
+          : nothing}
+      </div>
+    `;
+  }
+
+  /** What has been claimed so far, in hundredths of a percent. */
+  private percentTotal(): number {
+    let total = 0;
+
+    for (const [memberId, value] of Object.entries(this.percents)) {
+      if (!this.participants.has(memberId)) {
+        continue;
+      }
+
+      total += parsePercent(value) ?? 0;
+    }
+
+    return total;
+  }
+
+  private setPercent(memberId: string, value: string) {
+    this.percents = { ...this.percents, [memberId]: value };
+    this.emit();
+  }
+
+  /** An amount shared between some; whatever is left goes to one person. */
+  private renderPartial(shares: Record<string, number> | null) {
+    const translate = this.localize;
+    const envelope = parseMoney(this.envelopeInput);
+    const left =
+      envelope === null ? null : Math.max(this.previewAmount - envelope, 0);
+
+    return html`
+      <div>
+        <se-field
+          .label=${translate("split_shared_amount")}
+          .value=${this.envelopeInput}
+          .suffix=${this.currency}
+          decimal
+          placeholder="5,00"
+          @value-changed=${(e: CustomEvent) => this.setEnvelope(e.detail.value)}
+        ></se-field>
+
+        <div class="muted" style="margin-top:10px">
+          ${translate("split_shared_between")}
+        </div>
+        ${this.members.map(
+          (member) => html`
+            <div class="member-row">
+              <input
+                type="checkbox"
+                .checked=${this.participants.has(member.id)}
+                @change=${() => this.toggleParticipant(member.id)}
+              />
+              ${this.renderAvatar(member)}
+              <span class="name">${member.name}</span>
+              <span class="share">${this.shareOf(shares, member.id)}</span>
+            </div>
+          `,
+        )}
+      </div>
+
+      <div class="rest">
+        <span>
+          ${translate("split_rest_for")}
+          ${left === null
+            ? nothing
+            : html`<span class="figure">(${this.money(left)})</span>`}
+        </span>
+        <se-select
+          .value=${this.restTo}
+          .placeholder=${translate("split_rest_payer")}
+          .options=${this.members.map((m) => ({ value: m.id, label: m.name }))}
+          @value-changed=${(e: CustomEvent) => this.setRestTo(e.detail.value)}
+        ></se-select>
+      </div>
+    `;
+  }
+
+  /**
+   * The model in full: an amount shared, and what is left, to whoever and by
+   * however much.
+   *
+   * Only reached by opening a rule that needs it. This is the editor as it was,
+   * kept because such rules exist — a category rule written before the modes,
+   * say — and rewriting one as something simpler would move real money.
+   */
+  private renderCustom(shares: Record<string, number> | null) {
     const translate = this.localize;
 
     return html`
       <div>
-        <label class="muted">${translate("remainder_label")}</label>
-        <div class="muted">${translate("remainder_hint")}</div>
+        <div class="muted">${translate("split_custom_hint")}</div>
+      </div>
 
+      <se-field
+        .label=${translate("split_shared_amount")}
+        .value=${this.envelopeInput}
+        .suffix=${this.currency}
+        .helper=${translate("split_shared_all_hint")}
+        decimal
+        placeholder=${translate("split_shared_all")}
+        @value-changed=${(e: CustomEvent) => this.setEnvelope(e.detail.value)}
+      ></se-field>
+
+      <div>
+        <div class="muted">${translate("split_shared_between")}</div>
+        ${this.members.map(
+          (member) => html`
+            <div class="member-row">
+              <input
+                type="checkbox"
+                .checked=${this.participants.has(member.id)}
+                @change=${() => this.toggleParticipant(member.id)}
+              />
+              ${this.renderAvatar(member)}
+              <span class="name">${member.name}</span>
+              <span class="share">${this.shareOf(shares, member.id)}</span>
+            </div>
+          `,
+        )}
+      </div>
+
+      <div>
+        <div class="muted">${translate("split_rest_between")}</div>
+        <div class="muted">${translate("split_rest_between_hint")}</div>
         ${this.members.map(
           (member) => html`
             <div class="member-row">
@@ -297,51 +529,20 @@ export class SeSplitRuleEditor extends LitElement {
     `;
   }
 
-  /**
-   * Show the rule on a sample expense.
-   *
-   * Resolved by the same code the backend mirrors, so these are the real
-   * figures rather than a hand-written approximation that could drift.
-   */
-  private renderPreview() {
-    const payer =
-      this.members.find((member) => member.id === this.payerId) ?? this.members[0];
+  private toggleTaker(memberId: string) {
+    const next = new Set(this.takers);
 
-    if (!payer) {
-      return nothing;
+    if (next.has(memberId)) {
+      next.delete(memberId);
+
+      const { [memberId]: _dropped, ...rest } = this.amounts;
+      this.amounts = rest;
+    } else {
+      next.add(memberId);
     }
 
-    const amount = this.previewAmount;
-
-    const shares = resolveShares({
-      amount,
-      payerId: payer.id,
-      memberIds: this.members.map((member) => member.id),
-      rule: this.build(),
-    });
-
-    if (shares === null) {
-      return html`<div class="preview negative">${this.localize("rule_invalid")}</div>`;
-    }
-
-    const money = (cents: number) => formatMoney(cents, this.currency, this.language);
-
-    return html`
-      <div class="preview">
-        <div class="muted">
-          ${this.localize("rule_preview_intro")} ${money(amount)}
-          ${this.localize("rule_preview_paid_by")} ${payer.name} :
-        </div>
-        ${this.members.map(
-          (member) => html`
-            <div class="line">
-              <span>${member.name}</span>
-              <strong>${money(shares[member.id] ?? 0)}</strong>
-            </div>
-          `,
-        )}
-      </div>
-    `;
+    this.takers = next;
+    this.emit();
   }
 
   /** The rule as filled in, for the caller to store alongside the shares. */
@@ -351,19 +552,45 @@ export class SeSplitRuleEditor extends LitElement {
 
   /** The shares this rule resolves to, for the caller to store. */
   public resolved(): Record<string, number> | null {
+    if (this.amount == null) {
+      return null;
+    }
+
+    return this.shares(this.amount);
+  }
+
+  /**
+   * What the rule comes to, run through the resolver the backend mirrors.
+   *
+   * Never worked out by hand here: these figures are the ones that get stored,
+   * and a second opinion on them is exactly how a panel starts lying.
+   */
+  private shares(amount = this.previewAmount): Record<string, number> | null {
     const payer =
       this.members.find((member) => member.id === this.payerId) ?? this.members[0];
 
-    if (!payer || this.amount == null) {
+    if (!payer) {
       return null;
     }
 
     return resolveShares({
-      amount: this.amount,
+      amount,
       payerId: payer.id,
       memberIds: this.members.map((member) => member.id),
       rule: this.build(),
     });
+  }
+
+  private shareOf(shares: Record<string, number> | null, memberId: string): string {
+    if (shares === null) {
+      return "";
+    }
+
+    return shares[memberId] ? this.money(shares[memberId]) : "—";
+  }
+
+  private money(cents: number): string {
+    return formatMoney(cents, this.currency, this.language);
   }
 
   private renderAvatar(member: Member) {
@@ -372,6 +599,69 @@ export class SeSplitRuleEditor extends LitElement {
         ${initials(member.name)}
       </div>
     `;
+  }
+
+  /**
+   * Switch mode, carrying over what the next one can still use.
+   *
+   * An amount shared up front means something to `partial` and to `custom`, so
+   * it survives between them; the figures typed mean the whole expense in
+   * `exact` and only what is left in `custom`, so they never cross. Anything a
+   * mode cannot hold is dropped rather than kept out of sight, where it would
+   * come back unasked in a rule that no longer mentions it.
+   */
+  private pick(mode: Mode) {
+    if (mode === this.mode) {
+      return;
+    }
+
+    const previous = this.mode;
+
+    this.mode = mode;
+
+    if (mode !== "partial" && mode !== "custom") {
+      this.envelopeInput = "";
+    }
+
+    if (mode !== "exact" && mode !== "custom") {
+      this.amounts = {};
+    }
+
+    if (mode !== "percent") {
+      this.percents = {};
+    }
+
+    if (mode === "percent" && this.participants.size === 0) {
+      this.participants = new Set(this.members.map((member) => member.id));
+    }
+
+    // The amounts of `exact` are on the whole expense, those of `custom` on
+    // what is left of it. Same field, different money.
+    if ((mode === "exact") !== (previous === "exact")) {
+      this.amounts = {};
+    }
+
+    if (mode === "exact" && this.participants.size === 0) {
+      this.participants = new Set(this.members.map((member) => member.id));
+    }
+
+    if (mode === "partial") {
+      // One person takes the rest here. Coming from custom, the first ticked is
+      // the closest thing to what was meant.
+      this.restTo = this.restTo || [...this.takers][0] || this.payerId || "";
+    }
+
+    if (mode === "custom" && this.takers.size === 0) {
+      const rest = this.restTo || this.payerId;
+
+      this.takers = rest ? new Set([rest]) : new Set();
+    }
+
+    if (mode !== "partial") {
+      this.restTo = "";
+    }
+
+    this.emit();
   }
 
   private toggle(event: Event) {
@@ -384,19 +674,27 @@ export class SeSplitRuleEditor extends LitElement {
     this.emit();
   }
 
-  private toggleParticipant(memberId: string) {
-    this.participants = toggled(this.participants, memberId);
+  private setRestTo(value: string) {
+    this.restTo = value;
     this.emit();
   }
 
-  private toggleTaker(memberId: string) {
-    this.takers = toggled(this.takers, memberId);
+  private toggleParticipant(memberId: string) {
+    const next = new Set(this.participants);
 
-    if (!this.takers.has(memberId)) {
+    if (next.has(memberId)) {
+      next.delete(memberId);
+
       const { [memberId]: _dropped, ...rest } = this.amounts;
       this.amounts = rest;
+
+      const { [memberId]: _share, ...others } = this.percents;
+      this.percents = others;
+    } else {
+      next.add(memberId);
     }
 
+    this.participants = next;
     this.emit();
   }
 
@@ -415,52 +713,21 @@ export class SeSplitRuleEditor extends LitElement {
     );
   }
 
-  /** Build the rule, or null when it would be an equal split anyway. */
   private build(): SplitRule | null {
     if (!this.enabled) {
       return null;
     }
 
-    const typed = this.envelopeInput.trim();
-    const envelope = typed === "" ? null : parseMoney(typed);
-
-    const fixed: Record<string, number> = {};
-
-    for (const [memberId, value] of Object.entries(this.amounts)) {
-      if (!this.takers.has(memberId) || value.trim() === "") {
-        continue;
-      }
-
-      const amount = parseMoney(value);
-
-      if (amount !== null) {
-        fixed[memberId] = amount;
-      }
-    }
-
-    return {
-      envelope,
-      participants:
-        this.participants.size === this.members.length ? null : [...this.participants],
-      remainder: {
-        // Nobody ticked: whoever paid takes the rest, the useful default.
-        members: this.takers.size === 0 ? null : [...this.takers],
-        fixed,
-      },
-    };
+    return ruleFor(this.mode, {
+      participants: this.participants,
+      envelopeInput: this.envelopeInput,
+      amounts: this.amounts,
+      percents: this.percents,
+      restTo: this.restTo,
+      takers: this.takers,
+      memberIds: this.members.map((member) => member.id),
+    });
   }
-}
-
-function toggled(set: Set<string>, value: string): Set<string> {
-  const next = new Set(set);
-
-  if (next.has(value)) {
-    next.delete(value);
-  } else {
-    next.add(value);
-  }
-
-  return next;
 }
 
 declare global {

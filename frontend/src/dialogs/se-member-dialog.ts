@@ -193,7 +193,14 @@ export class SeMemberDialog extends LitElement {
           title=${owner ? this.localize("owner_locked") : ""}
           @change=${() => this.toggleAccount(user, member)}
         />
-        ${this.renderTintable(member, user.name, user.id)}
+        <!--
+          Seeded on the member, never on the account: an automatic colour is
+          derived from the member id everywhere else — expense rows, balances,
+          statistics — so seeding it here on the Home Assistant account gave the
+          same person two different colours. An account not in the group has no
+          member to seed on yet, and its colour is only a preview until it does.
+        -->
+        ${this.renderTintable(member, user.name, member?.id ?? user.id)}
         <span class="name">${user.name}</span>
         ${owner
           ? html`<span class="tag">${this.localize("group_owner")}</span>`

@@ -97,6 +97,10 @@ def _participants(rule: SplitRule, pool: tuple[str, ...]) -> tuple[str, ...]:
     return participants
 
 
+#: A whole, in hundredths of a percent.
+FULL_PERCENT = 10_000
+
+
 def _resolve_remainder(
     remainder: Remainder,
     left: int,
@@ -105,14 +109,19 @@ def _resolve_remainder(
 ) -> dict[str, int]:
     """Return what each member owes out of what the envelope left behind.
 
-    Same shape as the envelope, one level down: a member with an amount takes
-    exactly that, the others share what is still left equally.
+    Same shape as the envelope, one level down. A member is written down for an
+    amount, or for a share of what is left, or for neither — and those left take
+    an equal part of whatever the first two did not claim.
     """
 
     _ensure_known(remainder.fixed, pool, "remainder")
+    _ensure_known(remainder.percent, pool, "remainder")
 
     if any(value < 0 for value in remainder.fixed.values()):
         raise InvalidSplitRuleError("A remainder amount cannot be negative.")
+
+    if any(value < 0 for value in remainder.percent.values()):
+        raise InvalidSplitRuleError("A remainder share cannot be negative.")
 
     members = remainder.members
 
@@ -133,31 +142,69 @@ def _resolve_remainder(
         if member_id in members
     }
 
+    percent = {
+        member_id: value
+        for member_id, value in remainder.percent.items()
+        if member_id in members
+    }
+
+    both = sorted(set(fixed) & set(percent))
+
+    if both:
+        raise InvalidSplitRuleError(
+            f"A member cannot owe both an amount and a share: {', '.join(both)}"
+        )
+
+    percent_total = sum(percent.values())
+
+    if percent_total > FULL_PERCENT:
+        raise InvalidSplitRuleError("The remainder shares exceed the whole.")
+
+    # Both are taken out of what the envelope left, so a share means a share of
+    # that — not of what the fixed amounts happen to leave behind. "60%" is 60%
+    # of the same thing whether or not someone else owes a flat 10.
+    from_percent = {
+        member_id: left * value // FULL_PERCENT for member_id, value in percent.items()
+    }
+
     fixed_total = sum(fixed.values())
+    claimed = fixed_total + sum(from_percent.values())
 
-    if fixed_total > left:
-        raise InvalidSplitRuleError("The remainder amounts exceed what is left.")
+    if claimed > left:
+        raise InvalidSplitRuleError("The remainder exceeds what is left.")
 
-    sharing = tuple(member_id for member_id in members if member_id not in fixed)
+    shares = {**fixed, **from_percent}
 
-    shares = dict(fixed)
+    sharing = tuple(
+        member_id
+        for member_id in members
+        if member_id not in fixed and member_id not in percent
+    )
 
-    if not sharing:
-        if fixed_total != left:
-            raise InvalidSplitRuleError(
-                "The remainder amounts do not add up to what is left."
-            )
+    rest = left - claimed
+
+    if sharing:
+        for member_id, share in _distribute(rest, sharing).items():
+            shares[member_id] = shares.get(member_id, 0) + share
 
         return shares
 
-    for member_id, share in _distribute(left - fixed_total, sharing).items():
-        shares[member_id] = shares.get(member_id, 0) + share
+    if rest == 0:
+        return shares
 
-    return shares
+    # Nobody is left to take what the flooring lost. Shares claiming the whole
+    # of it own those cents; anything else simply does not add up.
+    if percent and percent_total == FULL_PERCENT:
+        for member_id, share in _distribute(rest, tuple(from_percent)).items():
+            shares[member_id] = shares.get(member_id, 0) + share
+
+        return shares
+
+    raise InvalidSplitRuleError("The remainder does not add up to what is left.")
 
 
 RULE_KEYS = frozenset({"envelope", "participants", "remainder"})
-REMAINDER_KEYS = frozenset({"members", "fixed"})
+REMAINDER_KEYS = frozenset({"members", "fixed", "percent"})
 
 
 def rule_from_dict(data: Mapping[str, Any] | None) -> SplitRule | None:
@@ -196,10 +243,18 @@ def _remainder_from_dict(data: Any) -> Remainder:
     if not isinstance(fixed_data, Mapping):
         raise InvalidSplitRuleError("Remainder amounts must be an object.")
 
+    percent_data = data.get("percent") or {}
+
+    if not isinstance(percent_data, Mapping):
+        raise InvalidSplitRuleError("Remainder shares must be an object.")
+
     return Remainder(
         members=_members_from(data.get("members")),
         fixed={
             str(member_id): _as_int(value) for member_id, value in fixed_data.items()
+        },
+        percent={
+            str(member_id): _as_int(value) for member_id, value in percent_data.items()
         },
     )
 
@@ -222,6 +277,7 @@ def rule_to_dict(rule: SplitRule | None) -> dict[str, Any] | None:
                 else None
             ),
             "fixed": dict(rule.remainder.fixed),
+            "percent": dict(rule.remainder.percent),
         },
     }
 

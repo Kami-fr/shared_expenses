@@ -294,3 +294,182 @@ def test_invalid_json_is_refused():
 def test_a_boolean_is_not_an_amount():
     with pytest.raises(InvalidSplitRuleError):
         rule_from_dict({"envelope": True})
+
+#
+# Percentages
+#
+
+
+def test_sixty_forty():
+    """The plain case: two people, two shares, no envelope in the way."""
+
+    rule = SplitRule(
+        envelope=0,
+        remainder=Remainder(members=PAIR, percent={STEPHANE: 6000, ANTONIN: 4000}),
+    )
+
+    assert resolve_shares(
+        amount=10000, payer_id=STEPHANE, member_ids=PAIR, rule=rule
+    ) == {STEPHANE: 6000, ANTONIN: 4000}
+
+
+def test_a_share_follows_the_amount():
+    """The whole point of storing a percentage rather than what it came to."""
+
+    rule = SplitRule(
+        envelope=0,
+        remainder=Remainder(members=PAIR, percent={STEPHANE: 6000, ANTONIN: 4000}),
+    )
+
+    small = resolve_shares(amount=1000, payer_id=STEPHANE, member_ids=PAIR, rule=rule)
+    large = resolve_shares(amount=50000, payer_id=STEPHANE, member_ids=PAIR, rule=rule)
+
+    assert small == {STEPHANE: 600, ANTONIN: 400}
+    assert large == {STEPHANE: 30000, ANTONIN: 20000}
+
+
+def test_the_cents_flooring_loses_are_not_lost():
+    """999 split 60/40 is 599.4 and 399.6: someone must take the odd cent."""
+
+    rule = SplitRule(
+        envelope=0,
+        remainder=Remainder(members=PAIR, percent={STEPHANE: 6000, ANTONIN: 4000}),
+    )
+
+    shares = resolve_shares(amount=999, payer_id=STEPHANE, member_ids=PAIR, rule=rule)
+
+    assert sum(shares.values()) == 999
+    assert shares == {STEPHANE: 600, ANTONIN: 399}
+
+
+def test_three_thirds_of_a_hundred():
+    """A third cannot be written exactly; the total must still be exact."""
+
+    rule = SplitRule(
+        envelope=0,
+        remainder=Remainder(
+            members=EVERYONE,
+            percent={STEPHANE: 3333, ANTONIN: 3333, CLARA: 3334},
+        ),
+    )
+
+    shares = resolve_shares(
+        amount=10000, payer_id=STEPHANE, member_ids=EVERYONE, rule=rule
+    )
+
+    assert sum(shares.values()) == 10000
+    assert shares == {STEPHANE: 3333, ANTONIN: 3333, CLARA: 3334}
+
+
+def test_shares_short_of_the_whole_leave_the_rest_to_whoever_is_left():
+    """70% named, and one member with nothing written against them."""
+
+    rule = SplitRule(
+        envelope=0,
+        remainder=Remainder(members=EVERYONE, percent={STEPHANE: 5000, ANTONIN: 2000}),
+    )
+
+    shares = resolve_shares(
+        amount=10000, payer_id=STEPHANE, member_ids=EVERYONE, rule=rule
+    )
+
+    assert shares == {STEPHANE: 5000, ANTONIN: 2000, CLARA: 3000}
+
+
+def test_shares_short_of_the_whole_with_nobody_left_is_refused():
+    """80% of an expense is not an expense: the last fifth belongs to someone."""
+
+    rule = SplitRule(
+        envelope=0,
+        remainder=Remainder(members=PAIR, percent={STEPHANE: 6000, ANTONIN: 2000}),
+    )
+
+    with pytest.raises(InvalidSplitRuleError):
+        resolve_shares(amount=10000, payer_id=STEPHANE, member_ids=PAIR, rule=rule)
+
+
+def test_shares_over_the_whole_are_refused():
+    rule = SplitRule(
+        envelope=0,
+        remainder=Remainder(members=PAIR, percent={STEPHANE: 6000, ANTONIN: 5000}),
+    )
+
+    with pytest.raises(InvalidSplitRuleError):
+        resolve_shares(amount=10000, payer_id=STEPHANE, member_ids=PAIR, rule=rule)
+
+
+def test_a_negative_share_is_refused():
+    rule = SplitRule(
+        envelope=0,
+        remainder=Remainder(members=PAIR, percent={STEPHANE: -1000}),
+    )
+
+    with pytest.raises(InvalidSplitRuleError):
+        resolve_shares(amount=10000, payer_id=STEPHANE, member_ids=PAIR, rule=rule)
+
+
+def test_a_member_cannot_owe_both_an_amount_and_a_share():
+    """Which of the two would win is a question with no honest answer."""
+
+    rule = SplitRule(
+        envelope=0,
+        remainder=Remainder(
+            members=PAIR,
+            fixed={STEPHANE: 1000},
+            percent={STEPHANE: 5000},
+        ),
+    )
+
+    with pytest.raises(InvalidSplitRuleError):
+        resolve_shares(amount=10000, payer_id=STEPHANE, member_ids=PAIR, rule=rule)
+
+
+def test_an_amount_and_a_share_side_by_side():
+    """Both are taken out of the same thing: what the envelope left."""
+
+    rule = SplitRule(
+        envelope=0,
+        remainder=Remainder(
+            members=EVERYONE,
+            fixed={ANTONIN: 1000},
+            percent={STEPHANE: 5000},
+        ),
+    )
+
+    shares = resolve_shares(
+        amount=10000, payer_id=STEPHANE, member_ids=EVERYONE, rule=rule
+    )
+
+    # Stephane 50% of 100, Antonin his flat 10, Clara what nobody claimed.
+    assert shares == {STEPHANE: 5000, ANTONIN: 1000, CLARA: 4000}
+
+
+def test_a_share_of_what_the_envelope_left():
+    """20 shared between the two, then the rest 60/40."""
+
+    rule = SplitRule(
+        envelope=2000,
+        remainder=Remainder(members=PAIR, percent={STEPHANE: 6000, ANTONIN: 4000}),
+    )
+
+    shares = resolve_shares(amount=12000, payer_id=STEPHANE, member_ids=PAIR, rule=rule)
+
+    # 10 each from the envelope; 60 and 40 out of the 100 left.
+    assert shares == {STEPHANE: 7000, ANTONIN: 5000}
+    assert sum(shares.values()) == 12000
+
+
+def test_percent_survives_the_json_round_trip():
+    rule = SplitRule(
+        envelope=0,
+        remainder=Remainder(members=PAIR, percent={STEPHANE: 6000, ANTONIN: 4000}),
+    )
+
+    assert rule_from_json(rule_to_json(rule)) == rule
+
+
+def test_a_share_must_be_an_integer():
+    """33.33% is 3333, never a float: money that has been through one is lost."""
+
+    with pytest.raises(InvalidSplitRuleError):
+        rule_from_dict({"remainder": {"percent": {STEPHANE: 33.33}}})

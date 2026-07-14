@@ -64,6 +64,43 @@ RULES: list[dict | None] = [
     {"envelope": 0, "remainder": {"members": []}},
     {"envelope": -1},
     {"envelope": 0, "remainder": {"members": [A], "fixed": {A: -5}}},
+    # Percentages, where flooring loses cents someone has to take.
+    {"envelope": 0, "remainder": {"members": [A, B], "percent": {A: 6000, B: 4000}}},
+    {"envelope": 0, "remainder": {"members": [A, B], "percent": {A: 5000, B: 5000}}},
+    {"envelope": 0, "remainder": {"members": [A, B], "percent": {A: 10000}}},
+    {"envelope": 0, "remainder": {"members": [A, B], "percent": {A: 3333, B: 6667}}},
+    {
+        "envelope": 0,
+        "remainder": {"members": [A, B, C], "percent": {A: 3333, B: 3333, C: 3334}},
+    },
+    # Short of the whole: the last member takes what nobody claimed.
+    {"envelope": 0, "remainder": {"members": [A, B], "percent": {A: 6000}}},
+    # Short of the whole with nobody left: refused on both sides, or neither.
+    {"envelope": 0, "remainder": {"members": [A, B], "percent": {A: 6000, B: 2000}}},
+    # Over the whole.
+    {"envelope": 0, "remainder": {"members": [A, B], "percent": {A: 6000, B: 5000}}},
+    # Negative.
+    {"envelope": 0, "remainder": {"members": [A, B], "percent": {A: -6000, B: 4000}}},
+    # Both an amount and a share on the same member.
+    {
+        "envelope": 0,
+        "remainder": {"members": [A, B], "fixed": {A: 100}, "percent": {A: 5000}},
+    },
+    # An amount and a share side by side, on different members.
+    {
+        "envelope": 0,
+        "remainder": {"members": [A, B, C], "fixed": {B: 100}, "percent": {A: 5000}},
+    },
+    # A share of what the envelope left, rather than of the whole expense.
+    {
+        "envelope": 1000,
+        "remainder": {"members": [A, B], "percent": {A: 6000, B: 4000}},
+    },
+    {
+        "envelope": 500,
+        "participants": [A],
+        "remainder": {"members": [A, B], "percent": {A: 2500, B: 7500}},
+    },
 ]
 
 #: Amounts that do not divide evenly are where a rounding drift would show.
@@ -109,12 +146,17 @@ def build_cases() -> list[dict]:
 
 
 def _names_outsiders(rule: dict, member_ids: list[str]) -> bool:
-    """Whether a rule speaks of someone the group does not hold."""
+    """Whether a rule speaks of someone the group does not hold.
+
+    Those cases are the business of the tests above, which check both sides
+    refuse them. Here they would only crowd out the ones about arithmetic.
+    """
 
     named = set(rule.get("participants") or [])
     remainder = rule.get("remainder") or {}
     named |= set(remainder.get("members") or [])
     named |= set((remainder.get("fixed") or {}).keys())
+    named |= set((remainder.get("percent") or {}).keys())
 
     return bool(named - set(member_ids))
 

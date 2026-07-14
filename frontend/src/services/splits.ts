@@ -99,9 +99,13 @@ function resolveEnvelope(rule: SplitRule, amount: number): number | null {
 /**
  * Return what each member owes out of what the envelope left behind.
  *
- * Same shape as the envelope, one level down: a member with an amount takes
- * exactly that, the others share what is still left equally.
+ * Same shape as the envelope, one level down. A member is written down for an
+ * amount, or for a share of what is left, or for neither — and those left take
+ * an equal part of whatever the first two did not claim.
  */
+/** A whole, in hundredths of a percent. */
+const FULL_PERCENT = 10_000;
+
 function resolveRemainder(
   remainder: Remainder | undefined,
   left: number,
@@ -109,9 +113,16 @@ function resolveRemainder(
   pool: string[],
 ): Record<string, number> | null {
   const spec = remainder ?? {};
-  const declared = spec.fixed ?? {};
+  const declaredFixed = spec.fixed ?? {};
+  const declaredPercent = spec.percent ?? {};
 
-  for (const [memberId, value] of Object.entries(declared)) {
+  for (const [memberId, value] of Object.entries(declaredFixed)) {
+    if (!pool.includes(memberId) || value < 0) {
+      return null;
+    }
+  }
+
+  for (const [memberId, value] of Object.entries(declaredPercent)) {
     if (!pool.includes(memberId) || value < 0) {
       return null;
     }
@@ -126,34 +137,78 @@ function resolveRemainder(
   }
 
   const fixed: Record<string, number> = {};
+  const percent: Record<string, number> = {};
 
   for (const memberId of members) {
-    if (memberId in declared) {
-      fixed[memberId] = declared[memberId];
+    if (memberId in declaredFixed) {
+      fixed[memberId] = declaredFixed[memberId];
+    }
+
+    if (memberId in declaredPercent) {
+      percent[memberId] = declaredPercent[memberId];
     }
   }
 
-  const fixedTotal = Object.values(fixed).reduce((sum, value) => sum + value, 0);
-
-  if (fixedTotal > left) {
+  // Which of the two would win is a question with no honest answer.
+  if (Object.keys(fixed).some((memberId) => memberId in percent)) {
     return null;
   }
 
-  const sharing = members.filter((memberId) => !(memberId in fixed));
+  const percentTotal = Object.values(percent).reduce((sum, value) => sum + value, 0);
 
-  if (sharing.length === 0) {
-    return fixedTotal === left ? fixed : null;
+  if (percentTotal > FULL_PERCENT) {
+    return null;
   }
 
-  const shares: Record<string, number> = { ...fixed };
+  // Both come out of what the envelope left, so a share means a share of that
+  // — not of what the fixed amounts happen to leave behind.
+  const fromPercent: Record<string, number> = {};
 
-  for (const [memberId, share] of Object.entries(
-    distribute(left - fixedTotal, sharing),
-  )) {
-    shares[memberId] = (shares[memberId] ?? 0) + share;
+  for (const [memberId, value] of Object.entries(percent)) {
+    fromPercent[memberId] = Math.floor((left * value) / FULL_PERCENT);
   }
 
-  return shares;
+  const fixedTotal = Object.values(fixed).reduce((sum, value) => sum + value, 0);
+  const claimed =
+    fixedTotal + Object.values(fromPercent).reduce((sum, value) => sum + value, 0);
+
+  if (claimed > left) {
+    return null;
+  }
+
+  const shares: Record<string, number> = { ...fixed, ...fromPercent };
+
+  const sharing = members.filter(
+    (memberId) => !(memberId in fixed) && !(memberId in percent),
+  );
+
+  const rest = left - claimed;
+
+  if (sharing.length > 0) {
+    for (const [memberId, share] of Object.entries(distribute(rest, sharing))) {
+      shares[memberId] = (shares[memberId] ?? 0) + share;
+    }
+
+    return shares;
+  }
+
+  if (rest === 0) {
+    return shares;
+  }
+
+  // Nobody is left to take what the flooring lost. Shares claiming the whole of
+  // it own those cents; anything else simply does not add up.
+  if (percentTotal === FULL_PERCENT && Object.keys(percent).length > 0) {
+    for (const [memberId, share] of Object.entries(
+      distribute(rest, Object.keys(fromPercent)),
+    )) {
+      shares[memberId] = (shares[memberId] ?? 0) + share;
+    }
+
+    return shares;
+  }
+
+  return null;
 }
 
 /**

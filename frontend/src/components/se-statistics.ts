@@ -2,7 +2,9 @@ import { LitElement, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
 import "./se-bar-chart";
+import "./se-pie-chart";
 import type { Bar } from "./se-bar-chart";
+import type { Slice } from "./se-pie-chart";
 import type { SharedExpensesApi } from "../services/api";
 import { colorFor, formatMoney, formatMonth, initials } from "../services/format";
 import { errorMessage, type Localizer } from "../services/localize";
@@ -158,7 +160,7 @@ export class SeStatistics extends LitElement {
         ${this.renderPeriod()} ${this.renderTotals()}
       </div>
 
-      ${this.renderCard("by_category", this.categoryBars())}
+      ${this.renderCategories()}
       ${this.renderCard("by_month", this.monthBars())}
       ${this.renderMembers()}
     `;
@@ -211,7 +213,29 @@ export class SeStatistics extends LitElement {
     `;
   }
 
-  private renderCard(title: "by_category" | "by_month", bars: Bar[]) {
+  /**
+   * Where the money went, as a whole cut up.
+   *
+   * A pie, because that is the question a breakdown by category asks: what
+   * share of the month was food? Months get bars instead — a run of months is
+   * read as time, and time is not a thing you cut into wedges.
+   */
+  private renderCategories() {
+    const slices = this.categorySlices();
+
+    if (slices.length === 0) {
+      return nothing;
+    }
+
+    return html`
+      <div class="card">
+        <h3 class="section-title">${this.localize("by_category")}</h3>
+        <se-pie-chart .slices=${slices}></se-pie-chart>
+      </div>
+    `;
+  }
+
+  private renderCard(title: "by_month", bars: Bar[]) {
     if (bars.length === 0) {
       return nothing;
     }
@@ -269,7 +293,7 @@ export class SeStatistics extends LitElement {
     `;
   }
 
-  private categoryBars(): Bar[] {
+  private categorySlices(): Slice[] {
     return this.result!.by_category.map((item) => {
       const category = this.categories.find((c) => c.id === item.category_id);
 

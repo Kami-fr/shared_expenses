@@ -12,6 +12,13 @@ export interface Remainder {
   members?: string[] | null;
   /** Amounts owed by specific members out of the remainder. */
   fixed?: Record<string, number>;
+  /**
+   * Shares of the remainder owed by specific members.
+   *
+   * In hundredths of a percent, so 60% is 6000: an integer, like every other
+   * figure here. A percentage of money is money.
+   */
+  percent?: Record<string, number>;
 }
 
 export interface SplitRule {
