@@ -616,6 +616,8 @@ class SharedExpensesManager:
         if amount <= 0:
             raise InvalidExpenseError("An expense amount must be positive.")
 
+        _validate_currency(currency, group)
+
         await self.get_member(paid_by_member_id)
 
         category = await self._get_group_category(group_id, category_id)
@@ -716,6 +718,8 @@ class SharedExpensesManager:
 
         if expense.amount <= 0:
             raise InvalidExpenseError("An expense amount must be positive.")
+
+        _validate_currency(expense.currency, group)
 
         await self.get_member(expense.paid_by_member_id)
 
@@ -1007,6 +1011,26 @@ def _validate_payment(
 
     if from_member_id == to_member_id:
         raise InvalidPaymentError("A member cannot pay themselves.")
+
+
+def _validate_currency(currency: str | None, group: Group) -> None:
+    """Refuse an expense in a currency the group does not keep its books in.
+
+    Balances and statistics add amounts up as plain integers, because that is
+    what they are: cents. Nothing anywhere converts. A 100 USD expense in a EUR
+    group would therefore settle against a 100 EUR one and leave two people
+    thinking they were square.
+
+    Refused rather than converted: a rate belongs to a day, needs a source, and
+    changes what someone owes after the fact. Refused rather than silently
+    rewritten to the group's currency, too — that turns a 100 USD dinner into a
+    100 EUR one, which is the same wrong number with nobody told.
+    """
+
+    if currency is not None and currency != group.currency:
+        raise InvalidExpenseError(
+            f"An expense of this group must be in {group.currency}, not {currency}."
+        )
 
 
 def _explicit_amounts(shares: Sequence[ExpenseShare], amount: int) -> dict[str, int]:

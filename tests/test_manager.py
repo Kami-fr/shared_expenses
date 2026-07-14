@@ -852,6 +852,69 @@ async def test_a_non_positive_payment_is_refused(manager: SharedExpensesManager)
         )
 
 
+async def test_an_expense_in_another_currency_is_refused(
+    manager: SharedExpensesManager,
+):
+    """Nothing converts, so 100 USD would settle against 100 EUR."""
+
+    group = await make_group(manager, currency="EUR")
+    owner = await owner_of(manager, group.id)
+
+    with pytest.raises(InvalidExpenseError):
+        await manager.create_expense(
+            group_id=group.id,
+            title="Diner",
+            amount=10000,
+            currency="USD",
+            paid_by_member_id=owner.id,
+            expense_date=NOW,
+        )
+
+    assert await manager.list_expenses(group.id) == []
+
+
+async def test_an_expense_cannot_be_edited_into_another_currency(
+    manager: SharedExpensesManager,
+):
+    """The way in is guarded; the way round it must be too."""
+
+    group = await make_group(manager, currency="EUR")
+    owner = await owner_of(manager, group.id)
+
+    expense = await manager.create_expense(
+        group_id=group.id,
+        title="Diner",
+        amount=10000,
+        paid_by_member_id=owner.id,
+        expense_date=NOW,
+    )
+
+    with pytest.raises(InvalidExpenseError):
+        await manager.update_expense(replace(expense, currency="USD"))
+
+    assert (await manager.get_expense(expense.id)).currency == "EUR"
+
+
+async def test_the_group_currency_is_what_an_expense_gets(
+    manager: SharedExpensesManager,
+):
+    """Saying it plainly is allowed; it is only a different one that is not."""
+
+    group = await make_group(manager, currency="CHF")
+    owner = await owner_of(manager, group.id)
+
+    expense = await manager.create_expense(
+        group_id=group.id,
+        title="Fondue",
+        amount=10000,
+        currency="CHF",
+        paid_by_member_id=owner.id,
+        expense_date=NOW,
+    )
+
+    assert expense.currency == "CHF"
+
+
 async def test_someone_who_left_can_still_settle_up(manager: SharedExpensesManager):
     """Leaving a group does not clear a debt; it must stay payable."""
 

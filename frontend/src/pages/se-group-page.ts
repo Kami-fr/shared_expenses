@@ -132,8 +132,21 @@ export class SeGroupPage extends LitElement {
   public static styles = [
     sharedStyles,
     css`
+      /*
+       * A column filling the screen, so the gesture area does too.
+       *
+       * The swipe zone used to be as tall as whatever the tab held: below a
+       * short list the empty space belonged to the page, and a finger landing
+       * there found nothing listening. The height is handed down from here to
+       * .swipe so the emptiness is part of the tab, which is what it looks like.
+       *
+       * dvh, not vh: on a phone vh counts the address bar even while it is
+       * showing, which would leave the page scrolling by its height for nothing.
+       */
       :host {
-        display: block;
+        display: flex;
+        flex-direction: column;
+        min-height: 100dvh;
         position: relative;
       }
 
@@ -150,10 +163,20 @@ export class SeGroupPage extends LitElement {
         z-index: 3;
       }
 
+      /* Takes what the toolbar leaves, and passes it on to the stack. */
       .page {
         padding: 16px;
         max-width: 720px;
+        width: 100%;
         margin: 0 auto;
+        box-sizing: border-box;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .page > .stack {
+        flex: 1;
       }
 
       .header {
@@ -175,11 +198,21 @@ export class SeGroupPage extends LitElement {
       /*
        * Carries the gesture, and the layout the tab content had when it was a
        * child of the stack itself: a wrapper must not cost the spacing.
+       *
+       * touch-action is what makes the gesture arrive at all. Left to itself a
+       * browser claims a sideways drag for its own back-and-forward navigation,
+       * and once it does it cancels the touch rather than ending it — so
+       * touchend never fires and the tab never changes. pan-y hands it the
+       * vertical scroll and keeps the horizontal; pinch-zoom stays, because
+       * taking zoom away from someone is not a trade worth making for a tab.
        */
       .swipe {
         display: flex;
         flex-direction: column;
         gap: var(--se-gap);
+        touch-action: pan-y pinch-zoom;
+        /* Down to the bottom of the screen: the empty part swipes too. */
+        flex: 1;
       }
 
       .tabs button {
