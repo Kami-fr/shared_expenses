@@ -17,7 +17,7 @@ STORAGE_KEY: Final = DOMAIN
 DEFAULT_CURRENCY: Final = "EUR"
 
 #: The platforms a project puts on the dashboard, when it says to.
-PLATFORMS: Final = [Platform.BINARY_SENSOR, Platform.SENSOR]
+PLATFORMS: Final = [Platform.SENSOR]
 
 #: Fired when anything in a group moved, so the entities can catch up.
 #:

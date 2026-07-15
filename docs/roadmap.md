@@ -159,9 +159,12 @@ member could delete the whole group.
 
 ## Sprint 14 — The dashboard
 
-- [x] A project can put its figures on the dashboard: a balance per member, one
-      sensor saying whether anything is still owed, and when it was last used.
-      Grouped under a device per project.
+- [x] A project can put its figures on the dashboard: what it has spent, a
+      balance per member, and when it was last used. Grouped under a device per
+      project.
+- [x] A `binary_sensor` for "does anybody still owe anything" was built and
+      dropped. It answered what the balances already answer, and worse: whoever
+      asks it goes on to read them anyway, to know who and how much.
 - [x] Off by default, per project, admin only, and written into the journal.
       Entities are not walled — `USER_POLICY` grants every account every entity
       — so this takes a wall down and has to be thrown rather than inherited.
@@ -172,8 +175,37 @@ member could delete the whole group.
 - [x] The coordinator refreshes on a signal, never on a clock: a shared expense
       changes when somebody types it in. One signal, sent from `_record`, which
       every write worth accounting for already went through.
-- [x] 19 tests. The exposure filter sabotaged to prove they catch a project
-      reaching the dashboard without asking.
+- [x] 25 tests. The exposure filter sabotaged to prove they catch a project
+      reaching the dashboard without asking, and the total sabotaged to prove
+      they catch a reimbursement counted as spending.
+
+## Sprint 15 — The card
+
+- [x] `se-balance-card` on any dashboard, as `shared-expenses-card`. Not one
+      line of it was rewritten: it already knew the three shapes of "who owes
+      what to whom" — the face-off at two, the transfers beyond, and the group's
+      own view when nobody is looking from the inside.
+- [x] **The "you" comes back.** A card runs in the browser of whoever is looking,
+      on their connection, so it asks the WebSocket API and is answered as them.
+      One set of balances reads "On te doit 42,71 €" for one account and "Tu dois
+      42,71 €" for the other. An entity's state is one string for the whole
+      house; this is why the card is not built out of them.
+- [x] Nothing here is an entity, so the wall holds by itself and `exposed` has
+      nothing to do with it. The card works with the switch shut.
+- [x] One bundle, and it has to be one: Home Assistant is a single page, so two
+      would each run `customElements.define("se-balance-card")` and the second
+      would throw, taking the panel with it. The card costs 6 KB of 277.
+- [x] `subscribe_group`: a card sits on a kitchen wall for days, where the panel
+      is opened and closed. A command of ours rather than an event on the bus —
+      Home Assistant refuses `subscribe_events` on anything but `state_changed`
+      to an ordinary account, so a member could never have listened. The ping
+      carries nothing, so the read it provokes is authorized afresh.
+- [x] 9 tests, the group filter sabotaged to prove they catch a card hearing
+      about a household it has nothing to do with, and the held URL sabotaged to
+      prove they catch every dashboard left loading a bundle that is gone.
+- [x] Rendered in headless Chrome against the real bundle, which is the only
+      thing that could show the same balances speaking differently to two
+      accounts. See ADR-015.
 
 ## Later
 

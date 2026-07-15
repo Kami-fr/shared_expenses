@@ -147,6 +147,24 @@ export class SharedExpensesApi {
     return this.call("get_balances", { group_id: groupId });
   }
 
+  /**
+   * Call `onChange` whenever the group moves. Returns how to stop listening.
+   *
+   * The ping carries nothing, on purpose: read the group again on it rather
+   * than believing it. The subscription was authorized once and the read is
+   * authorized every time, so a card left open by somebody since removed from
+   * the group is refused at the read, not trusted at the ping.
+   */
+  public subscribeGroup(
+    groupId: string,
+    onChange: () => void,
+  ): Promise<() => Promise<void>> {
+    return this.hass.connection.subscribeMessage(onChange, {
+      type: "shared_expenses/subscribe_group",
+      group_id: groupId,
+    });
+  }
+
   // Members
 
   /** The Home Assistant accounts a group can be built from. */

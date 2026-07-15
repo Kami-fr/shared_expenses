@@ -6,11 +6,12 @@ from dataclasses import replace
 from typing import Any
 
 from homeassistant.components import websocket_api
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 import voluptuous as vol
 
-from ..const import DEFAULT_CURRENCY
+from ..const import DEFAULT_CURRENCY, SIGNAL_GROUP_CHANGED
 from ..manager import SharedExpensesManager
 from ..models import Permission
 from .api import (
@@ -292,6 +293,56 @@ async def websocket_get_balances(
     connection.send_result(msg["id"], balances_to_dict(result))
 
 
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "shared_expenses/subscribe_group",
+        vol.Required("group_id"): cv.string,
+    }
+)
+@websocket_api.async_response
+@api_command(Scope.GROUP)
+async def websocket_subscribe_group(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+    manager: SharedExpensesManager,
+) -> None:
+    """Say when this group moved, for as long as the caller keeps listening.
+
+    The panel never needed this. It is opened, it reads, it is closed, and
+    whoever is looking at it is usually the one typing into it. A card on a
+    dashboard is left running on a kitchen wall for days, and nothing would ever
+    tell it that somebody else did the shopping.
+
+    What goes out carries nothing: not the balances, not what moved, only that
+    something did. That is the design rather than an economy. The caller was
+    cleared once, when they subscribed, and a subscription outlives its check —
+    somebody dropped from the group in the meantime would go on hearing this. So
+    the ping says nothing, and what it provokes is another `get_balances`, which
+    is authorized afresh and refuses them. A listener who should no longer be
+    there learns only that a group they already knew of is being used.
+    """
+
+    group_id = msg["group_id"]
+
+    @callback
+    def _changed(changed_id: str) -> None:
+        """Ping, if it was this group that moved."""
+
+        if changed_id == group_id:
+            connection.send_message(websocket_api.event_message(msg["id"], None))
+
+    # Home Assistant drops this when the connection goes, which is what stops a
+    # card in a closed browser tab from costing anything.
+    connection.subscriptions[msg["id"]] = async_dispatcher_connect(
+        hass,
+        SIGNAL_GROUP_CHANGED,
+        _changed,
+    )
+
+    connection.send_result(msg["id"])
+
+
 COMMANDS = (
     websocket_list_groups,
     websocket_get_group,
@@ -301,4 +352,5 @@ COMMANDS = (
     websocket_delete_group,
     websocket_transfer_admin,
     websocket_get_balances,
+    websocket_subscribe_group,
 )

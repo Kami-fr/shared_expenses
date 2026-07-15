@@ -19,15 +19,16 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
 
-import pytest
-
-from custom_components.shared_expenses.binary_sensor import OutstandingBinarySensor
 from custom_components.shared_expenses.coordinator import (
     GroupSnapshot,
     SharedExpensesCoordinator,
 )
 from custom_components.shared_expenses.manager import SharedExpensesManager
-from custom_components.shared_expenses.sensor import BalanceSensor, LastActivitySensor
+from custom_components.shared_expenses.sensor import (
+    BalanceSensor,
+    LastActivitySensor,
+    TotalSpentSensor,
+)
 from tests.conftest import ADMIN, PLAIN
 
 NOW = datetime(2026, 7, 14, 12, 0, tzinfo=UTC)
@@ -69,7 +70,7 @@ def a_snapshot(**over: Any) -> GroupSnapshot:
             "group": over.pop("group", group),
             "members": over.pop("members", members),
             "balances": over.pop("balances", {"m1": 4_271, "m2": -4_271}),
-            "settled": over.pop("settled", False),
+            "total": over.pop("total", 8_542),
             "last_activity": over.pop("last_activity", NOW),
             **over,
         }
@@ -235,28 +236,67 @@ def test_a_member_still_in_the_project_is_available() -> None:
 
 
 #
-# Settled, and when it was last used
+# What the project spent
 #
 
 
-@pytest.mark.parametrize(("settled", "expected"), [(True, False), (False, True)])
-def test_outstanding_is_on_while_something_is_owed(
-    settled: bool,
-    expected: bool,
-) -> None:
-    """On means there is something to do, which is what a lit dot reads as."""
+def a_total(snapshot: GroupSnapshot | None) -> TotalSpentSensor:
+    """Return a spending sensor over one snapshot, or over nothing."""
 
-    snapshot = a_snapshot(settled=settled)
-    sensor = OutstandingBinarySensor(FakeCoordinator({"g1": snapshot}), "g1")
+    data = {} if snapshot is None else {"g1": snapshot}
 
-    assert sensor.is_on is expected
+    return TotalSpentSensor(FakeCoordinator(data), "g1")
 
 
-def test_outstanding_says_nothing_about_a_project_it_cannot_see() -> None:
-    sensor = OutstandingBinarySensor(FakeCoordinator({}), "g1")
+def test_what_a_project_spent_is_money_rather_than_cents() -> None:
+    assert a_total(a_snapshot()).native_value == 85.42
 
-    assert sensor.is_on is None
+
+def test_a_project_that_spent_nothing_reads_zero() -> None:
+    """Not unknown: a project nobody has spent in has spent nothing."""
+
+    assert a_total(a_snapshot(total=0)).native_value == 0
+
+
+def test_what_a_project_spent_is_counted_in_its_own_currency() -> None:
+    group = SimpleNamespace(id="g1", name="Ski", currency="CHF", exposed=True)
+
+    assert a_total(a_snapshot(group=group)).native_unit_of_measurement == "CHF"
+
+
+def test_what_a_project_spent_says_nothing_once_it_stops_exposing_itself() -> None:
+    """The switch covers every figure, not only the balances."""
+
+    sensor = a_total(None)
+
     assert sensor.available is False
+    assert sensor.native_value is None
+
+
+#
+# The ids, which is how a tile is written at all
+#
+
+
+def test_every_entity_of_a_project_carries_its_id() -> None:
+    """`add_expense` asks for it, and no selector knows how to name a project."""
+
+    assert a_total(a_snapshot()).extra_state_attributes["group_id"] == "g1"
+    assert a_balance(a_snapshot()).extra_state_attributes["group_id"] == "g1"
+
+
+def test_a_balance_carries_the_only_id_nothing_else_writes_down() -> None:
+    """The member's. `add_expense` asks who paid, and this is where it is."""
+
+    assert a_balance(a_snapshot(), "m2").extra_state_attributes == {
+        "group_id": "g1",
+        "member_id": "m2",
+    }
+
+
+#
+# When it was last used
+#
 
 
 def test_last_activity_is_when_something_was_entered() -> None:
@@ -322,7 +362,7 @@ async def test_a_snapshot_is_the_project_at_one_moment(
     manager: SharedExpensesManager,
     project: dict[str, Any],
 ) -> None:
-    """Balances and "settled" come from one read, so they cannot disagree."""
+    """The total and the balances come from one read, so they cannot disagree."""
 
     await manager.update_group(
         replace(project["group"], exposed=True),
@@ -331,7 +371,7 @@ async def test_a_snapshot_is_the_project_at_one_moment(
 
     empty = (await Probe(manager)._async_update_data())[project["group"].id]
 
-    assert empty.settled is True
+    assert empty.total == 0
     assert empty.last_activity is None
 
     await manager.create_expense(
@@ -345,9 +385,48 @@ async def test_a_snapshot_is_the_project_at_one_moment(
 
     snapshot = (await Probe(manager)._async_update_data())[project["group"].id]
 
-    assert snapshot.settled is False
+    assert snapshot.total == 8_542
     assert snapshot.last_activity is not None
     assert sum(snapshot.balances.values()) == 0, "a balance sheet has to balance"
+
+
+async def test_paying_somebody_back_is_not_spending(
+    manager: SharedExpensesManager,
+    project: dict[str, Any],
+) -> None:
+    """A reimbursement moves money between members. It does not spend any.
+
+    Counting one would say the household spent 100 EUR on a 90 EUR shop. The
+    rule the statistics page has kept since it existed, and the sensor is the
+    second place that could break it.
+    """
+
+    await manager.update_group(
+        replace(project["group"], exposed=True),
+        actor_user_id=ADMIN,
+    )
+
+    await manager.create_expense(
+        group_id=project["group"].id,
+        title="Courses",
+        amount=9_000,
+        paid_by_member_id=project["admin"].id,
+        expense_date=NOW,
+        actor_user_id=ADMIN,
+    )
+
+    await manager.create_payment(
+        group_id=project["group"].id,
+        from_member_id=project["plain"].id,
+        to_member_id=project["admin"].id,
+        amount=3_000,
+        payment_date=NOW,
+        actor_user_id=PLAIN,
+    )
+
+    snapshot = (await Probe(manager)._async_update_data())[project["group"].id]
+
+    assert snapshot.total == 9_000, "the shop, and not the shop plus the change"
 
 
 async def test_closing_the_switch_takes_the_project_back_off(

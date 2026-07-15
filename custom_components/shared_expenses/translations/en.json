@@ -12,17 +12,11 @@
   },
   "entity": {
     "sensor": {
+      "total_spent": {
+        "name": "Total spent"
+      },
       "last_activity": {
         "name": "Last activity"
-      }
-    },
-    "binary_sensor": {
-      "outstanding": {
-        "name": "Debts",
-        "state": {
-          "on": "Outstanding",
-          "off": "All settled"
-        }
       }
     }
   }

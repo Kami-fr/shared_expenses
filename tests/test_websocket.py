@@ -235,6 +235,12 @@ async def test_listing_groups_shows_only_your_own(
             "group_not_found",
         ),
         (
+            "subscribe_group",
+            lambda: groups.websocket_subscribe_group,
+            lambda h: {"group_id": h["theirs"].id},
+            "group_not_found",
+        ),
+        (
             "get_statistics",
             lambda: statistics.websocket_get_statistics,
             lambda h: {"group_id": h["theirs"].id},
@@ -898,3 +904,148 @@ async def test_a_payment_in_another_currency_goes_through(
     balances = await manager.get_balances(household["mine"].id)
 
     assert balances.balances[other.id] == -4_384
+
+
+#
+# Being told the group moved, which is what a card on a wall lives on
+#
+
+
+async def test_subscribing_says_when_the_group_moved(
+    loaded: FakeHass,
+    household: dict[str, Any],
+    manager: SharedExpensesManager,
+) -> None:
+    """A member listens, somebody spends, the listener hears.
+
+    The panel never needed this: it reads once and is closed. A card sits on a
+    kitchen wall for days, and nothing else would ever tell it.
+    """
+
+    connection = FakeConnection(MINE)
+
+    await call(
+        loaded,
+        connection,
+        groups.websocket_subscribe_group,
+        {"type": "shared_expenses/subscribe_group", "group_id": household["mine"].id},
+    )
+
+    assert connection.errors == {}
+    assert connection.messages == [], "subscribing is not news"
+
+    await manager.create_expense(
+        group_id=household["mine"].id,
+        title="Pain",
+        amount=130,
+        paid_by_member_id=household["my_admin"].id,
+        expense_date=NOW,
+        actor_user_id=MINE,
+    )
+
+    assert len(connection.messages) == 1
+
+
+async def test_the_ping_carries_nothing(
+    loaded: FakeHass,
+    household: dict[str, Any],
+    manager: SharedExpensesManager,
+) -> None:
+    """Not the balances, not what moved: only that something did.
+
+    The design, not an economy. A subscription outlives the check that allowed
+    it — somebody dropped from the group would go on hearing this — so what it
+    provokes is another `get_balances`, authorized afresh. Put a figure in here
+    and that second door stops being asked.
+    """
+
+    connection = FakeConnection(MINE)
+
+    await call(
+        loaded,
+        connection,
+        groups.websocket_subscribe_group,
+        {"type": "shared_expenses/subscribe_group", "group_id": household["mine"].id},
+    )
+
+    await manager.create_expense(
+        group_id=household["mine"].id,
+        title="Pain",
+        amount=130,
+        paid_by_member_id=household["my_admin"].id,
+        expense_date=NOW,
+        actor_user_id=MINE,
+    )
+
+    assert connection.messages[0]["event"] is None
+
+    everything = str(connection.messages)
+
+    assert "130" not in everything
+    assert "Pain" not in everything
+
+
+async def test_a_subscriber_hears_nothing_of_another_household(
+    loaded: FakeHass,
+    household: dict[str, Any],
+    manager: SharedExpensesManager,
+) -> None:
+    """The signal is fired for every group in the house. This one is not deaf.
+
+    It listens to all of them and answers for one, which is exactly the kind of
+    filter that gets written the other way round by accident.
+    """
+
+    connection = FakeConnection(MINE)
+
+    await call(
+        loaded,
+        connection,
+        groups.websocket_subscribe_group,
+        {"type": "shared_expenses/subscribe_group", "group_id": household["mine"].id},
+    )
+
+    await manager.create_expense(
+        group_id=household["theirs"].id,
+        title="Forfait",
+        amount=20_000,
+        paid_by_member_id=household["their_admin"].id,
+        expense_date=NOW,
+        actor_user_id=THEIRS,
+    )
+
+    assert connection.messages == []
+
+
+async def test_hanging_up_stops_the_listening(
+    loaded: FakeHass,
+    household: dict[str, Any],
+    manager: SharedExpensesManager,
+) -> None:
+    """What Home Assistant runs when the browser tab closes.
+
+    Left undone, every card ever opened would go on costing a callback for the
+    life of the instance.
+    """
+
+    connection = FakeConnection(MINE)
+
+    await call(
+        loaded,
+        connection,
+        groups.websocket_subscribe_group,
+        {"type": "shared_expenses/subscribe_group", "group_id": household["mine"].id},
+    )
+
+    connection.subscriptions[1]()
+
+    await manager.create_expense(
+        group_id=household["mine"].id,
+        title="Pain",
+        amount=130,
+        paid_by_member_id=household["my_admin"].id,
+        expense_date=NOW,
+        actor_user_id=MINE,
+    )
+
+    assert connection.messages == []

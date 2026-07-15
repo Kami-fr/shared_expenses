@@ -1,6 +1,6 @@
 """Sensors for a project that puts itself on the dashboard.
 
-A balance per member, and when the project was last used.
+What it has spent, a balance per member, and when it was last used.
 
 There is no "you" here, and there cannot be. An entity's state is the same for
 everybody who reads it, so the whole way the panel talks — "you are owed", green
@@ -55,6 +55,7 @@ async def async_setup_entry(
         for group_id, snapshot in (coordinator.data or {}).items():
             if group_id not in known:
                 known.add(group_id)
+                added.append(TotalSpentSensor(coordinator, group_id))
                 added.append(LastActivitySensor(coordinator, group_id))
 
             for member in snapshot.members:
@@ -74,11 +75,70 @@ async def async_setup_entry(
     _add_new()
 
 
-class BalanceSensor(SharedExpensesEntity, SensorEntity):
-    """What one member of one project is owed, or owes."""
+class MoneySensor(SharedExpensesEntity, SensorEntity):
+    """A sensor carrying money, counted in the project's own currency.
+
+    `TOTAL` rather than `TOTAL_INCREASING`: both of these go down. A balance
+    swings, and a project's spending drops when an expense is deleted.
+    """
 
     _attr_device_class = SensorDeviceClass.MONETARY
     _attr_state_class = SensorStateClass.TOTAL
+
+    @property
+    def native_unit_of_measurement(self) -> str | None:
+        """The project's own currency, which is what its money is counted in."""
+
+        return self.snapshot.group.currency if self.snapshot else None
+
+    @staticmethod
+    def _money(cents: int) -> float:
+        """Turn the model's cents into what a monetary sensor is read as.
+
+        The only place this integration hands out a float. Everything inside it
+        is integer cents on purpose — no rounding drift, ever — but a monetary
+        sensor is read as money, and 8542 would be read as eight thousand euros.
+        Dividing by a hundred at the very edge is exact for anything a household
+        will ever owe or spend: a float carries fifteen digits, and this has at
+        most a dozen.
+        """
+
+        return cents / 100
+
+
+class TotalSpentSensor(MoneySensor):
+    """What the project has spent since it started.
+
+    Expenses only, like every total this integration shows: a reimbursement
+    moves money between members, it does not spend any.
+
+    This is the project's whole life, so it only ever means much next to
+    something — the same figure the statistics page shows, and the one a
+    household compares to last year.
+    """
+
+    _attr_icon = "mdi:cash-multiple"
+    _attr_translation_key = "total_spent"
+
+    def __init__(self, coordinator: SharedExpensesCoordinator, group_id: str) -> None:
+        """Bind the sensor to one project."""
+
+        super().__init__(coordinator, group_id)
+
+        self._attr_unique_id = f"{group_id}_total_spent"
+
+    @property
+    def native_value(self) -> float | None:
+        """What it has spent, in units rather than in cents."""
+
+        snapshot = self.snapshot
+
+        return None if snapshot is None else self._money(snapshot.total)
+
+
+class BalanceSensor(MoneySensor):
+    """What one member of one project is owed, or owes."""
+
     _attr_icon = "mdi:scale-balance"
 
     def __init__(
@@ -148,36 +208,23 @@ class BalanceSensor(SharedExpensesEntity, SensorEntity):
         return any(member.id == self._member_id for member in snapshot.members)
 
     @property
-    def native_unit_of_measurement(self) -> str | None:
-        """The project's own currency, which is what a balance is counted in."""
-
-        return self.snapshot.group.currency if self.snapshot else None
-
-    @property
     def extra_state_attributes(self) -> dict[str, str]:
-        """The two ids the actions ask for.
+        """The project's id, and the one thing only this sensor knows.
 
-        Not decoration. `add_expense` needs the project and the member, and
-        neither is a Home Assistant entity, so no selector lists them — the
-        project's is at least in the panel's address, and the member's was
-        nowhere at all. Writing a tile meant reading the database.
-
-        Here, they are where Home Assistant expects a fact to be looked up:
-        Developer Tools, on the sensor of the person the tile is about.
+        `add_expense` asks who paid, and a member is no more a Home Assistant
+        entity than a project is. This is the only place their id is written
+        down: the person's own sensor, which is where somebody writing a tile
+        about them would think to look.
         """
 
-        return {"group_id": self._group_id, "member_id": self._member_id}
+        return {**super().extra_state_attributes, "member_id": self._member_id}
 
     @property
     def native_value(self) -> float | None:
         """The balance, in units rather than in cents.
 
-        The one place this integration hands out a float. Everything inside it
-        is integer cents on purpose — no rounding drift, ever — but a monetary
-        sensor is read as money, and 8542 would be read as eight thousand euros.
-        Dividing by a hundred at the very edge is exact for anything a household
-        will ever owe: a float carries fifteen digits, and this has at most a
-        dozen.
+        Zero for a member the balances do not mention: owing nothing is a fact,
+        and zero says it. Unknown would say the sensor could not find out.
         """
 
         snapshot = self.snapshot
@@ -185,7 +232,7 @@ class BalanceSensor(SharedExpensesEntity, SensorEntity):
         if snapshot is None:
             return None
 
-        return snapshot.balances.get(self._member_id, 0) / 100
+        return self._money(snapshot.balances.get(self._member_id, 0))
 
 
 class LastActivitySensor(SharedExpensesEntity, SensorEntity):

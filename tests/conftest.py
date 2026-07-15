@@ -102,10 +102,11 @@ class FakeHass:
 class FakeConnection:
     """Stand-in for an `ActiveConnection`, remembering what it was sent.
 
-    Holds no Home Assistant machinery: the handlers only ever call
-    `send_result`, `send_error`, and read from `user`. A real account has a
-    name, and creating a group falls back on it to name the admin, so this one
-    has one too — the stand-in is only worth what it stands in for.
+    Holds no Home Assistant machinery: the handlers call `send_result`,
+    `send_error` and `send_message`, keep what they subscribed in
+    `subscriptions`, and read from `user`. A real account has a name, and
+    creating a group falls back on it to name the admin, so this one has one too
+    — the stand-in is only worth what it stands in for.
     """
 
     def __init__(
@@ -120,6 +121,17 @@ class FakeConnection:
         self.user = SimpleNamespace(id=user_id, is_admin=is_admin, name=name)
         self.results: dict[int, Any] = {}
         self.errors: dict[int, tuple[str, str]] = {}
+        self.messages: list[Any] = []
+
+        # Home Assistant drops what is left here when the connection goes. A
+        # subscription is only ever as good as its unsubscribing, so the tests
+        # hold the real callbacks and can run them.
+        self.subscriptions: dict[int, Any] = {}
+
+    def send_message(self, message: Any) -> None:
+        """Record a push, which is what a subscription sends."""
+
+        self.messages.append(message)
 
     def send_result(self, msg_id: int, result: Any = None) -> None:
         """Record a successful answer."""

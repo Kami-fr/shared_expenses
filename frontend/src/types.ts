@@ -335,6 +335,18 @@ export interface HomeAssistant {
       callback: (event: T) => void,
       eventType: string,
     ): Promise<() => Promise<void>>;
+    /**
+     * Subscribe to one of our own commands, rather than to the event bus.
+     *
+     * The bus is not an option: Home Assistant refuses `subscribe_events` on
+     * anything but `state_changed` unless the account is an admin, so an
+     * ordinary member could never listen. A command of ours goes through the
+     * same door as the rest — it checks that they are in the group.
+     */
+    subscribeMessage<T>(
+      callback: (message: T) => void,
+      subscribeMessage: object,
+    ): Promise<() => Promise<void>>;
   };
 }
 

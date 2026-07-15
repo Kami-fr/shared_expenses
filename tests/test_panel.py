@@ -10,6 +10,7 @@ from __future__ import annotations
 import inspect
 
 from homeassistant.components import panel_custom
+from homeassistant.components.frontend import DATA_EXTRA_MODULE_URL, UrlManager
 
 from custom_components.shared_expenses import panel
 
@@ -35,7 +36,13 @@ class FakeHass:
     """Enough of `hass` for the frontend and http components."""
 
     def __init__(self) -> None:
-        self.data: dict = {}
+        # The real `UrlManager`, seeded the way the frontend component seeds it
+        # on setup. Home Assistant guarantees it is there — the manifest depends
+        # on `frontend`, so it is set up before this integration — and a fake
+        # holding a stand-in here would test a set that is not the one shipping.
+        self.data: dict = {
+            DATA_EXTRA_MODULE_URL: UrlManager(lambda *_args: None, []),
+        }
         self.http = FakeHttp()
         self.bus = FakeBus()
 
@@ -142,3 +149,81 @@ async def test_the_panel_can_be_registered_again_after_unload():
     await panel.async_register_panel(hass)
 
     assert panel.PANEL_URL in hass.data["frontend_panels"]
+
+
+#
+# The dashboard card, which rides the same bundle
+#
+
+
+def _card_urls(hass) -> frozenset[str]:
+    """Return the bundle URLs every dashboard is told to load."""
+
+    return hass.data[DATA_EXTRA_MODULE_URL].urls
+
+
+async def test_registering_the_panel_offers_the_card_to_dashboards():
+    """Without this the card exists in the bundle and nothing ever loads it."""
+
+    hass = FakeHass()
+
+    await panel.async_register_panel(hass)
+
+    assert _card_urls(hass) == {panel._module_url()}
+
+
+async def test_the_card_and_the_panel_are_the_same_bundle():
+    """Home Assistant is one page, so two bundles would be one crash.
+
+    Both would run `customElements.define("se-balance-card")`; the second throws
+    and takes the panel with it. The card riding the panel's own URL is what
+    makes that impossible rather than merely avoided.
+    """
+
+    hass = FakeHass()
+
+    await panel.async_register_panel(hass)
+
+    registered = hass.data["frontend_panels"][panel.PANEL_URL]
+
+    assert _card_urls(hass) == {registered.config["_panel_custom"]["module_url"]}
+
+
+async def test_unloading_takes_the_card_back():
+    hass = FakeHass()
+
+    await panel.async_register_panel(hass)
+    panel.async_unregister_panel(hass)
+
+    assert _card_urls(hass) == frozenset()
+
+
+async def test_rebuilding_leaves_no_stale_bundle_behind(tmp_path, monkeypatch):
+    """The URL carries the bundle's mtime, so a rebuild changes it.
+
+    Removing a recomputed URL would remove nothing, and every dashboard would
+    go on loading a version that is no longer there. Exactly one URL is offered,
+    always, however many times this is reloaded.
+    """
+
+    import os
+
+    bundle = tmp_path / panel.BUNDLE_NAME
+    bundle.write_text("first", encoding="utf-8")
+    os.utime(bundle, (1_000_000, 1_000_000))
+
+    monkeypatch.setattr(panel, "WWW_PATH", tmp_path)
+
+    hass = FakeHass()
+
+    await panel.async_register_panel(hass)
+
+    first = set(_card_urls(hass))
+
+    bundle.write_text("second", encoding="utf-8")
+    os.utime(bundle, (2_000_000, 2_000_000))
+
+    await panel.async_register_panel(hass)
+
+    assert len(_card_urls(hass)) == 1
+    assert _card_urls(hass) != first

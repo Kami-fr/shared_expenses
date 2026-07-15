@@ -49,9 +49,14 @@ Under a device of its own:
 
 | Entity | What it says |
 |--------|--------------|
+| `sensor` | What the project has spent, `device_class: monetary`, in its currency |
 | `sensor` per member | Their balance, `device_class: monetary`, in the project's currency |
-| `binary_sensor` | Whether anything is still owed, `device_class: problem` |
 | `sensor` | When something was last entered |
+
+A `binary_sensor` saying whether anything was still owed was here and is gone.
+It answered a question the balances already answer, and answered it worse: an
+automation wanting "does anybody owe anything" reads the balances it would have
+to read anyway to say who and how much.
 
 **There is no "you", and there cannot be.** An entity's state is the same for
 everybody who reads it, so the whole way the panel speaks — "you are owed",
@@ -59,10 +64,17 @@ green when the money comes your way — has nowhere to land. A balance is named
 for whose it is, and its sign is the model's own: positive is owed to them,
 negative is owed by them.
 
-**A balance is the one float this integration hands out.** Everything inside is
-integer cents, on purpose. But a monetary sensor is read as money, and 8542
-would be read as eight thousand euros; the division by a hundred happens at the
-very edge, where it is exact for anything a household will owe.
+**The monetary sensors are the only floats this integration hands out.**
+Everything inside is integer cents, on purpose. But a monetary sensor is read as
+money, and 8542 would be read as eight thousand euros; the division by a hundred
+happens at the very edge, where it is exact for anything a household will spend.
+
+**What a project spent is expenses only**, like every total here: a
+reimbursement moves money between members, it does not spend any. It is summed
+off the expenses the snapshot already holds rather than asked of
+`get_statistics`, which would re-read them and their shares to hand back one
+number — so the two definitions have to move together, and a test holds the rule
+against a real database.
 
 ### Actions, not buttons
 

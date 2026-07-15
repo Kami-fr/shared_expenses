@@ -31,7 +31,7 @@ LOGGER = getLogger(__package__)
 class GroupSnapshot:
     """Everything the entities of one group need, read at one moment.
 
-    Held together on purpose. A balance and the "settled" it implies must never
+    Held together on purpose. A total and the balances under it must never
     disagree because two entities happened to read a fraction apart.
     """
 
@@ -48,7 +48,13 @@ class GroupSnapshot:
     for.
     """
 
-    settled: bool
+    total: int
+    """What the group has spent since it started, in the cents of its currency.
+
+    Expenses only. A reimbursement moves money between members, it does not
+    spend any — counting one would say a household spent 100 EUR on a 90 EUR
+    shop. The same rule the statistics page keeps, and the same figure.
+    """
 
     last_activity: datetime | None
     """When the last expense or payment was entered. None in an empty group."""
@@ -121,9 +127,14 @@ class SharedExpensesCoordinator(DataUpdateCoordinator[dict[str, GroupSnapshot]])
             group=group,
             members=tuple(await self._manager.list_group_members(group.id)),
             balances=dict(result.balances),
-            # Asked of the balances rather than of the settlements: a group with
-            # nothing in it has neither, and "settled" is the truth about it.
-            settled=all(amount == 0 for amount in result.balances.values()),
+            # `converted_amount`, never `amount`: a total adding 100 USD to
+            # 100 EUR is not a total of anything. This is what
+            # `compute_statistics` calls `total` over every year — summed off
+            # the expenses already read here rather than asked of
+            # `get_statistics`, which would re-read them and their shares to
+            # hand back one number. If what a project "spent" ever stops
+            # meaning this, the two have to move together.
+            total=sum(expense.converted_amount for expense in expenses),
             # When it was entered, not the date typed on it. A shop from last
             # month added today is activity today — this answers "is anybody
             # still using this?", and a backdated expense means somebody is.

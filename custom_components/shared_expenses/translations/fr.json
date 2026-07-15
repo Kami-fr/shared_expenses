@@ -12,17 +12,11 @@
   },
   "entity": {
     "sensor": {
+      "total_spent": {
+        "name": "Total dépensé"
+      },
       "last_activity": {
         "name": "Dernière activité"
-      }
-    },
-    "binary_sensor": {
-      "outstanding": {
-        "name": "Dettes",
-        "state": {
-          "on": "En cours",
-          "off": "Tout est réglé"
-        }
       }
     }
   }

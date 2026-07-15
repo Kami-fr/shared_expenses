@@ -48,12 +48,11 @@ belong to, and nothing else.
   Deletions included, which is where an expense's own history cannot help — and
   a deleted expense can be brought back from there, as the one it was: same
   date, same shares, same frozen rate.
-- **On the dashboard, if you ask** — a project can expose a balance per member,
-  whether anything is still owed, and when it was last used; and `add_expense`
-  and `settle_up` are actions, so a tag on the fridge or a button card can add
-  the shopping. Off by default and per project: Home Assistant does not wall
-  entities off, so every account in the house would read the figures, member of
-  the project or not. That is a switch to throw knowingly, not a default.
+- **On the dashboard** — a card putting who owes what to whom on any view, and
+  saying it to whoever is looking: you read what you owe, your flatmate reads
+  what they owe. Alongside it, if a project asks: what it has spent, a balance
+  per member, when it was last used, and `add_expense` and `settle_up` as
+  actions, so a tag on the fridge or a button card can add the shopping.
 - **Mobile first** — a single panel, thumb-reachable, in your own theme, light
   or dark.
 
@@ -107,6 +106,116 @@ converted on its own: three shares of a cent at a rate of a third would each
 round to nothing, and the shares would stop adding up to what they are shares
 of.
 
+## On the dashboard
+
+### The card
+
+Add a card, pick **Shared Expenses**, and the balances are on your dashboard —
+the same ones as in the panel, drawn by the same code:
+
+```yaml
+type: custom:shared-expenses-card
+group_id: 01KXHEB4VFFWMAN5CG4BDNNBF9
+```
+
+It says what the panel says, in the same words. **You are owed 42,71 €** when
+two of you are square with everyone but each other; your line first and the
+others under it when more people are involved. Each line taps through to record
+the reimbursement, filled in.
+
+**And it speaks to whoever is looking.** A card runs in your browser, on your own
+connection, so it asks the integration who you are — exactly as the panel does.
+The same card, on the same wall-mounted dashboard, tells you what you owe and
+tells your flatmate what they owe. On a tablet logged in as nobody in
+particular, there is no "you" and it says who owes whom.
+
+Nothing here is an entity, so nothing here needs the switch below, and nobody
+outside the project can read it: the card asks through the same door as the
+panel, and that door knows the answer.
+
+The `group_id` is the one thing to fill in, and there is no picker for it — see
+**Where the ids come from** below.
+
+### The entities
+
+A project keeps its *figures* to its panel until you say otherwise. Open **Edit
+project → On the dashboard**, and it grows a device carrying:
+
+| Entity | What it says |
+|--------|--------------|
+| Total spent | What the project has spent since it started. Expenses only — paying somebody back moves money, it does not spend any |
+| One per member | Their balance. Positive is owed to them, negative is owed by them |
+| Last activity | When something was last entered |
+
+**It is off by default, and that is the whole design.** Home Assistant does not
+wall entities off — every account in the house reads every entity's state,
+whatever this integration thinks about who is in which project. So a sensor
+carrying a balance is a balance the flatmate can read, and the switch is the
+only thing standing between the two. Throwing it takes a wall down; that has to
+be a decision, so it is written into the project's history like any other.
+
+There is no "you" out there, either. An entity's state is the same for everybody
+reading it, so nothing here says "you are owed" — a balance is named for whose
+it is. That is what the card above is for, and why it is not built out of these.
+
+### A tile that adds the shopping
+
+A tile is one tap, so it carries the answers already. That is exactly right for
+something you buy every week:
+
+```yaml
+type: tile
+entity: sensor.montigny_total_spent
+name: Bread
+icon: mdi:baguette
+tap_action:
+  action: perform-action
+  perform_action: shared_expenses.add_expense
+  data:
+    group_id: 01KXHEB4VFFWMAN5CG4BDNNBF9
+    title: Bread
+    amount: 1.30
+    paid_by_member_id: 01KXHEB4VG7Q2M8XQZ0P3R5T7V
+```
+
+One tap and it is in, dated today, at today's rate, with your name on it in the
+history — and the tile it sits on goes up by 1,30 €, which is how you know.
+
+**Where the ids come from.** A project and a member are this integration's own,
+not Home Assistant entities, so no selector lists them. They are under
+**Developer tools → States**: every entity of a project carries its `group_id`,
+and somebody's `member_id` is on their own balance sensor. The project's id is
+also in the panel's address, which is the only way to find it with the switch
+shut — and all the card needs.
+
+### A tile for everything else
+
+An expense you do not know in advance has an amount to type, and a tile has no
+keyboard. The panel already asks all of it — the payer, the split, the currency
+— so the shortest honest path is to open it:
+
+```yaml
+type: tile
+entity: sensor.montigny_total_spent
+name: Montigny
+tap_action:
+  action: navigate
+  navigation_path: /shared_expenses/group/01KXHEB4VFFWMAN5CG4BDNNBF9
+```
+
+One tap to the project, one to the plus.
+
+### From an automation
+
+`add_expense` and `settle_up` work from anything: an automation, a script, an
+NFC tag by the door.
+
+Called from the interface they carry the account that pressed, and every rule
+the project has applies exactly as it does in the panel. An automation carries
+no account — Home Assistant builds its trigger context without one, even when a
+person set the trigger off — so there is nobody to ask and nothing is asked. The
+history records it as "Someone", which is the truth.
+
 ## Requirements
 
 - Home Assistant **2026.7.0** or later
@@ -137,8 +246,19 @@ npm install
 npm run build                 # writes custom_components/shared_expenses/www
 ```
 
-The panel is Lit 3 and TypeScript, built by Vite. The integration talks to it
-over the Home Assistant WebSocket API — never through entities.
+The panel is Lit 3 and TypeScript, built by Vite. It talks to the integration
+over the Home Assistant WebSocket API and never through entities: the panel
+knows who is asking, and every rule in here depends on that.
+
+The dashboard card is the same bundle and the same conversation — it runs in a
+browser too, so it asks over the WebSocket API and is answered as whoever is
+looking. It has to be one bundle: Home Assistant is a single page, and two would
+each define `se-balance-card`, the second throwing and taking the panel with it.
+See ADR-015.
+
+The entities go the other way and are a separate surface. They belong to the
+instance rather than to an account, which is why a project has to ask for them —
+see ADR-014.
 
 A project is a `group` everywhere but on screen: the tables, the commands, the
 URL and the translation keys all keep the word. Home Assistant has groups of its

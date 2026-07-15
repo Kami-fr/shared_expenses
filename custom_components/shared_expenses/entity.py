@@ -46,6 +46,21 @@ class SharedExpensesEntity(CoordinatorEntity[SharedExpensesCoordinator]):
         return (self.coordinator.data or {}).get(self._group_id)
 
     @property
+    def extra_state_attributes(self) -> dict[str, str]:
+        """The id of the project, on every one of its entities.
+
+        Not decoration. `add_expense` asks for a project, and a project is this
+        integration's own rather than a Home Assistant entity, so no selector
+        lists them and nothing on a dashboard knows how to name one. Writing a
+        tile meant reading the database.
+
+        Here, it is where Home Assistant expects a fact to be looked up:
+        Developer Tools, on any entity of the project the tile is about.
+        """
+
+        return {"group_id": self._group_id}
+
+    @property
     def available(self) -> bool:
         """Whether there is anything true to say.
 

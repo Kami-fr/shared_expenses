@@ -2,6 +2,13 @@
 
 The bundle served here is built by the Vite project in `frontend/`, at the root
 of the repository: only its output ships with the integration.
+
+It carries the dashboard card as well as the panel, and is handed to Home
+Assistant twice: once as the panel's module, once as an extra module every
+dashboard loads. One file rather than two, which is not thrift — Home Assistant
+is a single page, so the panel and the card live in the same document, and two
+bundles would each run `customElements.define("se-balance-card")`. The second
+would throw, and take the panel down with it.
 """
 
 from __future__ import annotations
@@ -27,9 +34,16 @@ WWW_PATH = Path(__file__).parent / "www"
 # Kept outside `hass.data[DOMAIN]`, which is dropped when the entry unloads.
 DATA_STATIC_REGISTERED = f"{DOMAIN}_static_registered"
 
+#: The bundle URL currently handed to the dashboards, so it can be taken back.
+#:
+#: Held rather than recomputed: the URL carries the bundle's modification time,
+#: so rebuilding between a register and an unregister would have us try to
+#: remove a URL that was never added, and leave the old one loaded for good.
+DATA_CARD_URL = f"{DOMAIN}_card_url"
+
 
 async def async_register_panel(hass: HomeAssistant) -> None:
-    """Serve the frontend bundle and add the panel to the sidebar."""
+    """Serve the frontend bundle, add the panel, and offer the dashboard card."""
 
     # A static path lives for the whole run: registering it again on a reload
     # would add a duplicate route to the aiohttp router.
@@ -65,6 +79,13 @@ async def async_register_panel(hass: HomeAssistant) -> None:
         config={},
     )
 
+    # Loaded by every dashboard, for everybody, which is what it takes for a
+    # card to be offered in the picker at all. It costs a parse on pages nobody
+    # will put a card on; the card itself asks the integration nothing until one
+    # is placed, and what it then asks is walled by the WebSocket API.
+    frontend.add_extra_js_url(hass, module_url)
+    hass.data[DATA_CARD_URL] = module_url
+
 
 def _module_url() -> str:
     """Return the bundle URL, versioned so an update is never served stale.
@@ -96,6 +117,11 @@ def _module_url() -> str:
 
 @callback
 def async_unregister_panel(hass: HomeAssistant) -> None:
-    """Remove the panel from the sidebar, if it is registered."""
+    """Take back the panel and the card, if they were handed out."""
+
+    # The exact URL that was added: `remove_extra_js_url` matches on the string,
+    # so a recomputed one would silently remove nothing.
+    if url := hass.data.pop(DATA_CARD_URL, None):
+        frontend.remove_extra_js_url(hass, url)
 
     frontend.async_remove_panel(hass, PANEL_URL, warn_if_unknown=False)
