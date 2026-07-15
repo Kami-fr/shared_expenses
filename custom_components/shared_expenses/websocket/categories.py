@@ -66,6 +66,7 @@ async def websocket_create_category(
         icon=msg.get("icon"),
         color=msg.get("color"),
         split_rule=split_rule_from_msg(msg),
+        actor_user_id=connection.user.id,
     )
 
     connection.send_result(msg["id"], category_to_dict(category))
@@ -102,7 +103,7 @@ async def websocket_update_category(
 
     updated = replace(category, **changes)
 
-    await manager.update_category(updated)
+    await manager.update_category(updated, actor_user_id=connection.user.id)
 
     connection.send_result(msg["id"], category_to_dict(updated))
 
@@ -123,7 +124,10 @@ async def websocket_delete_category(
 ) -> None:
     """Delete a category. Its expenses lose their category."""
 
-    await manager.delete_category(msg["category_id"])
+    await manager.delete_category(
+        msg["category_id"],
+        actor_user_id=connection.user.id,
+    )
 
     connection.send_result(msg["id"], None)
 

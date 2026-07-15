@@ -9,7 +9,8 @@
 
 import { formatDayDate, formatMoney } from "./format";
 import type { Key, Localizer } from "./localize";
-import type { Category, FieldChange, Member } from "../types";
+import { describeRule } from "./split-summary";
+import type { Category, FieldChange, Member, SplitRule } from "../types";
 
 /** What a change is read against, to put names on ids. */
 export interface HistoryContext {
@@ -46,6 +47,16 @@ const LABELS: Record<string, Key> = {
   to_member_id: "to_member",
   shares: "split",
   kind: "kind_label",
+
+  // The project, its categories and its people.
+  name: "field_name",
+  icon: "icon",
+  color: "color",
+  archived: "archived",
+  default_category_id: "default_category",
+  split_rule: "default_split",
+  permissions: "permissions",
+  role: "field_role",
 };
 
 /**
@@ -112,6 +123,35 @@ function readValue(
     return context.localize(
       value === "debt" ? "kind_debt" : "kind_reimbursement",
     );
+  }
+
+  if (field === "role") {
+    return context.localize(value === "admin" ? "role_admin" : "role_member");
+  }
+
+  if (field === "archived") {
+    return context.localize(value ? "yes" : "no");
+  }
+
+  // Said the way the editor says it, through the same helper: a rule described
+  // as one thing here and edited as another would be worse than no description.
+  if (field === "split_rule") {
+    return describeRule(
+      value as SplitRule | null,
+      context.localize,
+      context.currency,
+      context.language,
+    );
+  }
+
+  // What is granted, in the words of the switches. A list of enum values would
+  // be the database talking.
+  if (field === "permissions" && Array.isArray(value)) {
+    return value.length === 0
+      ? context.localize("permissions_none")
+      : value
+          .map((name) => context.localize(`perm_${name}` as Key))
+          .join(" · ");
   }
 
   return String(value);

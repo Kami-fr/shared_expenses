@@ -237,7 +237,7 @@ only writing down. The word was the whole of what was missing.
 |---------|------|-------------|
 | id | TEXT | ULID |
 | group_id | TEXT | FK → groups.id |
-| entity_type | TEXT | `expense` or `payment` |
+| entity_type | TEXT | `expense`, `payment`, `group`, `category`, `member` |
 | entity_id | TEXT | The expense or payment, **not** a foreign key |
 | entity_label | TEXT | What it was called, for the group journal (nullable) |
 | action | TEXT | `created`, `updated`, `deleted`, `restored` |
@@ -252,6 +252,22 @@ be asked its title.
 
 Ids inside `changes` are resolved when read, not when written, so a member who
 is renamed reads back under the name they go by now.
+
+**The journal holds more than the money.** The group itself — its name, its
+default rule, what it allows — its categories, and its people: who joined, who
+left, who was renamed, and who runs it. Those are the changes that decide who
+may touch an expense at all, and they used to happen with no record: the one
+worth explaining afterwards was the one nothing wrote down. Neither the new
+entity types nor the `restored` action needed a migration; `entity_type` and
+`action` are plain TEXT with no constraint on them.
+
+A member's revision belongs to the group that asked for it. A member is global —
+one per Home Assistant account, across every group — so a rename is felt
+everywhere, and there is no one group it is *of*. The one whose journal shows it
+is the one where it was decided; the others were not party to it.
+
+A save that moved no field records nothing. A journal full of nothing is a
+journal nobody reads.
 
 **A deletion carries a snapshot, not a diff.** Every field, including the four
 an expense's history never shows — `converted_amount`, `exchange_rate`,

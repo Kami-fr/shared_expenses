@@ -7,7 +7,7 @@ import "../components/se-history";
 import type { SharedExpensesApi } from "../services/api";
 import { errorMessage, type Localizer } from "../services/localize";
 import { sharedStyles } from "../styles/shared";
-import type { Category, Group, Member, Revision } from "../types";
+import type { Category, Expense, Group, Member, Payment, Revision } from "../types";
 
 /**
  * Everything that happened in the group, newest first.
@@ -29,13 +29,16 @@ export class SeHistoryDialog extends LitElement {
   @property({ attribute: false }) public categories: Category[] = [];
 
   /**
-   * The ids still there to open.
+   * What the project still holds.
    *
-   * Handed in rather than worked out here: the page holds the expenses and the
-   * payments, and a revision cannot say whether what it describes still exists
-   * — a deletion is exactly the case where it does not.
+   * Handed in rather than worked out here: the page has them, and a revision
+   * cannot say whether what it describes still exists — a deletion is exactly
+   * the case where it does not. They also carry the amount and the payer, which
+   * is what tells one entry from another.
    */
-  @property({ attribute: false }) public openable?: Set<string>;
+  @property({ attribute: false }) public expenses: Expense[] = [];
+
+  @property({ attribute: false }) public payments: Payment[] = [];
 
   @property({ type: String }) public language = "en";
 
@@ -82,7 +85,8 @@ export class SeHistoryDialog extends LitElement {
         .revisions=${this.revisions}
         .members=${this.members}
         .categories=${this.categories}
-        .openable=${this.openable}
+        .expenses=${this.expenses}
+        .payments=${this.payments}
         .currency=${this.group.currency}
         .language=${this.language}
         @revision-restored=${this.restore}

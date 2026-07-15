@@ -142,6 +142,21 @@ member could delete the whole group.
       true.
 - [x] 14 tests, the frozen rate sabotaged to prove they catch a re-conversion.
 
+## Sprint 13 — The journal holds more than the money
+
+- [x] The project itself, its categories and its people are accounted for: what
+      it allows, its name and default rule, who joined, who left, who was
+      renamed, and who runs it. Those decide who may touch an expense at all,
+      and they used to happen with no record.
+- [x] A member's revision belongs to the project that asked for it. A member is
+      global, so a rename is felt everywhere; the others were not party to it.
+- [x] Handing the project on writes two lines. The one giving it up is not a
+      footnote to the one taking it.
+- [x] A save that moved no field records nothing.
+- [x] Restore is offered on an expense and a payment only — a member who left is
+      not in `openable` either, and would have looked restorable on that alone.
+- [x] 10 tests, the group's recording sabotaged to prove they catch its absence.
+
 ## Later
 
 - [ ] Weighted splits (by shares, rather than by amount or percentage)

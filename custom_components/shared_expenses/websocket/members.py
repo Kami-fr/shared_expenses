@@ -105,6 +105,7 @@ async def websocket_create_member(
             group_id=group_id,
             name=msg["name"],
             color=msg.get("color"),
+            actor_user_id=connection.user.id,
         )
     else:
         member = await manager.link_user(user_id=user_id, name=msg["name"])
@@ -116,6 +117,7 @@ async def websocket_create_member(
             await manager.add_member_to_group(
                 group_id=group_id,
                 member_id=member.id,
+                actor_user_id=connection.user.id,
             )
 
     connection.send_result(msg["id"], member_to_dict(member))
@@ -161,7 +163,11 @@ async def websocket_update_member(
         **{field: msg[field] for field in ("name", "color") if field in msg},
     )
 
-    await manager.update_member(updated)
+    await manager.update_member(
+        updated,
+        group_id=msg["group_id"],
+        actor_user_id=connection.user.id,
+    )
 
     connection.send_result(msg["id"], member_to_dict(updated))
 
@@ -187,6 +193,7 @@ async def websocket_add_member_to_group(
     membership = await manager.add_member_to_group(
         group_id=msg["group_id"],
         member_id=msg["member_id"],
+        actor_user_id=connection.user.id,
     )
 
     connection.send_result(msg["id"], group_member_to_dict(membership))
@@ -232,7 +239,10 @@ async def websocket_remove_member_from_group(
     if membership is None:
         raise MemberNotFoundError(msg["member_id"])
 
-    await manager.remove_member_from_group(membership)
+    await manager.remove_member_from_group(
+        membership,
+        actor_user_id=connection.user.id,
+    )
 
     connection.send_result(msg["id"], None)
 

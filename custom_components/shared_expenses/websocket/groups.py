@@ -169,7 +169,7 @@ async def websocket_update_group(
 
     updated = replace(group, **changes)
 
-    await manager.update_group(updated)
+    await manager.update_group(updated, actor_user_id=connection.user.id)
 
     connection.send_result(msg["id"], group_to_dict(updated))
 
@@ -192,9 +192,15 @@ async def websocket_archive_group(
     """Archive or restore a group."""
 
     if msg["archived"]:
-        await manager.archive_group(msg["group_id"])
+        await manager.archive_group(
+            msg["group_id"],
+            actor_user_id=connection.user.id,
+        )
     else:
-        await manager.restore_group(msg["group_id"])
+        await manager.restore_group(
+            msg["group_id"],
+            actor_user_id=connection.user.id,
+        )
 
     group = await manager.get_group(msg["group_id"])
 
@@ -247,7 +253,11 @@ async def websocket_transfer_admin(
     group, and only whoever runs it may answer it.
     """
 
-    await manager.transfer_admin(msg["group_id"], msg["member_id"])
+    await manager.transfer_admin(
+        msg["group_id"],
+        msg["member_id"],
+        actor_user_id=connection.user.id,
+    )
 
     connection.send_result(msg["id"], None)
 

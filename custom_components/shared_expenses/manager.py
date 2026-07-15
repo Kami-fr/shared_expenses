@@ -360,7 +360,13 @@ class SharedExpensesManager:
         if await self.group_role(group_id, user_id) is not GroupRole.ADMIN:
             raise NotAllowedError(GroupRole.ADMIN)
 
-    async def transfer_admin(self, group_id: str, member_id: str) -> None:
+    async def transfer_admin(
+        self,
+        group_id: str,
+        member_id: str,
+        *,
+        actor_user_id: str | None = None,
+    ) -> None:
         """Hand a group to one of its members.
 
         Whoever gives it up becomes an ordinary member — a group has one admin,
@@ -420,14 +426,61 @@ class SharedExpensesManager:
                     replace(current, role=GroupRole.MEMBER),
                 )
 
+                # Two people changed standing, so two lines. The one giving it
+                # up is not a footnote to the one taking it: they lost every
+                # right they had, and their own history should say when.
+                await self._record_role(
+                    group_id=group_id,
+                    member_id=current.member_id,
+                    before=GroupRole.ADMIN,
+                    after=GroupRole.MEMBER,
+                    actor_user_id=actor_user_id,
+                )
+
             await self._database.group_member_repository.update(
                 replace(heir, role=GroupRole.ADMIN),
             )
 
-    async def update_group(self, group: Group) -> None:
-        """Update a group."""
+            await self._record_role(
+                group_id=group_id,
+                member_id=heir.member_id,
+                before=heir.role,
+                after=GroupRole.ADMIN,
+                actor_user_id=actor_user_id,
+            )
 
-        await self.get_group(group.id)
+    async def _record_role(
+        self,
+        *,
+        group_id: str,
+        member_id: str,
+        before: GroupRole,
+        after: GroupRole,
+        actor_user_id: str | None,
+    ) -> None:
+        """Account for somebody's standing changing. Inside the transaction."""
+
+        member = await self.get_member(member_id)
+
+        await self._record(
+            group_id=group_id,
+            entity_type=RevisionEntity.MEMBER,
+            entity_id=member_id,
+            label=member.name,
+            action=RevisionAction.UPDATED,
+            actor_user_id=actor_user_id,
+            changes=(FieldChange(field="role", before=str(before), after=str(after)),),
+        )
+
+    async def update_group(
+        self,
+        group: Group,
+        *,
+        actor_user_id: str | None = None,
+    ) -> None:
+        """Update a group, and account for what moved."""
+
+        before = await self.get_group(group.id)
 
         if group.default_category_id is not None:
             # Its own category, never another group's: the id comes from the
@@ -435,21 +488,56 @@ class SharedExpensesManager:
             # house.
             await self._get_group_category(group.id, group.default_category_id)
 
-        await self._database.group_repository.update(group)
+        changes = revisions.diff(
+            revisions.group_state(before),
+            revisions.group_state(group),
+        )
 
-    async def archive_group(self, group_id: str) -> None:
+        async with self._database.transaction():
+            await self._database.group_repository.update(group)
+
+            # Nothing moved: nothing to say. A save that changed no field is not
+            # an event, and a journal full of them is a journal nobody reads.
+            if changes:
+                await self._record(
+                    group_id=group.id,
+                    entity_type=RevisionEntity.GROUP,
+                    entity_id=group.id,
+                    label=group.name,
+                    action=RevisionAction.UPDATED,
+                    actor_user_id=actor_user_id,
+                    changes=changes,
+                )
+
+    async def archive_group(
+        self,
+        group_id: str,
+        *,
+        actor_user_id: str | None = None,
+    ) -> None:
         """Archive a group."""
 
         group = await self.get_group(group_id)
 
-        await self._database.group_repository.update(replace(group, archived=True))
+        await self.update_group(
+            replace(group, archived=True),
+            actor_user_id=actor_user_id,
+        )
 
-    async def restore_group(self, group_id: str) -> None:
+    async def restore_group(
+        self,
+        group_id: str,
+        *,
+        actor_user_id: str | None = None,
+    ) -> None:
         """Restore an archived group."""
 
         group = await self.get_group(group_id)
 
-        await self._database.group_repository.update(replace(group, archived=False))
+        await self.update_group(
+            replace(group, archived=False),
+            actor_user_id=actor_user_id,
+        )
 
     async def delete_group(self, group_id: str) -> None:
         """Delete a group and everything it contains."""
@@ -552,12 +640,41 @@ class SharedExpensesManager:
 
         return await self._database.group_member_repository.list_by_group(group_id)
 
-    async def update_member(self, member: Member) -> None:
-        """Update a member."""
+    async def update_member(
+        self,
+        member: Member,
+        *,
+        group_id: str,
+        actor_user_id: str | None = None,
+    ) -> None:
+        """Update a member, and account for what moved.
 
-        await self.get_member(member.id)
+        `group_id` is the group asking. A member is global — one per Home
+        Assistant account, across every group — so a rename is felt everywhere,
+        and there is no one group it belongs to. The one whose journal shows it
+        is the one where it was decided; the others were not party to it.
+        """
 
-        await self._database.member_repository.update(member)
+        before = await self.get_member(member.id)
+
+        changes = revisions.diff(
+            revisions.member_state(before),
+            revisions.member_state(member),
+        )
+
+        async with self._database.transaction():
+            await self._database.member_repository.update(member)
+
+            if changes:
+                await self._record(
+                    group_id=group_id,
+                    entity_type=RevisionEntity.MEMBER,
+                    entity_id=member.id,
+                    label=member.name,
+                    action=RevisionAction.UPDATED,
+                    actor_user_id=actor_user_id,
+                    changes=changes,
+                )
 
     async def delete_member(self, member_id: str) -> None:
         """Delete a member."""
@@ -571,6 +688,7 @@ class SharedExpensesManager:
         *,
         group_id: str,
         member_id: str,
+        actor_user_id: str | None = None,
     ) -> GroupMember:
         """Add an existing member to a group, as a member.
 
@@ -604,7 +722,22 @@ class SharedExpensesManager:
             created_at=now,
         )
 
-        await self._database.group_member_repository.create(group_member)
+        member = await self.get_member(member_id)
+
+        async with self._database.transaction():
+            await self._database.group_member_repository.create(group_member)
+
+            await self._record(
+                group_id=group_id,
+                entity_type=RevisionEntity.MEMBER,
+                entity_id=member_id,
+                label=member.name,
+                action=RevisionAction.CREATED,
+                actor_user_id=actor_user_id,
+                changes=revisions.creation(
+                    revisions.member_state(member, GroupRole.MEMBER),
+                ),
+            )
 
         return group_member
 
@@ -615,6 +748,7 @@ class SharedExpensesManager:
         name: str,
         user_id: str | None = None,
         color: str | None = None,
+        actor_user_id: str | None = None,
     ) -> Member:
         """Create a member and add it to a group, in one transaction.
 
@@ -648,9 +782,26 @@ class SharedExpensesManager:
             await self._database.member_repository.create(member)
             await self._database.group_member_repository.create(group_member)
 
+            await self._record(
+                group_id=group_id,
+                entity_type=RevisionEntity.MEMBER,
+                entity_id=member.id,
+                label=member.name,
+                action=RevisionAction.CREATED,
+                actor_user_id=actor_user_id,
+                changes=revisions.creation(
+                    revisions.member_state(member, GroupRole.MEMBER),
+                ),
+            )
+
         return member
 
-    async def remove_member_from_group(self, group_member: GroupMember) -> None:
+    async def remove_member_from_group(
+        self,
+        group_member: GroupMember,
+        *,
+        actor_user_id: str | None = None,
+    ) -> None:
         """Mark a member as having left the group.
 
         The admin stays: access comes from membership, so letting them out would
@@ -661,9 +812,24 @@ class SharedExpensesManager:
         if group_member.role is GroupRole.ADMIN:
             raise CannotRemoveAdminError(group_member.member_id)
 
-        await self._database.group_member_repository.update(
-            replace(group_member, left_at=datetime.now(UTC)),
-        )
+        member = await self.get_member(group_member.member_id)
+
+        async with self._database.transaction():
+            await self._database.group_member_repository.update(
+                replace(group_member, left_at=datetime.now(UTC)),
+            )
+
+            await self._record(
+                group_id=group_member.group_id,
+                entity_type=RevisionEntity.MEMBER,
+                entity_id=member.id,
+                label=member.name,
+                action=RevisionAction.DELETED,
+                actor_user_id=actor_user_id,
+                changes=revisions.deletion(
+                    revisions.member_state(member, group_member.role),
+                ),
+            )
 
     #
     # ------------------------------------------------------------------
@@ -679,6 +845,7 @@ class SharedExpensesManager:
         icon: str | None = None,
         color: str | None = None,
         split_rule: SplitRule | None = None,
+        actor_user_id: str | None = None,
     ) -> Category:
         """Create a category."""
 
@@ -694,7 +861,18 @@ class SharedExpensesManager:
             split_rule=split_rule,
         )
 
-        await self._database.category_repository.create(category)
+        async with self._database.transaction():
+            await self._database.category_repository.create(category)
+
+            await self._record(
+                group_id=group_id,
+                entity_type=RevisionEntity.CATEGORY,
+                entity_id=category.id,
+                label=category.name,
+                action=RevisionAction.CREATED,
+                actor_user_id=actor_user_id,
+                changes=revisions.creation(revisions.category_state(category)),
+            )
 
         return category
 
@@ -715,19 +893,63 @@ class SharedExpensesManager:
 
         return await self._database.category_repository.list_by_group(group_id)
 
-    async def update_category(self, category: Category) -> None:
-        """Update a category."""
+    async def update_category(
+        self,
+        category: Category,
+        *,
+        actor_user_id: str | None = None,
+    ) -> None:
+        """Update a category, and account for what moved."""
 
-        await self.get_category(category.id)
+        before = await self.get_category(category.id)
 
-        await self._database.category_repository.update(category)
+        changes = revisions.diff(
+            revisions.category_state(before),
+            revisions.category_state(category),
+        )
 
-    async def delete_category(self, category_id: str) -> None:
-        """Delete a category."""
+        async with self._database.transaction():
+            await self._database.category_repository.update(category)
 
-        await self.get_category(category_id)
+            if changes:
+                await self._record(
+                    group_id=category.group_id,
+                    entity_type=RevisionEntity.CATEGORY,
+                    entity_id=category.id,
+                    label=category.name,
+                    action=RevisionAction.UPDATED,
+                    actor_user_id=actor_user_id,
+                    changes=changes,
+                )
 
-        await self._database.category_repository.delete(category_id)
+    async def delete_category(
+        self,
+        category_id: str,
+        *,
+        actor_user_id: str | None = None,
+    ) -> None:
+        """Delete a category.
+
+        No snapshot and no restore: an expense keeps its own rule, the category
+        only ever handed one out, and the expenses that pointed at it are set to
+        no category rather than going with it. There is nothing here that a
+        restore would have to get exactly right.
+        """
+
+        category = await self.get_category(category_id)
+
+        async with self._database.transaction():
+            await self._database.category_repository.delete(category_id)
+
+            await self._record(
+                group_id=category.group_id,
+                entity_type=RevisionEntity.CATEGORY,
+                entity_id=category_id,
+                label=category.name,
+                action=RevisionAction.DELETED,
+                actor_user_id=actor_user_id,
+                changes=revisions.deletion(revisions.category_state(category)),
+            )
 
     #
     # ------------------------------------------------------------------

@@ -42,10 +42,12 @@ belong to, and nothing else.
   figure means the same thing on the balance card and in the list under it.
 - **Statistics** — what the project spent, by category and by month, and what of
   it was yours.
-- **History** — every change to an expense or a reimbursement, with who made it
-  and what moved. Deletions included, which is where an expense's own history
-  cannot help — and a deleted expense can be brought back from there, as the one
-  it was: same date, same shares, same frozen rate.
+- **History** — every change in the project, with who made it and what moved:
+  the expenses and the reimbursements, and the decisions around them too — who
+  joined, who left, who runs it, what it allows, what its categories are.
+  Deletions included, which is where an expense's own history cannot help — and
+  a deleted expense can be brought back from there, as the one it was: same
+  date, same shares, same frozen rate.
 - **Mobile first** — a single panel, thumb-reachable, in your own theme, light
   or dark.
 

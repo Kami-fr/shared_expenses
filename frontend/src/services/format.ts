@@ -130,6 +130,18 @@ export function centsToInput(cents: number): string {
   return (cents / 100).toFixed(2);
 }
 
+/**
+ * Return what somebody goes by, in one word.
+ *
+ * For the places a name is a label rather than a sentence — a column beside a
+ * figure, where "Stéphane Fath" pushes the money about and says nothing the
+ * household did not already know. The first word, because that is the one a
+ * household uses.
+ */
+export function firstName(name: string): string {
+  return name.trim().split(/\s+/)[0] || name;
+}
+
 /** Return the initials shown in a member avatar. */
 export function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);

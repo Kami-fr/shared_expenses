@@ -14,7 +14,16 @@ from collections.abc import Sequence
 from typing import Any
 
 from ..helpers.splits import rule_from_dict, rule_to_dict
-from ..models import Expense, ExpenseShare, FieldChange, Payment
+from ..models import (
+    Category,
+    Expense,
+    ExpenseShare,
+    FieldChange,
+    Group,
+    GroupRole,
+    Member,
+    Payment,
+)
 
 
 def expense_state(
@@ -62,6 +71,58 @@ def payment_state(payment: Payment) -> dict[str, Any]:
         "kind": str(payment.kind),
         "converted_amount": payment.converted_amount,
     }
+
+
+def group_state(group: Group) -> dict[str, Any]:
+    """Return a group as plain values.
+
+    What can be changed about the group itself, and nothing that belongs to what
+    it holds. `currency` is here although it is meant to be settled at creation:
+    the command still accepts it, and a change nobody can see is the one worth
+    seeing — the history is the only thing standing where a guard is not.
+    """
+
+    return {
+        "name": group.name,
+        "description": group.description,
+        "currency": group.currency,
+        "archived": group.archived,
+        "default_category_id": group.default_category_id,
+        "split_rule": rule_to_dict(group.split_rule),
+        # Sorted, so the same set always reads the same way: a set has no order,
+        # and an unordered list would show a change every time nothing moved.
+        "permissions": sorted(str(permission) for permission in group.permissions),
+    }
+
+
+def category_state(category: Category) -> dict[str, Any]:
+    """Return a category as plain values."""
+
+    return {
+        "name": category.name,
+        "icon": category.icon,
+        "color": category.color,
+        "split_rule": rule_to_dict(category.split_rule),
+    }
+
+
+def member_state(member: Member, role: GroupRole | None = None) -> dict[str, Any]:
+    """Return a member as plain values, with their standing when it is in play.
+
+    The role comes from the membership rather than the member: the same person
+    can run one group and merely belong to another, so it is not theirs, it is
+    theirs *here*.
+    """
+
+    state: dict[str, Any] = {
+        "name": member.name,
+        "color": member.color,
+    }
+
+    if role is not None:
+        state["role"] = str(role)
+
+    return state
 
 
 def diff(

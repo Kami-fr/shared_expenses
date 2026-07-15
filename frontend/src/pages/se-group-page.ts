@@ -1167,7 +1167,8 @@ export class SeGroupPage extends LitElement {
           .group=${this.group}
           .members=${this.pastMembers}
           .categories=${this.categories}
-          .openable=${this.openable()}
+          .expenses=${this.expenses}
+          .payments=${this.payments}
           .language=${this.language}
           @dialog-cancelled=${this.closeDialog}
           @revision-picked=${this.openFromHistory}
@@ -1554,14 +1555,6 @@ export class SeGroupPage extends LitElement {
   private settleUp = (event: CustomEvent) => {
     this.openPayment(event.detail.settlement);
   };
-
-  /** What the journal can still send you to: everything not deleted. */
-  private openable(): Set<string> {
-    return new Set([
-      ...this.expenses.map((expense) => expense.id),
-      ...this.payments.map((payment) => payment.id),
-    ]);
-  }
 
   /**
    * Jump from an entry of the journal to the thing it is about.

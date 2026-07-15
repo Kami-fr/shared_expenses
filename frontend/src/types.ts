@@ -269,7 +269,17 @@ export interface FieldChange {
 }
 
 /**
- * Something that happened to an expense or a payment.
+ * What a revision can be about.
+ *
+ * A member's is global — one per Home Assistant account, across every project —
+ * so a rename is felt everywhere while the revision belongs to the project that
+ * asked for it.
+ */
+export type RevisionEntity = "expense" | "payment" | "group" | "category" | "member";
+
+/**
+ * Something that happened in a project: to an expense, a payment, a category,
+ * somebody in it, or the project itself.
  *
  * Stands on its own: it holds no reference to what it describes, so it is still
  * there once that has been deleted — which is the change most worth reading.
@@ -277,7 +287,7 @@ export interface FieldChange {
 export interface Revision {
   id: string;
   group_id: string;
-  entity_type: "expense" | "payment";
+  entity_type: RevisionEntity;
   entity_id: string;
   /** What it was called at the time, so a deleted one can still be named. */
   entity_label: string | null;
