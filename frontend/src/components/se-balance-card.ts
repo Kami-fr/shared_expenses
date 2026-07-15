@@ -60,12 +60,20 @@ export class SeBalanceCard extends LitElement {
         padding: 8px 12px 16px;
       }
 
+      /*
+       * Half the card each, and a container so the figure can size itself to
+       * what it actually got.
+       *
+       * Safe to contain: this is flex 1 1 0%, so its width already comes from
+       * the layout and never from what is inside it.
+       */
       .side {
         flex: 1;
         display: flex;
         align-items: center;
         gap: 10px;
         min-width: 0;
+        container-type: inline-size;
       }
 
       .side.right {
@@ -90,11 +98,32 @@ export class SeBalanceCard extends LitElement {
         font-size: 13px;
       }
 
+      /*
+       * As big as it can be and still fit the half of the card it was given.
+       *
+       * An amount is one unbreakable token: Intl separates the thousands with a
+       * non-breaking space, so there is no break to take, no ellipsis worth
+       * putting on a number, and nothing in CSS to catch it. At a fixed 22px it
+       * simply ran over the divider and onto the other side — and not only in
+       * theory: 2 238,77 € spilled 8px on a 380px phone, which is an ordinary
+       * balance on an ordinary phone.
+       *
+       * So the type gives way to the figure rather than the figure to the type.
+       * tabular-nums makes every digit the same width, so the count of
+       * characters is what the width is proportional to; 46px is the avatar and
+       * the gap it sits behind, the only other claim on the side. The factor
+       * was measured, and leaves a margin: a 22px figure runs about 0.47px per
+       * character per pixel of type.
+       *
+       * min(), so nothing is ever shrunk that had the room: a phone shrinks,
+       * a desktop keeps its 22px.
+       */
       .figure {
-        font-size: 22px;
+        font-size: min(22px, calc((100cqw - 46px) * 2 / var(--chars, 10)));
         font-weight: 600;
         font-variant-numeric: tabular-nums;
         margin-top: 2px;
+        white-space: nowrap;
       }
 
       .swap {
@@ -437,13 +466,15 @@ export class SeBalanceCard extends LitElement {
       </div>
     `;
 
+    // How long the figure is, for the CSS that has to make it fit. Interpolated
+    // rather than left to the text: whitespace around it would be counted too.
+    const figure = formatMoney(Math.abs(balance.amount), this.currency, this.language);
+
     const body = html`
       <div class="body">
         <div class="name">${member?.name ?? "?"}</div>
         <div class=${`verdict ${tone}`}>${this.verdict(balance, positive)}</div>
-        <div class=${`figure ${tone}`}>
-          ${formatMoney(Math.abs(balance.amount), this.currency, this.language)}
-        </div>
+        <div class=${`figure ${tone}`} style=${`--chars:${figure.length}`}>${figure}</div>
       </div>
     `;
 

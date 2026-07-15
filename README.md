@@ -4,30 +4,37 @@ Shared expenses for Home Assistant: who paid, who owes what, and who reimburses
 whom. No account to create and nothing to sync — the data lives in your own
 instance, next to the rest of it.
 
-Everyone in the house logs in as themselves. Each person sees the groups they
+Everyone in the house logs in as themselves. Each person sees the projects they
 belong to, and nothing else.
 
 ## Features
 
-- **Groups** — a flat, a holiday, a couple. Every Home Assistant account you add
-  can open the group; people without an account can be added too, and still
-  carry expenses. A group is named for what it counts in, and that currency is
-  chosen once: it is the unit every balance in it is written in, so it does not
-  move afterwards. The name does — rename it whenever you like.
+- **Projects** — a flat, a holiday, a couple. Every Home Assistant account you
+  add can open the project; people without an account can be added too, and
+  still carry expenses. A project counts in one currency, chosen once: it is the
+  unit every balance in it is written in, so it does not move afterwards. The
+  name does — rename it whenever you like.
 - **Expenses** — a title, an amount, who paid, a date, a category, and a split.
 - **Split rules** — beyond splitting equally: fixed amounts or percentages per
   person, an envelope shared between some and the rest to whoever paid. A
   category carries its own rule, so the usual case is filled in for you.
-- **Other currencies** — pay in dollars in a group that counts in euros, and pay
-  each other back in dollars too. The day's rate is fetched and frozen onto what
-  it converted: what someone owes was settled the day they were owed it, and a
-  rate that moved since is a fact about the market, not about the debt.
-- **Balances** — who owes what, answered from your side first, and the shortest
-  set of transfers that clears everything.
+- **Other currencies** — pay in dollars in a project that counts in euros, and
+  pay each other back in dollars too. The day's rate is fetched and frozen onto
+  what it converted: what someone owes was settled the day they were owed it,
+  and a rate that moved since is a fact about the market, not about the debt.
+- **Balances** — who owes what, and the shortest set of transfers that clears
+  everything.
 - **Reimbursements and debts** — record that money moved, or merely that it is
-  owed, with a note saying what it was about. Someone who left the group can
+  owed, with a note saying what it was about. Someone who left the project can
   still be reimbursed: leaving does not clear a debt.
-- **Statistics** — what the group spent, by category and by month, and what of
+- **One list** — expenses and reimbursements together, newest first, and
+  searchable by anything on the row: a shop, a person, a category, an amount. A
+  debt and the payment that clears it belong on the same page; apart, you never
+  know whether it was settled.
+- **Written from where you stand** — "you are owed", not "Marc is owed", and
+  green when the money is coming your way, red when it is leaving. The same
+  figure means the same thing on the balance card and in the list under it.
+- **Statistics** — what the project spent, by category and by month, and what of
   it was yours.
 - **History** — every change to an expense or a reimbursement, with who made it
   and what moved. Deletions included, which is where an expense's own history
@@ -79,7 +86,7 @@ an old expense always resolves back to the same shares.
 
 A split is settled in what the expense was paid in — the editor sits under the
 amount, so "Antonin owes 20" on a New York dinner is twenty dollars. The shares
-are then converted and stored in the group's currency, which is what balances
+are then converted and stored in the project's currency, which is what balances
 can be counted in. The converted total is divided rather than each share
 converted on its own: three shares of a cent at a rate of a third would each
 round to nothing, and the shares would stop adding up to what they are shares
@@ -91,7 +98,7 @@ of.
 - No account, no API key
 
 One request ever leaves your instance, and only if you ask for it: an expense or
-a reimbursement in a currency the group does not count in fetches that day's rate
+a reimbursement in a currency the project does not count in fetches that day's rate
 from [Frankfurter](https://frankfurter.dev), a free open-source service sourcing
 from central banks and needing no key. Nothing about the expense is sent — only
 the pair of currencies and the date.
@@ -117,6 +124,11 @@ npm run build                 # writes custom_components/shared_expenses/www
 
 The panel is Lit 3 and TypeScript, built by Vite. The integration talks to it
 over the Home Assistant WebSocket API — never through entities.
+
+A project is a `group` everywhere but on screen: the tables, the commands, the
+URL and the translation keys all keep the word. Home Assistant has groups of its
+own, so the one the reader sees had to give way; the ones in the code answer to
+the schema, and renaming those would buy nothing.
 
 Some logic exists twice, in Python for the backend and in TypeScript so the
 panel can show what an expense comes to before you save it — the split resolver,

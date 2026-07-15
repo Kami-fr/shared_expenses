@@ -23,6 +23,31 @@ export function formatSignedMoney(
   return cents < 0 ? `-${formatted}` : formatted;
 }
 
+/**
+ * Every way an amount might be typed when looking for it.
+ *
+ * Someone hunting a 3150,34 € line types "300", "3150,34" or "3 150,34" — and
+ * none of those is a substring of the cents the row is actually stored as. The
+ * formatted string is not enough on its own either: it separates thousands with
+ * a non-breaking space, which no keyboard produces.
+ */
+export function moneyNeedles(
+  cents: number,
+  currency: string,
+  language: string,
+): string[] {
+  const formatted = formatMoney(cents, currency, language);
+  const plain = (cents / 100).toFixed(2);
+
+  return [
+    formatted,
+    // The same, spelled with the space bar rather than with Intl's own.
+    formatted.replace(/\s/gu, " "),
+    plain,
+    plain.replace(".", ","),
+  ];
+}
+
 /** Parse a typed amount into cents. Accepts "12", "12.5", "12,50". */
 export function parseMoney(value: string): number | null {
   const normalized = value.trim().replace(",", ".").replace(/\s/g, "");

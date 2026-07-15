@@ -2,17 +2,21 @@ import { LitElement, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
 import "../components/se-button";
-import "../components/se-menu-button";
 import "../dialogs/se-group-dialog";
 import type { SharedExpensesApi } from "../services/api";
 import { errorMessage, type Localizer } from "../services/localize";
 import { sharedStyles } from "../styles/shared";
-import type { Group } from "../types";
+import type { Group, HomeAssistant } from "../types";
 
 /** Dashboard listing the groups. Fires `group-selected` on tap. */
 @customElement("se-dashboard-page")
 export class SeDashboardPage extends LitElement {
   @property({ attribute: false }) public api!: SharedExpensesApi;
+
+  /** Passed straight to ha-menu-button, as on the group page. */
+  @property({ attribute: false }) public hass!: HomeAssistant;
+
+  @property({ type: Boolean }) public narrow = false;
 
   @property({ attribute: false }) public localize!: Localizer;
 
@@ -106,14 +110,16 @@ export class SeDashboardPage extends LitElement {
         padding: 1px 5px;
       }
 
+      /*
+       * Full width and standard height, like the group page's and like Home
+       * Assistant's own. Both come from there, see the group page's header.
+       */
       .header {
         display: flex;
         align-items: center;
         gap: 8px;
-        max-width: 720px;
-        margin: 0 auto;
-        padding: 8px 16px;
-        min-height: 64px;
+        padding: 4px 16px;
+        min-height: var(--header-height, 56px);
         box-sizing: border-box;
       }
 
@@ -145,7 +151,8 @@ export class SeDashboardPage extends LitElement {
     return html`
       <div class="toolbar">
         <div class="header">
-          <se-menu-button></se-menu-button>
+          <!-- Home Assistant's own, see the group page's header. -->
+          <ha-menu-button .hass=${this.hass} .narrow=${this.narrow}></ha-menu-button>
           <h1>${translate("groups")}</h1>
         </div>
       </div>

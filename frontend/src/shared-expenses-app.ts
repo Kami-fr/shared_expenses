@@ -18,6 +18,11 @@ import type { HomeAssistant, Route } from "./types";
  * stacking new ones. Back therefore leaves the panel, wherever you are in it,
  * instead of walking you through the groups you happened to open: the group
  * switcher in the header is the way between them, and it is the only one.
+ *
+ * An open dialog is the one exception, and it borrows a step rather than
+ * keeping one: back closes the sheet, and the step goes with it. See `show` on
+ * the group page. So "a single entry" holds whenever nothing is open, which is
+ * the only time back is asked to leave.
  */
 @customElement("shared-expenses-panel")
 export class SharedExpensesPanel extends LitElement {
@@ -74,6 +79,8 @@ export class SharedExpensesPanel extends LitElement {
       return html`
         <se-group-page
           .api=${this.api}
+          .hass=${this.hass}
+          .narrow=${this.narrow}
           .localize=${localize}
           .groupId=${this.groupId}
           .language=${language}
@@ -88,6 +95,8 @@ export class SharedExpensesPanel extends LitElement {
     return html`
       <se-dashboard-page
         .api=${this.api}
+        .hass=${this.hass}
+        .narrow=${this.narrow}
         .localize=${localize}
         @group-selected=${this.handleGroupSelected}
       ></se-dashboard-page>

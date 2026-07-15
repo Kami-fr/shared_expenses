@@ -5,7 +5,6 @@ import "../components/se-balance-card";
 import "../components/se-button";
 import "../components/se-field";
 import "../components/se-icon";
-import "../components/se-menu-button";
 import "../dialogs/se-categories-dialog";
 import "../dialogs/se-expense-dialog";
 import "../dialogs/se-group-dialog";
@@ -19,6 +18,7 @@ import {
   formatDayDate,
   formatMoney,
   initials,
+  moneyNeedles,
 } from "../services/format";
 import { errorMessage, type Localizer } from "../services/localize";
 import { sharedStyles } from "../styles/shared";
@@ -27,6 +27,7 @@ import type {
   Expense,
   Group,
   GroupBalances,
+  HomeAssistant,
   Member,
   Payment,
   Settlement,
@@ -59,6 +60,12 @@ const FAB_DRAG = 40;
 @customElement("se-group-page")
 export class SeGroupPage extends LitElement {
   @property({ attribute: false }) public api!: SharedExpensesApi;
+
+  /** Passed straight to ha-menu-button, which is the only thing here using it. */
+  @property({ attribute: false }) public hass!: HomeAssistant;
+
+  /** Home Assistant's own: the sidebar is not on screen. Same use as hass. */
+  @property({ type: Boolean }) public narrow = false;
 
   @property({ attribute: false }) public localize!: Localizer;
 
@@ -136,12 +143,16 @@ export class SeGroupPage extends LitElement {
        * from the theme: hard-coding a grey would look wrong the moment someone
        * picks a theme that is not the default.
        */
+      /*
+       * Above the scrim, so the buttons it carries stay live while a menu is
+       * open: pressing the same button again is how you close it.
+       */
       .toolbar {
         background: var(--app-header-background-color, var(--primary-color, #03a9f4));
         color: var(--app-header-text-color, var(--text-primary-color, #fff));
         position: sticky;
         top: 0;
-        z-index: 3;
+        z-index: 4;
       }
 
       .page {
@@ -150,15 +161,27 @@ export class SeGroupPage extends LitElement {
         margin: 0 auto;
       }
 
+      /*
+       * The full width of the window, like every other Home Assistant header.
+       * The page below keeps its 720px column — a line of text that long is
+       * unreadable, which is not true of a title and two buttons. Capping the
+       * header as well left it floating in the middle of a desktop screen,
+       * detached from the banner it is painted on.
+       *
+       * As tall as every other header in Home Assistant, and from the same
+       * variable rather than a number of our own: a theme that sets its bars
+       * taller means it, and ours would have stayed the odd one out.
+       *
+       * Positioned: the menus hang from it, see .menu.
+       */
       .header {
         display: flex;
         align-items: center;
         gap: 12px;
-        max-width: 720px;
-        margin: 0 auto;
-        padding: 8px 16px;
-        min-height: 64px;
+        padding: 4px 16px;
+        min-height: var(--header-height, 56px);
         box-sizing: border-box;
+        position: relative;
       }
 
       /*
@@ -331,26 +354,33 @@ export class SeGroupPage extends LitElement {
       .scrim {
         position: fixed;
         inset: 0;
-        z-index: 4;
+        z-index: 3;
       }
 
       /*
-       * Under the toolbar it belongs to, wherever the page has been scrolled.
+       * Under the button that opened it, wherever the page has been scrolled.
        *
-       * Fixed, not absolute: absolute pinned it 64px from the top of the host,
-       * which is as tall as the whole page — so once you had scrolled down, the
-       * menu opened somewhere above the screen and never showed. The toolbar it
-       * hangs from is sticky and always there, so this hangs from the viewport
-       * too.
+       * Absolute against the header, not fixed against the viewport. Both were
+       * tried and both were wrong on their own: absolute against the *host*
+       * pinned the menu 64px from the top of an element as tall as the whole
+       * page, so once scrolled down it opened above the screen and never
+       * showed; fixed cured that but hung the menu off the viewport, and the
+       * viewport is not the panel — Home Assistant's sidebar owns the left of
+       * it. A left of 16px therefore parked the menu at the far edge of the
+       * screen, half under the sidebar, pointing at nothing. On a phone it went
+       * unseen: the viewport *is* the panel there, and a menu spanning the
+       * width looks deliberate.
+       *
+       * The header is both: the 720px column the buttons actually live in, and
+       * inside a sticky toolbar that is always on screen.
        */
       .menu {
-        position: fixed;
-        z-index: 5;
-        top: 64px;
-        left: 16px;
-        right: 16px;
-        max-width: 320px;
-        max-height: calc(100dvh - 96px);
+        position: absolute;
+        z-index: 1;
+        top: 100%;
+        width: min(320px, calc(100% - 32px));
+        /* What is left below the header it drops from, less a little air. */
+        max-height: calc(100dvh - var(--header-height, 56px) - 32px);
         overflow-y: auto;
         overscroll-behavior: contain;
         padding: 6px;
@@ -360,6 +390,15 @@ export class SeGroupPage extends LitElement {
         box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
         display: flex;
         flex-direction: column;
+      }
+
+      /* Each menu drops from its own button: the groups left, the rest right. */
+      .menu.at-groups {
+        left: 16px;
+      }
+
+      .menu.at-more {
+        right: 16px;
       }
 
       .menu button {
@@ -422,8 +461,9 @@ export class SeGroupPage extends LitElement {
         font-size: 13px;
       }
 
-      .settled-amount {
-        color: var(--se-positive);
+      /* Not about you: it says what happened, not what it does to you. */
+      .amount.neutral {
+        color: var(--secondary-text-color);
       }
 
       .note {
@@ -459,7 +499,13 @@ export class SeGroupPage extends LitElement {
 
   public connectedCallback(): void {
     super.connectedCallback();
+    window.addEventListener("popstate", this.handlePop);
     void this.load();
+  }
+
+  public disconnectedCallback(): void {
+    super.disconnectedCallback();
+    window.removeEventListener("popstate", this.handlePop);
   }
 
   protected render() {
@@ -518,7 +564,15 @@ export class SeGroupPage extends LitElement {
     return html`
       <div class="toolbar">
         <div class="header">
-          <se-menu-button></se-menu-button>
+          <!--
+            Home Assistant's own, not one of ours. It knows something we would
+            have to guess at and would guess wrong: whether the sidebar is
+            already on screen. On a desktop it is, with a burger of its own, so
+            this renders nothing and there is one burger instead of two; on a
+            phone the sidebar is gone and this is the way back out of the panel.
+            It carries the notification dot too, which ours never did.
+          -->
+          <ha-menu-button .hass=${this.hass} .narrow=${this.narrow}></ha-menu-button>
 
         <div class="titles">
           <h1>${translate("app_title")}</h1>
@@ -539,17 +593,27 @@ export class SeGroupPage extends LitElement {
           <se-icon plain .icon=${"mdi:dots-vertical"} fallback="⋮" .size=${22}></se-icon>
         </button>
 
+        ${this.menu ? this.renderMenu() : nothing}
         </div>
       </div>
-      ${this.menu ? this.renderMenu() : nothing}
+      ${this.menu
+        ? html`<div class="scrim" @click=${() => (this.menu = undefined)}></div>`
+        : nothing}
     `;
   }
 
+  /**
+   * The open menu, inside the header so it can hang from the right button.
+   *
+   * The scrim that closes it stays outside: it covers the page, never the
+   * toolbar, so the button you opened it with is still there to close it.
+   */
   private renderMenu() {
-    // A click anywhere else closes it, so the menu never traps the page.
     return html`
-      <div class="scrim" @click=${() => (this.menu = undefined)}></div>
-      <div class="menu" role="menu">
+      <div
+        class=${`menu ${this.menu === "groups" ? "at-groups" : "at-more"}`}
+        role="menu"
+      >
         ${this.menu === "groups" ? this.renderGroupMenu() : this.renderMoreMenu()}
       </div>
     `;
@@ -617,7 +681,7 @@ export class SeGroupPage extends LitElement {
 
   private openDialog(dialog: Dialog) {
     this.menu = undefined;
-    this.dialog = dialog;
+    this.show(dialog);
   }
 
   private openMenu(menu: "groups" | "more") {
@@ -765,24 +829,31 @@ export class SeGroupPage extends LitElement {
   }
 
   /**
-   * A payment, said the way its kind reads.
+   * A payment, said the way its kind reads, and from where you stand.
    *
-   * The two are one movement of money and differ only in words, so the words
-   * are the whole job here: a debt shown as "Dupont → Michel" reads as Dupont
-   * having paid, which is true of a loan and nonsense for a debt somebody is
-   * only writing down.
+   * The two kinds are one movement of money and differ only in words, so the
+   * words are the whole job here: a debt shown as "Dupont → Michel" reads as
+   * Dupont having paid, which is true of a loan and nonsense for a debt
+   * somebody is only writing down.
+   *
+   * Which is why the names swap round by kind. The arrow always points at
+   * whoever ends up with the money — a reimbursement has sent it, a debt owes
+   * it — and on a debt the one who will pay is the one who owes, which is the
+   * member on the receiving end of the stored payment.
    */
   private renderPayment(payment: Payment) {
-    const from = this.memberById(payment.from_member_id);
-    const to = this.memberById(payment.to_member_id);
     const debt = payment.kind === "debt";
 
-    // Whoever the line is about. On a reimbursement that is the one whose money
-    // left; on a debt, the one who owes it — a debt is somebody's, and it is
-    // theirs, not the lender's. Same member the title opens on, either way.
-    const owner = debt ? to : from;
-    const ownerId = debt ? payment.to_member_id : payment.from_member_id;
-    const colour = owner?.color ?? colorFor(ownerId);
+    // Whose money leaves, and whose it becomes. The line reads payer → taker
+    // whatever the kind; only which stored member is which changes.
+    const payerId = debt ? payment.to_member_id : payment.from_member_id;
+    const takerId = debt ? payment.from_member_id : payment.to_member_id;
+
+    // The line is the payer's: on a reimbursement the one whose money left, on
+    // a debt the one who owes it — a debt is somebody's, and it is theirs, not
+    // the lender's.
+    const payer = this.memberById(payerId);
+    const colour = payer?.color ?? colorFor(payerId);
 
     return html`
       <button
@@ -797,17 +868,8 @@ export class SeGroupPage extends LitElement {
           .size=${40}
         ></se-icon>
         <div class="info">
-          <!--
-            The arrow points at whoever ends up with the money, and it points
-            that way on both: a reimbursement has sent it, a debt owes it.
-            Which is why the names swap round — on a debt the one who will pay
-            is the one who owes, and that is the member on the receiving end of
-            the stored payment. The icon and the colour say which is which.
-          -->
           <div class="title">
-            ${debt
-              ? html`${to?.name ?? "?"} → ${from?.name ?? "?"}`
-              : html`${from?.name ?? "?"} → ${to?.name ?? "?"}`}
+            ${this.nameFrom(payerId)} → ${this.nameFrom(takerId)}
           </div>
           <!--
             Where an expense shows its category: same grid, same reading. What
@@ -823,12 +885,7 @@ export class SeGroupPage extends LitElement {
           </div>
         </div>
         <div class="tail">
-          <!--
-            Red on a debt, the colour money owed already wears on the balance
-            card. A reimbursement stays quiet: it is money that has landed,
-            and nothing about it is outstanding.
-          -->
-          <span class="amount ${debt ? "negative" : "settled-amount"}">
+          <span class="amount ${this.toneFor(payerId, takerId)}">
             ${formatMoney(payment.amount, payment.currency, this.language)}
           </span>
           <!-- What it weighs in the group, exactly as on an expense. -->
@@ -848,6 +905,44 @@ export class SeGroupPage extends LitElement {
 
 
 
+
+  /**
+   * A member's name, or "you" when it is yours.
+   *
+   * The balance card has always been written from where you stand — "on te
+   * doit", not "Stéphane doit recevoir". The list underneath it was not, so the
+   * same fact was told twice in two voices, and finding yourself in a row meant
+   * spotting your own name among the others first.
+   */
+  private nameFrom(id: string): string {
+    if (id === this.meId()) {
+      return this.localize("you");
+    }
+
+    return this.memberById(id)?.name ?? "?";
+  }
+
+  /**
+   * What a movement of money does to you, in one colour.
+   *
+   * Green when it comes your way, red when it leaves you — the reading the
+   * balance card already trained. Kind has nothing to do with it: a debt owed
+   * to you is money coming, and every debt used to be red on the grounds that a
+   * debt is a bad thing, which is only true of the ones you owe.
+   *
+   * Neither, when the line is not about you: two other people settling up is a
+   * fact, not good news or bad. Same when no member is you at all — an admin
+   * looking in, a tablet in the kitchen. There is no point of view to take.
+   */
+  private toneFor(payerId: string, takerId: string): string {
+    const me = this.meId();
+
+    if (me === takerId) {
+      return "positive";
+    }
+
+    return me === payerId ? "negative" : "neutral";
+  }
 
   private renderExpense(expense: Expense) {
     const payer = this.memberById(expense.paid_by_member_id);
@@ -1255,8 +1350,9 @@ export class SeGroupPage extends LitElement {
    * The activity, filtered by what is typed.
    *
    * Matched on everything a row shows — title, description, category, the
-   * people — because that is what someone types: they look for "carrefour",
-   * "antonin" or "essence" without thinking about which field it is.
+   * people, the amount — because that is what someone types: they look for
+   * "carrefour", "antonin", "essence" or "300" without thinking about which
+   * field it is.
    *
    * The balance above never moves with it: it is the group's, not the list's,
    * and a total that shrank as you typed would be a lie.
@@ -1276,11 +1372,18 @@ export class SeGroupPage extends LitElement {
     const nameOf = (id: string) => this.memberById(id)?.name ?? "";
 
     if (entry.kind === "payment") {
+      const payment = entry.payment;
+
       return [
         this.localize("a_settlement"),
-        entry.payment.description ?? "",
-        nameOf(entry.payment.from_member_id),
-        nameOf(entry.payment.to_member_id),
+        payment.description ?? "",
+        nameOf(payment.from_member_id),
+        nameOf(payment.to_member_id),
+        ...this.amountNeedles(
+          payment.amount,
+          payment.currency,
+          payment.converted_amount,
+        ),
       ]
         .join(" ")
         .toLowerCase();
@@ -1294,9 +1397,38 @@ export class SeGroupPage extends LitElement {
       expense.description ?? "",
       category?.name ?? "",
       nameOf(expense.paid_by_member_id),
+      ...this.amountNeedles(
+        expense.amount,
+        expense.currency,
+        expense.converted_amount,
+      ),
     ]
       .join(" ")
       .toLowerCase();
+  }
+
+  /**
+   * What was paid, and what it came to — both are findable.
+   *
+   * A row in a foreign currency shows two figures, and either is the one that
+   * stuck in somebody's memory: the 100 they handed over, or the 87,68 it cost
+   * the group.
+   */
+  private amountNeedles(
+    amount: number,
+    currency: string,
+    converted: number,
+  ): string[] {
+    const needles = moneyNeedles(amount, currency, this.language);
+
+    if (currency === this.group!.currency) {
+      return needles;
+    }
+
+    return [
+      ...needles,
+      ...moneyNeedles(converted, this.group!.currency, this.language),
+    ];
   }
 
   /** Record the reimbursement a balance line stands for, filled in with it. */
@@ -1342,20 +1474,65 @@ export class SeGroupPage extends LitElement {
   private openPayment(settlement?: Settlement, payment?: Payment) {
     this.prefill = settlement;
     this.editedPayment = payment;
-    this.dialog = "payment";
+    this.show("payment");
   }
 
   private openExpense(expense?: Expense) {
     this.editedExpense = expense;
-    this.dialog = "expense";
+    this.show("expense");
   }
 
+  /**
+   * Show a dialog, and leave a step behind for the phone's back button.
+   *
+   * Back is how you dismiss a sheet on a phone, and without a step to go back
+   * to it left the panel altogether — half a typed expense gone, and Home
+   * Assistant's front page instead. The step is the dialog's, and it is dropped
+   * again the moment it closes, so nothing accumulates and back still leaves
+   * the panel once no dialog is open.
+   *
+   * One step for the whole chain: the journal opens the expense it points at
+   * and closes on the way, and two steps for one sheet on screen would mean
+   * pressing back twice for the same thing.
+   */
+  private show(dialog: Dialog) {
+    if (!this.dialog) {
+      history.pushState({ seDialog: true }, "");
+    }
+
+    this.dialog = dialog;
+  }
+
+  /**
+   * Close the dialog and take its step back off the stack.
+   *
+   * Both, in that order and unconditionally: the dialog goes even if the step
+   * is not ours to drop — a dialog you cannot dismiss is worse than a stray
+   * entry in the history.
+   */
   private closeDialog = () => {
+    const ours = history.state?.seDialog === true;
+
+    this.clearDialog();
+
+    if (ours) {
+      history.back();
+    }
+  };
+
+  /** Back was pressed with a dialog open: the browser dropped the step for us. */
+  private handlePop = () => {
+    if (this.dialog) {
+      this.clearDialog();
+    }
+  };
+
+  private clearDialog() {
     this.dialog = undefined;
     this.prefill = undefined;
     this.editedExpense = undefined;
     this.editedPayment = undefined;
-  };
+  }
 
   private handleChanged = () => {
     this.closeDialog();
