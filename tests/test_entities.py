@@ -84,6 +84,19 @@ def a_balance(snapshot: GroupSnapshot | None, member_id: str = "m2") -> BalanceS
     return BalanceSensor(FakeCoordinator(data), "g1", member_id)
 
 
+def refresh(sensor: BalanceSensor, snapshot: GroupSnapshot) -> None:
+    """Hand the sensor a new snapshot, the way the coordinator would.
+
+    The state write is silenced: it is Home Assistant's, it needs a live one,
+    and it is not what any of this is about. What runs is the entity's own
+    update — which is where the name is decided.
+    """
+
+    sensor.coordinator.data = {"g1": snapshot}
+    sensor.async_write_ha_state = lambda: None
+    sensor._handle_coordinator_update()
+
+
 #
 # The money
 #
@@ -131,17 +144,55 @@ def test_a_balance_is_named_for_whose_it_is() -> None:
 def test_a_balance_keeps_its_id_when_somebody_is_renamed() -> None:
     """Which is the whole reason a member has an id of their own."""
 
-    before = a_balance(a_snapshot())
-
     renamed = (
         SimpleNamespace(id="m1", name="Stephane"),
         SimpleNamespace(id="m2", name="Antonin R."),
     )
 
+    before = a_balance(a_snapshot())
     after = a_balance(a_snapshot(members=renamed))
 
     assert before.unique_id == after.unique_id
     assert after.name == "Antonin R."
+
+
+def test_a_rename_reaches_a_sensor_already_built() -> None:
+    """The name follows, rather than being frozen at whatever it was built on."""
+
+    sensor = a_balance(a_snapshot())
+
+    assert sensor.name == "Antonin"
+
+    refresh(
+        sensor,
+        a_snapshot(
+            members=(
+                SimpleNamespace(id="m1", name="Stephane"),
+                SimpleNamespace(id="m2", name="Antonin R."),
+            ),
+        ),
+    )
+
+    assert sensor.name == "Antonin R."
+
+
+def test_somebody_who_left_keeps_their_name() -> None:
+    """A nameless entity is not anonymous.
+
+    Home Assistant reads one as the device's own and calls it after the project,
+    so the sensor of a member who had gone read "Montigny — unavailable", which
+    says the project is broken rather than that somebody left. The name is held
+    and never given back.
+    """
+
+    sensor = a_balance(a_snapshot())
+
+    assert sensor.name == "Antonin"
+
+    refresh(sensor, a_snapshot(members=(SimpleNamespace(id="m1", name="Stephane"),)))
+
+    assert sensor.available is False
+    assert sensor.name == "Antonin", "a departed member must not become the project"
 
 
 #

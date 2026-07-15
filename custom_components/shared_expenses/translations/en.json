@@ -9,5 +9,21 @@
         "description": "Set up Shared Expenses."
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "last_activity": {
+        "name": "Last activity"
+      }
+    },
+    "binary_sensor": {
+      "outstanding": {
+        "name": "Debts",
+        "state": {
+          "on": "Outstanding",
+          "off": "All settled"
+        }
+      }
+    }
   }
 }

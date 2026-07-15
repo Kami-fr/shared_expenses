@@ -97,21 +97,44 @@ class BalanceSensor(SharedExpensesEntity, SensorEntity):
         # history, which is the whole reason a member has an id of their own.
         self._attr_unique_id = f"{group_id}_{member_id}_balance"
 
-    @property
-    def name(self) -> str | None:
-        """Whose balance this is. The name they go by now."""
+        # The name they go by now, and it is never given back.
+        #
+        # This was a property returning None once they left the project, which
+        # is not the same as having no name: Home Assistant reads a nameless
+        # entity as the device's own and calls it after the project. So the
+        # sensor of somebody who had gone read "Montigny — unavailable", which
+        # says the project is broken rather than that somebody left.
+        #
+        # Held instead, and only ever replaced by a better one. A member always
+        # exists at the moment their sensor is built — that is what built it —
+        # so this starts true and stays true.
+        self._attr_name = self._member_name()
+
+    def _member_name(self) -> str | None:
+        """Return what the member is called, while the project still has them."""
 
         snapshot = self.snapshot
 
         if snapshot is None:
             return None
 
-        found = next(
-            (member for member in snapshot.members if member.id == self._member_id),
+        return next(
+            (
+                member.name
+                for member in snapshot.members
+                if member.id == self._member_id
+            ),
             None,
         )
 
-        return found.name if found else None
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Follow a rename, and keep the name through a departure."""
+
+        if name := self._member_name():
+            self._attr_name = name
+
+        super()._handle_coordinator_update()
 
     @property
     def available(self) -> bool:
@@ -129,6 +152,21 @@ class BalanceSensor(SharedExpensesEntity, SensorEntity):
         """The project's own currency, which is what a balance is counted in."""
 
         return self.snapshot.group.currency if self.snapshot else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, str]:
+        """The two ids the actions ask for.
+
+        Not decoration. `add_expense` needs the project and the member, and
+        neither is a Home Assistant entity, so no selector lists them — the
+        project's is at least in the panel's address, and the member's was
+        nowhere at all. Writing a tile meant reading the database.
+
+        Here, they are where Home Assistant expects a fact to be looked up:
+        Developer Tools, on the sensor of the person the tile is about.
+        """
+
+        return {"group_id": self._group_id, "member_id": self._member_id}
 
     @property
     def native_value(self) -> float | None:

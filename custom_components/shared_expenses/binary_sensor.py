@@ -6,10 +6,7 @@ owes somebody, and silence otherwise.
 
 from __future__ import annotations
 
-from homeassistant.components.binary_sensor import (
-    BinarySensorDeviceClass,
-    BinarySensorEntity,
-)
+from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
@@ -54,13 +51,19 @@ async def async_setup_entry(
 class OutstandingBinarySensor(SharedExpensesEntity, BinarySensorEntity):
     """On while somebody still owes somebody in this project.
 
-    On means outstanding, not settled, because `device_class: problem` reads
-    that way round and a household reads a lit dot as "something to do". Saying
-    it the other way would have every settled project glowing.
+    No `device_class`, deliberately. `problem` was the obvious fit — a lit dot
+    reads as something to do — and it made Home Assistant say "Problem", which
+    is a judgement this integration has no business making. A household owing
+    each other money is a household, not a fault. And a device class takes the
+    state's words with it, so the only way to say "all settled" instead of "OK"
+    is to own them.
+
+    On is outstanding rather than settled, so the dot lights when there is
+    something to do and every square project stays quiet.
     """
 
-    _attr_device_class = BinarySensorDeviceClass.PROBLEM
     _attr_translation_key = "outstanding"
+    _attr_icon = "mdi:scale-unbalanced"
 
     def __init__(self, coordinator: SharedExpensesCoordinator, group_id: str) -> None:
         """Bind the sensor to one project."""

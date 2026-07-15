@@ -9,5 +9,21 @@
         "description": "Configurer Shared Expenses."
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "last_activity": {
+        "name": "Dernière activité"
+      }
+    },
+    "binary_sensor": {
+      "outstanding": {
+        "name": "Dettes",
+        "state": {
+          "on": "En cours",
+          "off": "Tout est réglé"
+        }
+      }
+    }
   }
 }
