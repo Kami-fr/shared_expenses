@@ -17,6 +17,7 @@ from .entities import (
 from .enums import (
     GroupRole,
     PaymentKind,
+    Permission,
     RateSource,
     RevisionAction,
     RevisionEntity,
@@ -34,6 +35,7 @@ __all__ = [
     "Member",
     "Payment",
     "PaymentKind",
+    "Permission",
     "RateSource",
     "Remainder",
     "Revision",

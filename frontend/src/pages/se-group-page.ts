@@ -27,9 +27,12 @@ import type {
   Expense,
   Group,
   GroupBalances,
+  GroupMember,
+  GroupRole,
   HomeAssistant,
   Member,
   Payment,
+  Permission,
   Settlement,
 } from "../types";
 
@@ -93,6 +96,9 @@ export class SeGroupPage extends LitElement {
    * expenses, and may still owe money. They must never be offered as a payer.
    */
   @state() private pastMembers: Member[] = [];
+
+  /** Who holds which role here. Only ever read to know what to offer. */
+  @state() private memberships: GroupMember[] = [];
 
   @state() private categories: Category[] = [];
 
@@ -243,6 +249,29 @@ export class SeGroupPage extends LitElement {
 
       .item-button:hover {
         background: var(--secondary-background-color, #f6f6f6);
+      }
+
+      /*
+       * A row you may read but not rewrite: somebody else's, in a project that
+       * does not let its members touch what is not theirs.
+       *
+       * Never greyed out. The line is true, it is somebody's money and it is
+       * worth reading — it is simply not yours to change. Dimming it would say
+       * it mattered less, which is a different thing and a false one. Only the
+       * pointer and the hover go, so nothing invites a press that would do
+       * nothing.
+       */
+      .item-fixed {
+        border-top: none;
+        border-right: none;
+        border-bottom: none;
+        background: none;
+        color: inherit;
+        opacity: 1;
+        width: 100%;
+        text-align: left;
+        font-family: inherit;
+        cursor: default;
       }
 
       .chevron {
@@ -641,6 +670,18 @@ export class SeGroupPage extends LitElement {
     `;
   }
 
+  /**
+   * What you may actually do here.
+   *
+   * An entry that is offered and then refused is worse than one that is not
+   * there: it reads as the panel being broken rather than as the project being
+   * shut. So each of these appears only where the backend would let it through
+   * — the same rule, asked twice, and the backend's is the one that counts.
+   *
+   * The members and the project stay reachable either way: the first is where
+   * you rename yourself or leave, the second where you read what the project
+   * counts in. Both dialogs shut their own doors rather than close.
+   */
   private renderMoreMenu() {
     const translate = this.localize;
 
@@ -651,31 +692,39 @@ export class SeGroupPage extends LitElement {
       <button role="menuitem" @click=${() => this.openDialog("member")}>
         ${translate("members")}
       </button>
-      <button role="menuitem" @click=${() => this.openDialog("categories")}>
-        ${translate("categories")}
-      </button>
+      ${this.may("manage_categories")
+        ? html`<button role="menuitem" @click=${() => this.openDialog("categories")}>
+            ${translate("categories")}
+          </button>`
+        : nothing}
       <button role="menuitem" @click=${() => this.openDialog("statistics")}>
         ${translate("statistics")}
       </button>
       <button role="menuitem" @click=${() => this.openDialog("history")}>
         ${translate("group_history")}
       </button>
-      <button
-        role="menuitem"
-        class="separated"
-        ?disabled=${this.busy}
-        @click=${this.toggleArchive}
-      >
-        ${this.group!.archived ? translate("restore") : translate("archive")}
-      </button>
-      <button
-        role="menuitem"
-        class="danger separated"
-        ?disabled=${this.busy}
-        @click=${this.deleteGroup}
-      >
-        ${this.confirmingDelete ? translate("confirm_delete") : translate("delete_group")}
-      </button>
+      ${this.may("manage_group")
+        ? html`<button
+            role="menuitem"
+            class="separated"
+            ?disabled=${this.busy}
+            @click=${this.toggleArchive}
+          >
+            ${this.group!.archived ? translate("restore") : translate("archive")}
+          </button>`
+        : nothing}
+      ${this.myRole() === "owner"
+        ? html`<button
+            role="menuitem"
+            class="danger separated"
+            ?disabled=${this.busy}
+            @click=${this.deleteGroup}
+          >
+            ${this.confirmingDelete
+              ? translate("confirm_delete")
+              : translate("delete_group")}
+          </button>`
+        : nothing}
     `;
   }
 
@@ -855,10 +904,13 @@ export class SeGroupPage extends LitElement {
     const payer = this.memberById(payerId);
     const colour = payer?.color ?? colorFor(payerId);
 
+    const editable = this.mayEdit(payment);
+
     return html`
       <button
-        class="item item-button"
+        class=${`item ${editable ? "item-button" : "item-fixed"}`}
         style=${`border-left-color:${colour}`}
+        ?disabled=${!editable}
         @click=${() => this.openPayment(undefined, payment)}
       >
         <se-icon
@@ -948,10 +1000,13 @@ export class SeGroupPage extends LitElement {
     const payer = this.memberById(expense.paid_by_member_id);
     const category = this.categories.find((c) => c.id === expense.category_id);
 
+    const editable = this.mayEdit(expense);
+
     return html`
       <button
-        class="item item-button"
+        class=${`item ${editable ? "item-button" : "item-fixed"}`}
         style=${`border-left-color:${payer?.color ?? colorFor(expense.paid_by_member_id)}`}
+        ?disabled=${!editable}
         @click=${() => this.openExpense(expense)}
       >
         ${this.renderAvatar(
@@ -1126,6 +1181,7 @@ export class SeGroupPage extends LitElement {
           .api=${this.api}
           .localize=${this.localize}
           .group=${this.group}
+          .role=${this.myRole()}
           @dialog-cancelled=${this.closeDialog}
           @group-saved=${this.handleChanged}
         ></se-group-dialog>
@@ -1151,6 +1207,9 @@ export class SeGroupPage extends LitElement {
         .api=${this.api}
         .localize=${this.localize}
         .groupId=${this.groupId}
+        .role=${this.myRole()}
+        .meId=${this.meId()}
+        .mayManage=${this.may("manage_members")}
         @dialog-cancelled=${this.closeDialog}
         @members-changed=${this.handleChanged}
       ></se-member-dialog>
@@ -1174,6 +1233,62 @@ export class SeGroupPage extends LitElement {
     }
 
     return this.members.find((member) => member.user_id === this.userId)?.id ?? null;
+  }
+
+  /** What standing you have here, or null on an account no member is tied to. */
+  private myRole(): GroupRole | null {
+    const me = this.meId();
+
+    if (me === null) {
+      return null;
+    }
+
+    return (
+      this.memberships.find(
+        (membership) => membership.member_id === me && membership.left_at === null,
+      )?.role ?? null
+    );
+  }
+
+  /**
+   * Whether the project lets you do this.
+   *
+   * The same rule the backend applies, and only ever used to decide what to
+   * offer. A courtesy, never a guard: the panel is a program on somebody's
+   * machine, and the door is `ensure_permission`. Offering what would be
+   * refused is the thing to avoid — a button that always errors is worse than
+   * no button.
+   */
+  private may(permission: Permission): boolean {
+    const role = this.myRole();
+
+    if (role === "owner" || role === "admin") {
+      return true;
+    }
+
+    return this.group?.permissions.includes(permission) ?? false;
+  }
+
+  /** Whether an entry is yours: you entered it, or it is about you. */
+  private mine(entry: Expense | Payment): boolean {
+    const me = this.meId();
+
+    if (me === null) {
+      return false;
+    }
+
+    if (entry.created_by_member_id === me) {
+      return true;
+    }
+
+    return "paid_by_member_id" in entry
+      ? entry.paid_by_member_id === me
+      : entry.from_member_id === me || entry.to_member_id === me;
+  }
+
+  /** Whether you may open an entry to change it, rather than only read it. */
+  private mayEdit(entry: Expense | Payment): boolean {
+    return this.mine(entry) || this.may("edit_others");
   }
 
   /**
@@ -1238,6 +1353,7 @@ export class SeGroupPage extends LitElement {
         groups,
         members,
         pastMembers,
+        memberships,
         categories,
         expenses,
         payments,
@@ -1247,6 +1363,7 @@ export class SeGroupPage extends LitElement {
         this.api.listGroups(),
         this.api.listMembers(this.groupId),
         this.api.listMembers(this.groupId, true),
+        this.api.listMemberships(this.groupId),
         this.api.listCategories(this.groupId),
         this.api.listExpenses(this.groupId),
         this.api.listPayments(this.groupId),
@@ -1257,6 +1374,7 @@ export class SeGroupPage extends LitElement {
       this.groups = groups;
       this.members = members;
       this.pastMembers = pastMembers;
+      this.memberships = memberships;
       this.categories = categories;
       this.expenses = expenses;
       this.payments = payments;

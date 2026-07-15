@@ -12,7 +12,7 @@ import voluptuous as vol
 
 from ..manager import SharedExpensesManager
 from ..models import PaymentKind
-from .api import Scope, api_command, as_utc
+from .api import Requires, Scope, api_command, as_utc
 from .serializers import payment_to_dict
 
 
@@ -97,7 +97,7 @@ async def websocket_create_payment(
     }
 )
 @websocket_api.async_response
-@api_command(Scope.PAYMENT)
+@api_command(Scope.PAYMENT, Requires.MINE)
 async def websocket_update_payment(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
@@ -144,7 +144,7 @@ async def websocket_update_payment(
     }
 )
 @websocket_api.async_response
-@api_command(Scope.PAYMENT)
+@api_command(Scope.PAYMENT, Requires.MINE)
 async def websocket_delete_payment(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,

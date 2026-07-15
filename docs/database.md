@@ -42,12 +42,30 @@ ExchangeRate          stands apart: a fact about the market, not about a group
 | created_at | TEXT | UTC ISO-8601 timestamp |
 | split_rule | TEXT | Default split rule as JSON (nullable) |
 | default_category_id | TEXT | FK → categories.id, the category a new expense opens on (nullable) |
+| allow_manage_members | INTEGER | 0 or 1, default 1 |
+| allow_manage_categories | INTEGER | 0 or 1, default 1 |
+| allow_manage_group | INTEGER | 0 or 1, default 1 |
+| allow_edit_others | INTEGER | 0 or 1, default 1 |
 
 `currency` is what the group counts in. Balances, shares and statistics are all
 in it; an expense paid in anything else is converted on the way in.
 
 `default_category_id` is `ON DELETE SET NULL`, not `CASCADE`: deleting a
 category must not take the group with it.
+
+The four `allow_` columns say what an **ordinary** member may do here. An owner
+and an admin are above all of them — that is what `group_members.role` is for,
+and it is why one setting per group is enough instead of a matrix per person.
+They map onto `Permission` in the model, which the domain sees as a set; the
+mapping lives in one dict in `group_repository.py`.
+
+One column apiece rather than a list in a blob, because this file is where the
+shape of the integration is written down and a permission nobody can see by
+reading it is one nobody will remember to check. Every one defaults to 1: a
+group that existed before them keeps everything its members could already do.
+
+Deleting a group is not among them and never will be: it takes every expense
+with it, and it belongs to the owner alone.
 
 ---
 
@@ -112,6 +130,19 @@ so past expenses stay attributable.
 | converted_amount | INTEGER | The same money, in the cents of the **group's** currency |
 | exchange_rate | INTEGER | The rate applied, in millionths: 0.87681 is 876810 |
 | rate_as_of | TEXT | The day the rate is from, ISO-8601 date (nullable) |
+| created_by_member_id | TEXT | Who entered it, → members.id (nullable) |
+
+`created_by_member_id` is who typed it in, which is not always who paid it, and
+it is read by exactly one thing: whether this is theirs to edit without the
+group's leave. Theirs means either — the payer or the typist. Counting only the
+payer would leave you unable to fix your own typo on what your flatmate paid;
+counting only the typist would hand the line to somebody with no stake in the
+money.
+
+It is never a foreign key and never updated: SQLite only accepts a `REFERENCES`
+on a column added after the fact when it defaults to NULL, and who entered a
+thing is not a thing that changes. Null means nobody knows — an expense older
+than the column, or older than the history it was recovered from.
 
 `amount` is what was handed over at the till and is only ever shown.
 `converted_amount` is what it cost the group, and it is what the balances and
@@ -169,6 +200,11 @@ the same tomorrow is not a balance.
 | converted_amount | INTEGER | The same money, in the cents of the **group's** currency |
 | exchange_rate | INTEGER | The rate applied, in millionths |
 | rate_as_of | TEXT | The day the rate is from, ISO-8601 date (nullable) |
+| created_by_member_id | TEXT | Who wrote it down, → members.id (nullable) |
+
+`created_by_member_id` works exactly as an expense's. A payment is theirs if
+they wrote it down **or** if it is about them — either party. A debt you owe is
+as much yours to correct as the lender's.
 
 `from_member_id` is whoever is out of pocket, whichever kind it is: on a
 reimbursement they settled up, on a debt they lent. That is why the balances
@@ -346,7 +382,7 @@ creates `schema_v1.sql` on an empty database, then applies `migration_v<n>.sql`
 one by one up to `DATABASE_VERSION`. Each migration file bumps the version
 itself. Downgrades are refused.
 
-**Current version: 9.**
+**Current version: 10.**
 
 | Version | What it added |
 |---------|---------------|
@@ -359,13 +395,18 @@ itself. Downgrades are refused.
 | 7 | `expenses.converted_amount`, `exchange_rate`, `rate_as_of`, and the `exchange_rates` table |
 | 8 | `payments.kind`: a debt, said as one |
 | 9 | `payments.currency`, `converted_amount`, `exchange_rate`, `rate_as_of` |
+| 10 | The four `groups.allow_` columns, and `created_by_member_id` on expenses and payments |
 
 Migrations are additive. Every existing row must come out of one meaning what it
 meant going in — v7 converts every past expense to itself at a rate of one,
 because a group's own currency was all that was allowed before it; v8 defaults
 every past payment to `reimbursement`, because that is all there was; v9 gives
 every past payment the currency of the group it belongs to, read from `groups`
-rather than assumed, because a group counting in francs never held euros.
+rather than assumed, because a group counting in francs never held euros; v10
+grants every existing group all four permissions, because that is exactly what
+its members could do the day before, and recovers `created_by_member_id` from
+the `created` revision where one exists — anything older keeps NULL, since
+nobody wrote it down and guessing the payer would invent a fact.
 
 The migration files carry the reasoning. They are the only place a decision
 about the schema is written down at the moment it is taken, so they are worth

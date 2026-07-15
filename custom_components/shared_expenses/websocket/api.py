@@ -29,13 +29,15 @@ from ..exceptions import (
     InvalidSplitRuleError,
     MemberAlreadyInGroupError,
     MemberNotFoundError,
+    NotAllowedError,
+    OwnerNeedsAccountError,
     PaymentNotFoundError,
     SharedExpensesError,
 )
 from ..helpers.ids import new_id
 from ..helpers.splits import rule_from_dict
 from ..manager import SharedExpensesManager
-from ..models import ExpenseShare, SplitRule
+from ..models import ExpenseShare, Permission, SplitRule
 
 CommandHandler = Callable[
     [
@@ -67,6 +69,25 @@ class Scope(Enum):
     CATEGORY = "category_id"
     PAYMENT = "payment_id"
 
+
+class Requires(Enum):
+    """What a command asks of the caller, beyond being in the group.
+
+    Stated by the command and enforced here, for the same reason the scope is:
+    a rule each handler had to remember to apply is a rule one of them will
+    forget. `None` is the explicit way out and means every member may do it.
+    """
+
+    OWNER = "owner"
+    """Nobody but the owner. For what no switch will ever cover."""
+
+    MINE = "mine"
+    """Theirs, or the group's leave to touch what is not.
+
+    Only meaningful on an EXPENSE or a PAYMENT scope: what counts as theirs is
+    the thing's own business, and the manager is where it is decided.
+    """
+
 # Error codes are part of the contract with the frontend: they are declared
 # here rather than derived from the class names, so that they survive a rename.
 ERROR_CODES: dict[type[SharedExpensesError], str] = {
@@ -75,6 +96,8 @@ ERROR_CODES: dict[type[SharedExpensesError], str] = {
     MemberNotFoundError: "member_not_found",
     MemberAlreadyInGroupError: "member_already_in_group",
     CannotRemoveOwnerError: "cannot_remove_owner",
+    OwnerNeedsAccountError: "owner_needs_account",
+    NotAllowedError: "not_allowed",
     CategoryNotFoundError: "category_not_found",
     ExpenseNotFoundError: "expense_not_found",
     InvalidExpenseError: "invalid_expense",
@@ -117,12 +140,20 @@ SPLIT_RULE_SCHEMA = vol.Schema(
 
 def api_command(
     scope: Scope,
+    requires: Requires | Permission | None = None,
 ) -> Callable[[CommandHandler], websocket_api.AsyncWebSocketCommandHandler]:
     """Resolve the manager, authorize the caller, and map business errors.
 
-    Every command states what it reaches for, so that walling the panel off is
-    a property of this decorator rather than of each handler remembering to
-    check. `Scope.NONE` is the explicit way out, not the default.
+    Every command states what it reaches for and what it asks of the caller, so
+    that walling the panel off is a property of this decorator rather than of
+    each handler remembering to check. `Scope.NONE` is the explicit way out, not
+    the default; `requires=None` says every member of the group may do this.
+
+    Two different questions, deliberately kept apart. The scope asks whether the
+    caller may see the thing at all, and answers by pretending it does not exist
+    — hiding is the only honest answer to somebody who must not know. `requires`
+    asks whether they may do this to a thing they are already looking at, and
+    says so plainly.
     """
 
     def decorate(func: CommandHandler) -> websocket_api.AsyncWebSocketCommandHandler:
@@ -145,7 +176,7 @@ def api_command(
                 return
 
             try:
-                await _authorize(manager, connection, msg, scope)
+                await _authorize(manager, connection, msg, scope, requires)
 
                 await func(hass, connection, msg, manager)
             except SharedExpensesError as err:
@@ -161,11 +192,15 @@ async def _authorize(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
     scope: Scope,
+    requires: Requires | Permission | None = None,
 ) -> None:
-    """Refuse a caller reaching outside the groups they belong to.
+    """Refuse a caller reaching outside the groups they belong to, or overreaching.
 
-    Every refusal wears the not-found error of the thing asked for: telling
-    "exists but not yours" apart from "does not exist" would leak it.
+    Every refusal of the first kind wears the not-found error of the thing asked
+    for: telling "exists but not yours" apart from "does not exist" would leak
+    it. A refusal of the second kind says what it is: the caller can see the
+    thing, so there is nothing left to hide, and an unexplained failure would
+    only make the panel look broken.
     """
 
     if scope is Scope.NONE:
@@ -175,10 +210,18 @@ async def _authorize(
 
     if scope is Scope.GROUP:
         await manager.ensure_group_member(msg["group_id"], user_id)
+        await _require(manager, msg["group_id"], user_id, requires)
         return
 
     if scope is Scope.MEMBER:
         await manager.ensure_shares_group(msg["member_id"], user_id)
+
+        # A member is reachable from every group they share with the caller, so
+        # there is no one group to ask about. Whoever needs a permission here
+        # carries the group in the message and says so.
+        if requires is not None and "group_id" in msg:
+            await _require(manager, msg["group_id"], user_id, requires)
+
         return
 
     if scope is Scope.EXPENSE:
@@ -188,6 +231,11 @@ async def _authorize(
             await manager.ensure_group_member(expense.group_id, user_id)
         except GroupNotFoundError as err:
             raise ExpenseNotFoundError(msg["expense_id"]) from err
+
+        if requires is Requires.MINE:
+            await manager.ensure_may_edit_expense(expense, user_id)
+        else:
+            await _require(manager, expense.group_id, user_id, requires)
 
         return
 
@@ -199,6 +247,8 @@ async def _authorize(
         except GroupNotFoundError as err:
             raise CategoryNotFoundError(msg["category_id"]) from err
 
+        await _require(manager, category.group_id, user_id, requires)
+
         return
 
     if scope is Scope.PAYMENT:
@@ -209,9 +259,38 @@ async def _authorize(
         except GroupNotFoundError as err:
             raise PaymentNotFoundError(msg["payment_id"]) from err
 
+        if requires is Requires.MINE:
+            await manager.ensure_may_edit_payment(payment, user_id)
+        else:
+            await _require(manager, payment.group_id, user_id, requires)
+
         return
 
     raise RuntimeError(f"Unhandled authorization scope: {scope}")
+
+
+async def _require(
+    manager: SharedExpensesManager,
+    group_id: str,
+    user_id: str,
+    requires: Requires | Permission | None,
+) -> None:
+    """Apply what a command asks of the caller within one group."""
+
+    if requires is None:
+        return
+
+    if requires is Requires.OWNER:
+        await manager.ensure_owner(group_id, user_id)
+        return
+
+    if requires is Requires.MINE:
+        raise RuntimeError(
+            "Requires.MINE only means something on an expense or a payment: "
+            "nothing else here is anybody's."
+        )
+
+    await manager.ensure_permission(group_id, user_id, requires)
 
 
 def error_code(err: SharedExpensesError) -> str:
@@ -231,6 +310,22 @@ def as_utc(value: datetime) -> datetime:
         return value.replace(tzinfo=UTC)
 
     return dt_util.as_utc(value)
+
+
+#: What a group may be told to allow. The values, not the names: this is the
+#: contract with the panel, and it survives a rename of the enum.
+PERMISSIONS_SCHEMA = vol.Schema([vol.In([str(value) for value in Permission])])
+
+
+def permissions_from_msg(msg: dict[str, Any]) -> frozenset[Permission]:
+    """Read the permissions a message grants.
+
+    The whole set every time, never a delta: a switch turned off has to arrive
+    as an absence, and "not mentioned" and "taken away" cannot be the same
+    thing in a message that only lists what is granted.
+    """
+
+    return frozenset(Permission(value) for value in msg["permissions"])
 
 
 def split_rule_from_msg(msg: dict[str, Any]) -> SplitRule | None:

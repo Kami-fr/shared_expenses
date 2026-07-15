@@ -98,11 +98,38 @@ Everything here was found by using the thing, which is the point.
 - [x] The search box stopped hiding itself on short lists: a control that comes
       and goes is read as a bug
 
+## Sprint 11 — Who may do what
+
+`role` had been stored, served and settable since v1, and read by nothing. Any
+member could delete the whole group.
+
+- [x] Four permissions per project, all granted by default: managing members,
+      managing categories, editing the project, touching what is not theirs.
+      Per project and not per person — the per-person dimension is `role`, and
+      it already existed.
+- [x] The role means something at last: an owner and an admin are above every
+      switch. Deleting the project is the owner's alone.
+- [x] The owner can hand the project on, and only then leave. Being locked into
+      your own group for life was not a rule protecting anything, it was the
+      absence of this.
+- [x] Roles are never governed by the switches: a member who could hand one out
+      could bring in a second account of their own as an admin. Handing out
+      `owner` is refused to everybody — a second owner was possible before.
+- [x] `created_by_member_id` (v10): an entry is yours if you entered it or it is
+      about you. Recovered for the past from the creation revision.
+- [x] `update_member` requires its group: a guard skippable by leaving a field
+      out is not a guard.
+- [x] 31 tests, each guard sabotaged to prove the suite fails when it should.
+      See ADR-013.
+
 ## Later
 
 - [ ] Weighted splits (by shares, rather than by amount or percentage)
 - [ ] Frontend tests. Every bug above that reached a user lived in the panel,
-      where neither `tsc` nor the build nor the Python suite can see.
+      where neither `tsc` nor the build nor the Python suite can see. Layout,
+      at least, is measurable: Chrome headless against the built bundle catches
+      what the eye does not — that is how the balance card was found spilling
+      its figures on a phone.
 - [ ] Refuse a group's currency changing once it holds anything. Nothing
       converts, so the same figures would simply be read in another currency —
       silently. The command allows it; only the panel not offering it stands in

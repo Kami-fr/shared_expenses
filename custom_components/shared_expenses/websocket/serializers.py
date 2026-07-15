@@ -35,6 +35,10 @@ def group_to_dict(group: Group) -> dict[str, Any]:
         "created_at": group.created_at.isoformat(),
         "split_rule": rule_to_dict(group.split_rule),
         "default_category_id": group.default_category_id,
+        # Sorted, so the same group always serialises the same way: a set has no
+        # order of its own, and a list that shuffled between two reads would
+        # make every equality test here a coin toss.
+        "permissions": sorted(str(permission) for permission in group.permissions),
     }
 
 
@@ -101,6 +105,7 @@ def expense_to_dict(
         "created_at": expense.created_at.isoformat(),
         # What it cost the group, which is what every figure in the panel is in.
         # `amount` and `currency` are what was handed over at the till.
+        "created_by_member_id": expense.created_by_member_id,
         "converted_amount": expense.converted_amount,
         "exchange_rate": expense.exchange_rate,
         "rate_as_of": (
@@ -141,6 +146,7 @@ def payment_to_dict(payment: Payment) -> dict[str, Any]:
         "payment_date": payment.payment_date.isoformat(),
         "created_at": payment.created_at.isoformat(),
         "kind": str(payment.kind),
+        "created_by_member_id": payment.created_by_member_id,
         "converted_amount": payment.converted_amount,
         "exchange_rate": payment.exchange_rate,
         "rate_as_of": payment.rate_as_of.isoformat() if payment.rate_as_of else None,

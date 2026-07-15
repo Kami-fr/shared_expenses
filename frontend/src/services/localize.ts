@@ -165,8 +165,27 @@ const EN = {
   ha_accounts_hint: "Ticked accounts take part in this project and can open it.",
   no_ha_accounts: "No account found.",
   group_owner: "Owner",
-  owner_locked: "The project owner cannot leave it. Archive the project instead.",
-  cannot_remove_owner: "The project owner cannot leave it. Archive the project instead.",
+  owner_locked: "The owner cannot leave. Hand the project on first, or archive it.",
+  cannot_remove_owner:
+    "The owner cannot leave. Hand the project on first, or archive it.",
+  make_owner: "Make owner",
+  confirm_make_owner:
+    "Hand the project to this person? You stay as an admin, and only they will be able to hand it on or delete it.",
+  owner_needs_account: "Only somebody with a Home Assistant account can own a project.",
+
+  permissions: "What members may do",
+  permissions_hint:
+    "The same for everybody in the project. You and the admins are above these, always.",
+  perm_manage_members: "Manage members",
+  perm_manage_members_hint: "Add, remove and rename people. Never who is an admin.",
+  perm_manage_categories: "Manage categories",
+  perm_manage_categories_hint: "Create and change the categories and their rules.",
+  perm_manage_group: "Edit the project",
+  perm_manage_group_hint: "Rename it, change its default rule, archive it.",
+  perm_edit_others: "Edit what is not theirs",
+  perm_edit_others_hint:
+    "Change or delete an expense somebody else entered and paid.",
+  not_allowed: "The project does not allow you to do this.",
   archived_hint: "This project is archived: nothing new can be added to it.",
   guests: "Without an account",
   guests_hint: "They carry expenses but never log in.",
@@ -379,8 +398,32 @@ const FR: Record<Key, string> = {
   ha_accounts_hint: "Les comptes cochés participent au projet et peuvent l'ouvrir.",
   no_ha_accounts: "Aucun compte trouvé.",
   group_owner: "Propriétaire",
-  owner_locked: "Le propriétaire ne peut pas quitter son projet. Archivez-le plutôt.",
-  cannot_remove_owner: "Le propriétaire ne peut pas quitter son projet. Archivez-le plutôt.",
+  owner_locked:
+    "Le propriétaire ne peut pas partir. Transmettez le projet, ou archivez-le.",
+  cannot_remove_owner:
+    "Le propriétaire ne peut pas partir. Transmettez le projet, ou archivez-le.",
+  make_owner: "Rendre propriétaire",
+  confirm_make_owner:
+    "Transmettre le projet à cette personne ? Vous restez administrateur, et elle seule pourra le transmettre ou le supprimer.",
+  owner_needs_account:
+    "Seule une personne ayant un compte Home Assistant peut être propriétaire.",
+
+  permissions: "Ce que les membres peuvent faire",
+  permissions_hint:
+    "Identique pour tout le monde dans le projet. Vous et les administrateurs passez toujours au-dessus.",
+  perm_manage_members: "Gérer les membres",
+  perm_manage_members_hint:
+    "Ajouter, retirer et renommer. Jamais qui est administrateur.",
+  perm_manage_categories: "Gérer les catégories",
+  perm_manage_categories_hint:
+    "Créer et modifier les catégories et leurs règles.",
+  perm_manage_group: "Modifier le projet",
+  perm_manage_group_hint:
+    "Le renommer, changer sa règle par défaut, l'archiver.",
+  perm_edit_others: "Modifier ce qui n'est pas à eux",
+  perm_edit_others_hint:
+    "Changer ou supprimer une dépense qu'un autre a saisie et payée.",
+  not_allowed: "Le projet ne vous autorise pas à faire ça.",
   archived_hint: "Ce projet est archivé : plus rien ne peut y être ajouté.",
   guests: "Sans compte",
   guests_hint: "Ils portent des dépenses mais ne se connectent jamais.",

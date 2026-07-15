@@ -12,7 +12,16 @@ import voluptuous as vol
 
 from ..const import DEFAULT_CURRENCY
 from ..manager import SharedExpensesManager
-from .api import SPLIT_RULE_SCHEMA, Scope, api_command, split_rule_from_msg
+from ..models import Permission
+from .api import (
+    PERMISSIONS_SCHEMA,
+    SPLIT_RULE_SCHEMA,
+    Requires,
+    Scope,
+    api_command,
+    permissions_from_msg,
+    split_rule_from_msg,
+)
 from .serializers import balances_to_dict, group_to_dict
 
 
@@ -113,17 +122,24 @@ async def websocket_create_group(
         vol.Optional("color"): vol.Any(None, cv.string),
         vol.Optional("split_rule"): vol.Any(None, SPLIT_RULE_SCHEMA),
         vol.Optional("default_category_id"): vol.Any(None, cv.string),
+        vol.Optional("permissions"): PERMISSIONS_SCHEMA,
     }
 )
 @websocket_api.async_response
-@api_command(Scope.GROUP)
+@api_command(Scope.GROUP, Permission.MANAGE_GROUP)
 async def websocket_update_group(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
     manager: SharedExpensesManager,
 ) -> None:
-    """Update a group. Only the supplied fields change."""
+    """Update a group. Only the supplied fields change.
+
+    The fields are listed by hand, which is the trap this file has fallen into
+    before: a field the model knows and this tuple does not is a field nobody
+    can ever change, and the save answers that it went fine. Anything added to
+    `Group` belongs here the same day.
+    """
 
     group = await manager.get_group(msg["group_id"])
 
@@ -143,6 +159,14 @@ async def websocket_update_group(
     if "split_rule" in msg:
         changes["split_rule"] = split_rule_from_msg(msg)
 
+    if "permissions" in msg:
+        # Who may do what is the owner's to say, whatever the group allows its
+        # members: a group that let them manage it would otherwise let them hand
+        # themselves everything else, and the switches would guard nothing.
+        await manager.ensure_owner(msg["group_id"], connection.user.id)
+
+        changes["permissions"] = permissions_from_msg(msg)
+
     updated = replace(group, **changes)
 
     await manager.update_group(updated)
@@ -158,7 +182,7 @@ async def websocket_update_group(
     }
 )
 @websocket_api.async_response
-@api_command(Scope.GROUP)
+@api_command(Scope.GROUP, Permission.MANAGE_GROUP)
 async def websocket_archive_group(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
@@ -184,16 +208,46 @@ async def websocket_archive_group(
     }
 )
 @websocket_api.async_response
-@api_command(Scope.GROUP)
+@api_command(Scope.GROUP, Requires.OWNER)
 async def websocket_delete_group(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
     manager: SharedExpensesManager,
 ) -> None:
-    """Delete a group and everything it contains."""
+    """Delete a group and everything it contains.
+
+    The owner's alone, and never a switch: it takes every expense in the group
+    with it, and there is no undoing it. Until today any member could do this.
+    """
 
     await manager.delete_group(msg["group_id"])
+
+    connection.send_result(msg["id"], None)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "shared_expenses/transfer_ownership",
+        vol.Required("group_id"): cv.string,
+        vol.Required("member_id"): cv.string,
+    }
+)
+@websocket_api.async_response
+@api_command(Scope.GROUP, Requires.OWNER)
+async def websocket_transfer_ownership(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+    manager: SharedExpensesManager,
+) -> None:
+    """Hand the group to another member.
+
+    Scoped on the group rather than the member: the question is who owns this
+    group, and only its owner may answer it.
+    """
+
+    await manager.transfer_ownership(msg["group_id"], msg["member_id"])
 
     connection.send_result(msg["id"], None)
 
@@ -226,5 +280,6 @@ COMMANDS = (
     websocket_update_group,
     websocket_archive_group,
     websocket_delete_group,
+    websocket_transfer_ownership,
     websocket_get_balances,
 )

@@ -12,7 +12,7 @@ import voluptuous as vol
 
 from ..exceptions import MemberNotFoundError
 from ..manager import SharedExpensesManager
-from ..models import GroupRole
+from ..models import GroupRole, Permission
 from .api import Scope, api_command
 from .serializers import group_member_to_dict, member_to_dict
 
@@ -83,7 +83,7 @@ async def websocket_list_memberships(
     }
 )
 @websocket_api.async_response
-@api_command(Scope.GROUP)
+@api_command(Scope.GROUP, Permission.MANAGE_MEMBERS)
 async def websocket_create_member(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
@@ -99,6 +99,8 @@ async def websocket_create_member(
 
     group_id = msg["group_id"]
     role = GroupRole(msg["role"])
+
+    await manager.ensure_may_grant_role(group_id, connection.user.id, role)
 
     if (user_id := msg.get("user_id")) is None:
         member = await manager.create_group_member(
@@ -127,6 +129,9 @@ async def websocket_create_member(
     {
         vol.Required("type"): "shared_expenses/update_member",
         vol.Required("member_id"): cv.string,
+        # Which group is asking. Required, not optional: a guard that can be
+        # skipped by leaving a field out is not a guard.
+        vol.Required("group_id"): cv.string,
         vol.Optional("name"): cv.string,
         vol.Optional("color"): vol.Any(None, cv.string),
     }
@@ -139,7 +144,19 @@ async def websocket_update_member(
     msg: dict[str, Any],
     manager: SharedExpensesManager,
 ) -> None:
-    """Update a member. Only the supplied fields change."""
+    """Update a member. Only the supplied fields change.
+
+    A member is global — one per Home Assistant account, across every group —
+    so a rename is felt everywhere. There is no per-group answer to who may do
+    it; the group asking is the one whose leave is needed, and reaching it at
+    all already means sharing a group with them.
+    """
+
+    await manager.ensure_may_edit_member(
+        msg["group_id"],
+        msg["member_id"],
+        connection.user.id,
+    )
 
     member = await manager.get_member(msg["member_id"])
 
@@ -164,7 +181,7 @@ async def websocket_update_member(
     }
 )
 @websocket_api.async_response
-@api_command(Scope.GROUP)
+@api_command(Scope.GROUP, Permission.MANAGE_MEMBERS)
 async def websocket_add_member_to_group(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
@@ -173,10 +190,14 @@ async def websocket_add_member_to_group(
 ) -> None:
     """Add an existing member to a group."""
 
+    role = GroupRole(msg["role"])
+
+    await manager.ensure_may_grant_role(msg["group_id"], connection.user.id, role)
+
     membership = await manager.add_member_to_group(
         group_id=msg["group_id"],
         member_id=msg["member_id"],
-        role=GroupRole(msg["role"]),
+        role=role,
     )
 
     connection.send_result(msg["id"], group_member_to_dict(membership))
@@ -201,6 +222,12 @@ async def websocket_remove_member_from_group(
 
     The membership is kept so that past expenses stay attributable.
     """
+
+    await manager.ensure_may_edit_member(
+        msg["group_id"],
+        msg["member_id"],
+        connection.user.id,
+    )
 
     memberships = await manager.list_group_memberships(msg["group_id"])
 

@@ -38,9 +38,10 @@ class ExpenseRepository(BaseRepository):
                 split_rule,
                 converted_amount,
                 exchange_rate,
-                rate_as_of
+                rate_as_of,
+                created_by_member_id
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 expense.id,
@@ -57,6 +58,7 @@ class ExpenseRepository(BaseRepository):
                 expense.converted_amount,
                 expense.exchange_rate,
                 None if expense.rate_as_of is None else expense.rate_as_of.isoformat(),
+                expense.created_by_member_id,
             ),
         )
 
@@ -100,7 +102,8 @@ class ExpenseRepository(BaseRepository):
                 split_rule,
                 converted_amount,
                 exchange_rate,
-                rate_as_of
+                rate_as_of,
+                created_by_member_id
             FROM expenses
             WHERE id = ?
             """,
@@ -134,7 +137,8 @@ class ExpenseRepository(BaseRepository):
                 split_rule,
                 converted_amount,
                 exchange_rate,
-                rate_as_of
+                rate_as_of,
+                created_by_member_id
             FROM expenses
             WHERE group_id = ?
             -- A date input carries no time, so everything entered on the same
@@ -203,7 +207,13 @@ class ExpenseRepository(BaseRepository):
         expense: Expense,
         shares: list[ExpenseShare],
     ) -> None:
-        """Update an expense."""
+        """Update an expense.
+
+        `created_by_member_id` is not here on purpose: who entered a thing is
+        not a thing that changes. Editing it would let somebody hand themselves
+        an expense that was never theirs, which is the one door these columns
+        exist to hold shut.
+        """
 
         await self._connection.execute(
             """
@@ -317,4 +327,5 @@ class ExpenseRepository(BaseRepository):
                 if row["rate_as_of"] is None
                 else date.fromisoformat(row["rate_as_of"])
             ),
+            created_by_member_id=row["created_by_member_id"],
         )

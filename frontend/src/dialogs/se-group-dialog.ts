@@ -1,4 +1,4 @@
-import { LitElement, html, nothing } from "lit";
+import { LitElement, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
 import "../components/se-button";
@@ -7,12 +7,12 @@ import "../components/se-field";
 import "../components/se-select";
 import type { SharedExpensesApi } from "../services/api";
 import { CURRENCIES } from "../services/currency";
-import { errorMessage, type Localizer } from "../services/localize";
+import { errorMessage, type Localizer, type LocalizeKey } from "../services/localize";
 import { sharedStyles } from "../styles/shared";
-import type { Group } from "../types";
+import { PERMISSIONS, type Group, type GroupRole, type Permission } from "../types";
 
 /**
- * Dialog creating a group, or correcting the name it was given.
+ * Dialog creating a project, or changing what it is and what it allows.
  *
  * Fires `group-created` on a creation and `group-saved` on an edit.
  */
@@ -25,17 +25,56 @@ export class SeGroupDialog extends LitElement {
   /** Set to correct an existing group, leave out to create one. */
   @property({ attribute: false }) public group?: Group;
 
+  /** What the reader is here. The switches are the owner's alone. */
+  @property({ attribute: false }) public role: GroupRole | null = null;
+
   @state() private name = "";
 
   @state() private description = "";
 
   @state() private currency = "EUR";
 
+  /** What the project grants, as it stands in the dialog. */
+  @state() private permissions = new Set<Permission>();
+
   @state() private busy = false;
 
   @state() private error?: string;
 
-  public static styles = sharedStyles;
+  public static styles = [
+    sharedStyles,
+    css`
+      .switch {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 8px 0;
+      }
+
+      .switch input {
+        margin-top: 2px;
+        flex: 0 0 auto;
+      }
+
+      .switch .body {
+        min-width: 0;
+      }
+
+      .switch .title {
+        font-size: 14px;
+      }
+
+      .switch .hint {
+        font-size: 12px;
+        color: var(--secondary-text-color);
+      }
+
+      .section {
+        border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        padding-top: 12px;
+      }
+    `,
+  ];
 
   public connectedCallback(): void {
     super.connectedCallback();
@@ -44,6 +83,7 @@ export class SeGroupDialog extends LitElement {
       this.name = this.group.name;
       this.description = this.group.description ?? "";
       this.currency = this.group.currency;
+      this.permissions = new Set(this.group.permissions);
     }
   }
 
@@ -93,6 +133,8 @@ export class SeGroupDialog extends LitElement {
                 .options=${CURRENCIES.map((code) => ({ value: code, label: code }))}
                 @value-changed=${(e: CustomEvent) => (this.currency = e.detail.value)}
               ></se-select>`}
+
+          ${this.renderPermissions()}
         </div>
 
         <se-button slot="actions" variant="text" @click=${this.cancel}>
@@ -107,6 +149,64 @@ export class SeGroupDialog extends LitElement {
         </se-button>
       </se-dialog>
     `;
+  }
+
+  /**
+   * What the project lets its members do.
+   *
+   * The owner's alone, and shown to nobody else — not even greyed out. A member
+   * has no say and no reason to study the list; what they may do, they find out
+   * by the panel offering it or not.
+   *
+   * On a creation there is nothing to show: a new project allows everything,
+   * and asking four questions before the first expense is asking them of
+   * somebody who has no idea yet.
+   */
+  private renderPermissions() {
+    if (!this.group || this.role !== "owner") {
+      return nothing;
+    }
+
+    const translate = this.localize;
+
+    return html`
+      <div class="section">
+        <h3>${translate("permissions")}</h3>
+        <div class="muted">${translate("permissions_hint")}</div>
+
+        ${PERMISSIONS.map(
+          (permission) => html`
+            <label class="switch">
+              <input
+                type="checkbox"
+                .checked=${this.permissions.has(permission)}
+                @change=${(event: Event) => this.toggle(permission, event)}
+              />
+              <span class="body">
+                <span class="title">${translate(`perm_${permission}` as LocalizeKey)}</span>
+                <span class="hint"
+                  >${translate(`perm_${permission}_hint` as LocalizeKey)}</span
+                >
+              </span>
+            </label>
+          `,
+        )}
+      </div>
+    `;
+  }
+
+  private toggle(permission: Permission, event: Event) {
+    // A new Set, not a mutation: Lit compares by identity, and the same Set
+    // handed back changed would render nothing at all.
+    const next = new Set(this.permissions);
+
+    if ((event.target as HTMLInputElement).checked) {
+      next.add(permission);
+    } else {
+      next.delete(permission);
+    }
+
+    this.permissions = next;
   }
 
   private cancel = () => {
@@ -126,8 +226,17 @@ export class SeGroupDialog extends LitElement {
       // The currency goes in on a creation and is never sent again: an edit
       // that carried it would be an edit that could quietly restate every
       // figure in the group.
+      //
+      // The permissions go the other way — only on an edit, and only from the
+      // owner, whose dialog is the only one that showed them. Sending them from
+      // anybody else would be sending back whatever was loaded, which the
+      // backend refuses outright, so the save would fail on a field nobody
+      // touched.
       const group = this.group
-        ? await this.api.updateGroup(this.group.id, fields)
+        ? await this.api.updateGroup(this.group.id, {
+            ...fields,
+            ...(this.role === "owner" ? { permissions: [...this.permissions] } : {}),
+          })
         : await this.api.createGroup({ ...fields, currency: this.currency });
 
       this.dispatchEvent(

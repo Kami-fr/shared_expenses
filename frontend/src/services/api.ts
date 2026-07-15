@@ -20,6 +20,7 @@ import type {
   Member,
   Payment,
   PaymentKind,
+  Permission,
   Revision,
   SplitRule,
 } from "../types";
@@ -33,6 +34,24 @@ export interface CreateGroupInput {
   owner_name?: string | null;
   split_rule?: SplitRule | null;
   default_category_id?: string | null;
+}
+
+/**
+ * What may be changed about a project, which is not what it was made with.
+ *
+ * A new project allows everything, so there is nothing to say at creation; the
+ * switches are the owner's afterwards. Hence its own type rather than a bare
+ * `Partial<CreateGroupInput>` — sending `permissions` to create_group would be
+ * refused outright, its schema not knowing the word.
+ */
+export interface UpdateGroupInput extends Partial<CreateGroupInput> {
+  /**
+   * The whole set, never a delta.
+   *
+   * A message that only lists what is granted cannot tell "not mentioned" from
+   * "taken away", so a switch turned off has to arrive as an absence.
+   */
+  permissions?: Permission[];
 }
 
 export interface CreateExpenseInput {
@@ -97,8 +116,21 @@ export class SharedExpensesApi {
     return this.call("create_group", input);
   }
 
-  public updateGroup(groupId: string, changes: Partial<CreateGroupInput>): Promise<Group> {
+  public updateGroup(groupId: string, changes: UpdateGroupInput): Promise<Group> {
     return this.call("update_group", { group_id: groupId, ...changes });
+  }
+
+  /**
+   * Hand a project to another member. The owner's alone.
+   *
+   * The old owner stays as an admin, and may then leave — which, without this,
+   * they never could.
+   */
+  public transferOwnership(groupId: string, memberId: string): Promise<null> {
+    return this.call("transfer_ownership", {
+      group_id: groupId,
+      member_id: memberId,
+    });
   }
 
   public archiveGroup(groupId: string, archived: boolean): Promise<Group> {
@@ -144,11 +176,23 @@ export class SharedExpensesApi {
     return this.call("create_member", input);
   }
 
+  /**
+   * Rename a member, or recolour them.
+   *
+   * `groupId` is which project is asking. A member is global — one per Home
+   * Assistant account, across every project — so there is no per-project answer
+   * to who may rename them; the project asking is the one whose leave is needed.
+   */
   public updateMember(
+    groupId: string,
     memberId: string,
     changes: { name?: string; color?: string | null },
   ): Promise<Member> {
-    return this.call("update_member", { member_id: memberId, ...changes });
+    return this.call("update_member", {
+      group_id: groupId,
+      member_id: memberId,
+      ...changes,
+    });
   }
 
   /** Put an existing member back into a group they had left. */

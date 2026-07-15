@@ -9,14 +9,17 @@ import type { SharedExpensesApi } from "../services/api";
 import { colorFor, initials } from "../services/format";
 import { errorMessage, type Localizer } from "../services/localize";
 import { sharedStyles } from "../styles/shared";
-import type { GroupMember, HaUser, Member } from "../types";
+import type { GroupMember, GroupRole, HaUser, Member } from "../types";
 
 /**
- * Manage who is in a group.
+ * Manage who is in a project.
  *
  * Home Assistant accounts are toggled on and off, which is also what grants
- * access to the group. People without an account are added by name: they carry
- * expenses but will never log in.
+ * access to the project. People without an account are added by name: they
+ * carry expenses but will never log in.
+ *
+ * Open to everybody, whatever the project allows: this is where you recolour
+ * yourself and where you leave. What you may do to other people is what closes.
  *
  * Fires `members-changed` on close when something was saved.
  */
@@ -27,6 +30,15 @@ export class SeMemberDialog extends LitElement {
   @property({ attribute: false }) public localize!: Localizer;
 
   @property({ type: String }) public groupId!: string;
+
+  /** What the reader is here. Handing the project on is the owner's alone. */
+  @property({ attribute: false }) public role: GroupRole | null = null;
+
+  /** Which member the reader is, if any. Yourself is always yours to change. */
+  @property({ type: String }) public meId: string | null = null;
+
+  /** Whether the project lets the reader touch anybody but themselves. */
+  @property({ type: Boolean }) public mayManage = false;
 
   @state() private haUsers: HaUser[] = [];
 
@@ -49,6 +61,9 @@ export class SeMemberDialog extends LitElement {
 
   /** The member whose removal is awaiting a second click. */
   @state() private confirming?: string;
+
+  /** The member the project is about to be handed to, awaiting a second click. */
+  @state() private handingTo?: string;
 
   /** Members including those hidden, so a guest can be brought back. */
   @state() private pastMembers: Member[] = [];
@@ -184,12 +199,17 @@ export class SeMemberDialog extends LitElement {
     const member = this.memberForUser(user.id);
     const owner = this.isOwner(member);
 
+    // Ticking somebody in or out is managing the members — unless the somebody
+    // is you, on your way out.
+    const isMe = member !== undefined && member.id === this.meId;
+    const mayToggle = this.mayManage || isMe;
+
     return html`
       <div class="row">
         <input
           type="checkbox"
           .checked=${member !== undefined}
-          ?disabled=${owner || this.busy !== undefined}
+          ?disabled=${owner || !mayToggle || this.busy !== undefined}
           title=${owner ? this.localize("owner_locked") : ""}
           @change=${() => this.toggleAccount(user, member)}
         />
@@ -205,9 +225,90 @@ export class SeMemberDialog extends LitElement {
         ${owner
           ? html`<span class="tag">${this.localize("group_owner")}</span>`
           : nothing}
+        ${this.renderRoleTag(member, owner)} ${this.renderHandOver(member, owner)}
       </div>
       ${this.renderPalette(member)}
     `;
+  }
+
+  /** An admin says so: they are above what the project allows, and it shows. */
+  private renderRoleTag(member: Member | undefined, owner: boolean) {
+    if (!member || owner || this.roleOf(member) !== "admin") {
+      return nothing;
+    }
+
+    return html`<span class="tag">${this.localize("role_admin")}</span>`;
+  }
+
+  /**
+   * Hand the project to somebody else.
+   *
+   * The owner's alone, and offered only on an account that is in the project
+   * and can log in: a member without one would hold every right nobody can
+   * exercise, and the backend refuses it — so the panel does not ask.
+   *
+   * Confirmed once, because it cannot be taken back by the person doing it:
+   * afterwards only the new owner can hand it on again.
+   */
+  private renderHandOver(member: Member | undefined, owner: boolean) {
+    if (this.role !== "owner" || !member || owner) {
+      return nothing;
+    }
+
+    if (this.handingTo === member.id) {
+      return html`
+        <se-button
+          variant="text"
+          class="danger"
+          ?disabled=${this.busy !== undefined}
+          @click=${() => this.handOver(member)}
+        >
+          ${this.localize("confirm_delete")}
+        </se-button>
+      `;
+    }
+
+    return html`
+      <se-button
+        variant="text"
+        ?disabled=${this.busy !== undefined}
+        title=${this.localize("confirm_make_owner")}
+        @click=${() => this.handOver(member)}
+      >
+        ${this.localize("make_owner")}
+      </se-button>
+    `;
+  }
+
+  private async handOver(member: Member) {
+    if (this.handingTo !== member.id) {
+      this.handingTo = member.id;
+      return;
+    }
+
+    this.busy = member.id;
+    this.error = undefined;
+    this.handingTo = undefined;
+
+    try {
+      await this.api.transferOwnership(this.groupId, member.id);
+
+      // You are an admin now, and the switches are no longer yours: the page
+      // has to hear about it rather than keep offering what it last knew.
+      this.dirty = true;
+      await this.load();
+    } catch (error) {
+      this.error = errorMessage(error, this.localize);
+    } finally {
+      this.busy = undefined;
+    }
+  }
+
+  private roleOf(member: Member): GroupRole | undefined {
+    return this.memberships.find(
+      (membership) =>
+        membership.member_id === member.id && membership.left_at === null,
+    )?.role;
   }
 
   /**
@@ -215,11 +316,17 @@ export class SeMemberDialog extends LitElement {
    *
    * The avatar is what the colour actually shows up in, so it is the obvious
    * thing to press. Members with no account yet have nothing to recolour.
+   *
+   * Your own colour is always yours. Somebody else's is managing the members,
+   * and where the project does not allow it the avatar is a plain circle: a
+   * palette that opened and then refused to save would read as a broken panel
+   * rather than as a shut door.
    */
   private renderTintable(member: Member | undefined, name: string, seed: string) {
     const color = member?.color ?? colorFor(seed);
+    const mayTint = member && (member.id === this.meId || this.mayManage);
 
-    if (!member) {
+    if (!member || !mayTint) {
       return html`
         <div class="avatar" style=${`background:${color}`}>${initials(name)}</div>
       `;
@@ -263,7 +370,7 @@ export class SeMemberDialog extends LitElement {
     this.error = undefined;
 
     try {
-      await this.api.updateMember(member.id, { color });
+      await this.api.updateMember(this.groupId, member.id, { color });
 
       this.dirty = true;
       await this.load();
@@ -295,14 +402,20 @@ export class SeMemberDialog extends LitElement {
               ${this.confirming === member.id
                 ? html`<span class="confirm">${translate("confirm_remove")}</span>`
                 : nothing}
-              <button
-                class=${`remove ${this.confirming === member.id ? "danger" : ""}`}
-                ?disabled=${this.busy !== undefined}
-                aria-label=${translate("remove_member")}
-                @click=${() => this.removeGuest(member)}
-              >
-                ×
-              </button>
+              <!--
+                A guest has no account, so they are never you: removing one is
+                always managing the members, and the project has to allow it.
+              -->
+              ${this.mayManage
+                ? html`<button
+                    class=${`remove ${this.confirming === member.id ? "danger" : ""}`}
+                    ?disabled=${this.busy !== undefined}
+                    aria-label=${translate("remove_member")}
+                    @click=${() => this.removeGuest(member)}
+                  >
+                    ×
+                  </button>`
+                : nothing}
             </div>
             ${this.renderPalette(member)}
           `,
@@ -318,32 +431,35 @@ export class SeMemberDialog extends LitElement {
                 ${initials(member.name)}
               </div>
               <span class="name">${member.name}</span>
-              <se-button
-                variant="text"
-                ?disabled=${this.busy !== undefined}
-                @click=${() => this.restoreGuest(member)}
-              >
-                ${translate("restore_member")}
-              </se-button>
+              ${this.mayManage
+                ? html`<se-button
+                    variant="text"
+                    ?disabled=${this.busy !== undefined}
+                    @click=${() => this.restoreGuest(member)}
+                  >
+                    ${translate("restore_member")}
+                  </se-button>`
+                : nothing}
             </div>
           `,
         )}
-
-        <div class="add">
-          <se-field
-            .label=${translate("member_name")}
-            .value=${this.newName}
-            placeholder="Clara"
-            @value-changed=${(e: CustomEvent) => (this.newName = e.detail.value)}
-          ></se-field>
-          <se-button
-            variant="text"
-            ?disabled=${this.busy !== undefined || this.newName.trim() === ""}
-            @click=${this.addGuest}
-          >
-            ${translate("add")}
-          </se-button>
-        </div>
+        ${this.mayManage
+          ? html`<div class="add">
+              <se-field
+                .label=${translate("member_name")}
+                .value=${this.newName}
+                placeholder="Clara"
+                @value-changed=${(e: CustomEvent) => (this.newName = e.detail.value)}
+              ></se-field>
+              <se-button
+                variant="text"
+                ?disabled=${this.busy !== undefined || this.newName.trim() === ""}
+                @click=${this.addGuest}
+              >
+                ${translate("add")}
+              </se-button>
+            </div>`
+          : nothing}
       </div>
     `;
   }

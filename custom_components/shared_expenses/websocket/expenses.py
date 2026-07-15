@@ -14,6 +14,7 @@ from ..manager import SharedExpensesManager
 from .api import (
     SHARE_SCHEMA,
     SPLIT_RULE_SCHEMA,
+    Requires,
     Scope,
     api_command,
     as_utc,
@@ -159,7 +160,7 @@ async def websocket_create_expense(
     }
 )
 @websocket_api.async_response
-@api_command(Scope.EXPENSE)
+@api_command(Scope.EXPENSE, Requires.MINE)
 async def websocket_update_expense(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
@@ -210,7 +211,7 @@ async def websocket_update_expense(
     }
 )
 @websocket_api.async_response
-@api_command(Scope.EXPENSE)
+@api_command(Scope.EXPENSE, Requires.MINE)
 async def websocket_delete_expense(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,

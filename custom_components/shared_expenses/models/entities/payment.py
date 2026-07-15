@@ -61,3 +61,13 @@ class Payment:
 
     rate_as_of: date | None = None
     """The day the rate is from, or None when no conversion happened."""
+
+    created_by_member_id: str | None = None
+    """Who wrote it down, which is not always either party to it.
+
+    Read by one thing only: whether somebody may edit this without the group's
+    permission to touch what is not theirs. Both parties own it too — a debt you
+    owe is as much yours to correct as the lender's.
+
+    None where nobody knows: a payment from before this was recorded.
+    """

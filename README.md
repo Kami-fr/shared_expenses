@@ -14,6 +14,12 @@ belong to, and nothing else.
   still carry expenses. A project counts in one currency, chosen once: it is the
   unit every balance in it is written in, so it does not move afterwards. The
   name does — rename it whenever you like.
+- **Who may do what** — a project starts by letting everybody do everything,
+  which is what a household usually wants. Four switches take that back one at a
+  time: managing members, managing categories, editing the project, and touching
+  what somebody else entered and paid. They are the same for everybody; the
+  owner and the admins are always above them. Deleting the project is the
+  owner's alone, and the owner can hand it on — and then leave.
 - **Expenses** — a title, an amount, who paid, a date, a category, and a split.
 - **Split rules** — beyond splitting equally: fixed amounts or percentages per
   person, an envelope shared between some and the rest to whoever paid. A

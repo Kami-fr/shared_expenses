@@ -195,7 +195,13 @@ async def test_listing_groups_shows_only_your_own(
         (
             "update_member",
             lambda: members.websocket_update_member,
-            lambda h: {"member_id": h["their_guest"].id, "name": "Volee"},
+            # The group is theirs too: naming it is what the command now asks
+            # for, and naming it changes nothing — the caller is in neither.
+            lambda h: {
+                "member_id": h["their_guest"].id,
+                "group_id": h["theirs"].id,
+                "name": "Volee",
+            },
             "member_not_found",
         ),
         (

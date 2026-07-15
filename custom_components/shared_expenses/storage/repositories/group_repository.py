@@ -7,10 +7,22 @@ from datetime import datetime
 import aiosqlite
 
 from ...helpers.splits import rule_from_json, rule_to_json
-from ...models import Group
+from ...models import Group, Permission
 from .base_repository import BaseRepository
 
-_COLUMNS = """
+#: The column each permission is granted by, in the order they are written.
+#:
+#: One column apiece rather than a list in a blob: the schema is where the shape
+#: of this integration is written down, and a permission nobody can see by
+#: reading it is a permission nobody will remember to check.
+_PERMISSION_COLUMNS: dict[Permission, str] = {
+    Permission.MANAGE_MEMBERS: "allow_manage_members",
+    Permission.MANAGE_CATEGORIES: "allow_manage_categories",
+    Permission.MANAGE_GROUP: "allow_manage_group",
+    Permission.EDIT_OTHERS: "allow_edit_others",
+}
+
+_COLUMNS = f"""
     id,
     name,
     description,
@@ -20,12 +32,13 @@ _COLUMNS = """
     archived,
     created_at,
     split_rule,
-    default_category_id
+    default_category_id,
+    {", ".join(_PERMISSION_COLUMNS.values())}
 """
 
 # `members` also carries id, name, color and created_at, so a join needs the
 # columns spelled out or SQLite refuses them as ambiguous.
-_JOINED_COLUMNS = """
+_JOINED_COLUMNS = f"""
     groups.id,
     groups.name,
     groups.description,
@@ -35,7 +48,8 @@ _JOINED_COLUMNS = """
     groups.archived,
     groups.created_at,
     groups.split_rule,
-    groups.default_category_id
+    groups.default_category_id,
+    {", ".join(f"groups.{column}" for column in _PERMISSION_COLUMNS.values())}
 """
 
 
@@ -45,8 +59,11 @@ class GroupRepository(BaseRepository):
     async def create(self, group: Group) -> None:
         """Create a group."""
 
+        columns = ", ".join(_PERMISSION_COLUMNS.values())
+        placeholders = ", ".join("?" for _ in _PERMISSION_COLUMNS)
+
         await self._connection.execute(
-            """
+            f"""
             INSERT INTO groups (
                 id,
                 name,
@@ -57,9 +74,10 @@ class GroupRepository(BaseRepository):
                 archived,
                 created_at,
                 split_rule,
-                default_category_id
+                default_category_id,
+                {columns}
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, {placeholders})
             """,
             (
                 group.id,
@@ -72,6 +90,7 @@ class GroupRepository(BaseRepository):
                 group.created_at.isoformat(),
                 rule_to_json(group.split_rule),
                 group.default_category_id,
+                *_permission_values(group),
             ),
         )
 
@@ -159,8 +178,12 @@ class GroupRepository(BaseRepository):
     async def update(self, group: Group) -> None:
         """Update a group."""
 
+        assignments = ", ".join(
+            f"{column} = ?" for column in _PERMISSION_COLUMNS.values()
+        )
+
         await self._connection.execute(
-            """
+            f"""
             UPDATE groups
             SET
                 name = ?,
@@ -170,7 +193,8 @@ class GroupRepository(BaseRepository):
                 color = ?,
                 archived = ?,
                 split_rule = ?,
-                default_category_id = ?
+                default_category_id = ?,
+                {assignments}
             WHERE id = ?
             """,
             (
@@ -182,6 +206,7 @@ class GroupRepository(BaseRepository):
                 int(group.archived),
                 rule_to_json(group.split_rule),
                 group.default_category_id,
+                *_permission_values(group),
                 group.id,
             ),
         )
@@ -212,4 +237,17 @@ class GroupRepository(BaseRepository):
             created_at=datetime.fromisoformat(row["created_at"]),
             split_rule=rule_from_json(row["split_rule"]),
             default_category_id=row["default_category_id"],
+            permissions=frozenset(
+                permission
+                for permission, column in _PERMISSION_COLUMNS.items()
+                if row[column]
+            ),
         )
+
+
+def _permission_values(group: Group) -> tuple[int, ...]:
+    """Return the permission columns of a group, in the order they are written."""
+
+    return tuple(
+        int(permission in group.permissions) for permission in _PERMISSION_COLUMNS
+    )

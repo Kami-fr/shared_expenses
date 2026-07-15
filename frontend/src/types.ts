@@ -6,6 +6,29 @@
 
 export type GroupRole = "owner" | "admin" | "member";
 
+/**
+ * One thing a project either lets its members do, or does not.
+ *
+ * A setting of the project, the same for everybody in it. The owner and the
+ * admins are above them — that is what the role is for, and it is why one
+ * switch per project is enough instead of a matrix per person.
+ *
+ * Mirrors `Permission` in the backend. The panel only ever hides what the
+ * backend would refuse: it is a courtesy, never the guard.
+ */
+export type Permission =
+  | "manage_members"
+  | "manage_categories"
+  | "manage_group"
+  | "edit_others";
+
+export const PERMISSIONS: Permission[] = [
+  "manage_members",
+  "manage_categories",
+  "manage_group",
+  "edit_others",
+];
+
 /** Who takes what is left once the envelope is shared. */
 export interface Remainder {
   /** Members taking part. `null` or absent means the payer alone. */
@@ -42,6 +65,8 @@ export interface Group {
   split_rule: SplitRule | null;
   /** The category a new expense starts on, if the group named one. */
   default_category_id: string | null;
+  /** What an ordinary member of this project may do. Everything, by default. */
+  permissions: Permission[];
 }
 
 export interface Member {
@@ -107,6 +132,13 @@ export interface Expense {
   /** The day the rate is from, or null when nothing was converted. */
   rate_as_of: string | null;
   paid_by_member_id: string;
+  /**
+   * Who entered it, which is not always who paid it.
+   *
+   * Null where nobody knows: entered before this was recorded. Read only to
+   * work out whether this is yours to edit.
+   */
+  created_by_member_id: string | null;
   expense_date: string;
   created_at: string;
   shares?: ExpenseShare[];
@@ -135,6 +167,8 @@ export interface Payment {
   /** Whoever received it, or owes it. */
   to_member_id: string;
   kind: PaymentKind;
+  /** Who wrote it down, which is not always either party. Null when unknown. */
+  created_by_member_id: string | null;
   /** What was handed over, in the cents of `currency`. */
   amount: number;
   /** What it was handed over in. Not always the group's. */

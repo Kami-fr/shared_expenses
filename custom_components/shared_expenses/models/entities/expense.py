@@ -62,6 +62,18 @@ class Expense:
     weekend, so a Sunday takes Friday's rate. Kept so it can be said out loud.
     """
 
+    created_by_member_id: str | None = None
+    """Who entered it, which is not always who paid it.
+
+    Read by one thing only: whether somebody may edit this without the group's
+    permission to touch what is not theirs. Entering what your flatmate paid
+    must not cost you the right to fix your own typo.
+
+    None where nobody knows — an expense from before this was recorded, and one
+    whose creation predates the history itself. It simply means the payer is the
+    only one it belongs to.
+    """
+
     split_rule: SplitRule | None = None
     """The rule that produced the shares, with its members spelled out.
 

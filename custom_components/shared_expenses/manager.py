@@ -22,6 +22,8 @@ from .exceptions import (
     InvalidPaymentError,
     MemberAlreadyInGroupError,
     MemberNotFoundError,
+    NotAllowedError,
+    OwnerNeedsAccountError,
     PaymentNotFoundError,
 )
 from .helpers import revisions
@@ -42,6 +44,7 @@ from .models import (
     Member,
     Payment,
     PaymentKind,
+    Permission,
     RateSource,
     Revision,
     RevisionAction,
@@ -187,6 +190,224 @@ class SharedExpensesManager:
 
         if not await self.is_group_member(group_id, user_id):
             raise GroupNotFoundError(group_id)
+
+    async def group_role(self, group_id: str, user_id: str) -> GroupRole | None:
+        """Return the role an account holds in a group, or None if it holds none.
+
+        None covers both "not a member" and "a member who left": neither is a
+        standing anybody acts from.
+        """
+
+        member = await self.get_member_for_user(user_id)
+
+        if member is None:
+            return None
+
+        memberships = await self._database.group_member_repository.list_by_group(
+            group_id,
+        )
+
+        for membership in memberships:
+            if membership.member_id == member.id and membership.left_at is None:
+                return membership.role
+
+        return None
+
+    async def ensure_permission(
+        self,
+        group_id: str,
+        user_id: str,
+        permission: Permission,
+    ) -> None:
+        """Refuse a member the group does not let do this.
+
+        Membership first, so somebody outside the group is told it does not
+        exist rather than that they are not allowed — the two answers leak
+        different things, and only the first one is nobody's business.
+
+        An owner and an admin are above every permission. That is what the role
+        is for, and what makes a per-group switch enough: the one dimension that
+        is per person already exists.
+        """
+
+        await self.ensure_group_member(group_id, user_id)
+
+        role = await self.group_role(group_id, user_id)
+
+        if role in (GroupRole.OWNER, GroupRole.ADMIN):
+            return
+
+        group = await self.get_group(group_id)
+
+        if permission not in group.permissions:
+            raise NotAllowedError(permission)
+
+    async def ensure_may_grant_role(
+        self,
+        group_id: str,
+        user_id: str,
+        role: GroupRole,
+    ) -> None:
+        """Refuse a member handing out a standing above their own.
+
+        Roles are never what a group allows: a member who could hand one out
+        could bring in an account of their own as an admin, and every switch on
+        the group would be worth exactly nothing. This is the floor the whole
+        arrangement stands on.
+
+        Owner is refused outright, to everybody. A group has one, and it moves
+        rather than being handed out — see `transfer_ownership`. Nothing stopped
+        this until today, and a second owner is a group with two people who can
+        delete it and no way to say which of them is wrong.
+        """
+
+        if role is GroupRole.OWNER:
+            raise NotAllowedError(GroupRole.OWNER)
+
+        if role is GroupRole.MEMBER:
+            return
+
+        if await self.group_role(group_id, user_id) not in (
+            GroupRole.OWNER,
+            GroupRole.ADMIN,
+        ):
+            raise NotAllowedError(role)
+
+    async def ensure_may_edit_member(
+        self,
+        group_id: str,
+        member_id: str,
+        user_id: str,
+    ) -> None:
+        """Refuse a member renaming or removing somebody who is not them.
+
+        Yourself, always: a name is your own, and being unable to leave is the
+        very trap the owner was in. Anybody else is managing the members.
+        """
+
+        if await self._member_of(user_id) == member_id:
+            return
+
+        await self.ensure_permission(group_id, user_id, Permission.MANAGE_MEMBERS)
+
+    async def ensure_may_edit_expense(self, expense: Expense, user_id: str) -> None:
+        """Refuse a member touching an expense that is not theirs to touch.
+
+        Theirs if they entered it or they paid it. Either alone strands
+        somebody: recording what a flatmate paid would cost you the right to fix
+        your own typo, and counting only the typist would let somebody with no
+        stake in the money own the line.
+        """
+
+        me = await self._member_of(user_id)
+
+        if me is not None and me in (
+            expense.created_by_member_id,
+            expense.paid_by_member_id,
+        ):
+            return
+
+        await self.ensure_permission(
+            expense.group_id,
+            user_id,
+            Permission.EDIT_OTHERS,
+        )
+
+    async def ensure_may_edit_payment(self, payment: Payment, user_id: str) -> None:
+        """Refuse a member touching a payment that is not theirs to touch.
+
+        Theirs if they wrote it down, or if it is about them — either party. A
+        debt you owe is as much yours to correct as the lender's.
+        """
+
+        me = await self._member_of(user_id)
+
+        if me is not None and me in (
+            payment.created_by_member_id,
+            payment.from_member_id,
+            payment.to_member_id,
+        ):
+            return
+
+        await self.ensure_permission(
+            payment.group_id,
+            user_id,
+            Permission.EDIT_OTHERS,
+        )
+
+    async def ensure_owner(self, group_id: str, user_id: str) -> None:
+        """Refuse anybody but the owner.
+
+        For the two things no switch will ever cover: deleting the group, and
+        handing it on.
+        """
+
+        await self.ensure_group_member(group_id, user_id)
+
+        if await self.group_role(group_id, user_id) is not GroupRole.OWNER:
+            raise NotAllowedError("owner")
+
+    async def transfer_ownership(self, group_id: str, member_id: str) -> None:
+        """Hand a group to one of its members.
+
+        The old owner stays, as an admin: they keep everything but the two
+        rights that are the owner's alone, and they can now leave — which until
+        today they could not, ever. Being locked into your own group was not a
+        rule protecting anything, it was the absence of this.
+
+        One owner at a time, so both writes go together or neither does.
+        """
+
+        await self.get_group(group_id)
+
+        memberships = await self._database.group_member_repository.list_by_group(
+            group_id,
+        )
+
+        active = [
+            membership for membership in memberships if membership.left_at is None
+        ]
+
+        heir = next(
+            (
+                membership
+                for membership in active
+                if membership.member_id == member_id
+            ),
+            None,
+        )
+
+        if heir is None:
+            raise MemberNotFoundError(member_id)
+
+        # Somebody who cannot log in cannot own the group: they would hold every
+        # right nobody can exercise, and nobody could ever hand it on again.
+        member = await self.get_member(member_id)
+
+        if member.user_id is None:
+            raise OwnerNeedsAccountError(member_id)
+
+        if heir.role is GroupRole.OWNER:
+            return
+
+        current = next(
+            (
+                membership
+                for membership in active
+                if membership.role is GroupRole.OWNER
+            ),
+            None,
+        )
+
+        async with self._database.transaction():
+            if current is not None:
+                await self._database.group_member_repository.update(
+                    replace(current, role=GroupRole.ADMIN),
+                )
+
+            await self._database.group_member_repository.update(
+                replace(heir, role=GroupRole.OWNER),
+            )
 
     async def update_group(self, group: Group) -> None:
         """Update a group."""
@@ -549,6 +770,7 @@ class SharedExpensesManager:
             converted_amount=converted,
             exchange_rate=rate,
             rate_as_of=rate_as_of,
+            created_by_member_id=await self._member_of(actor_user_id),
         )
 
         async with self._database.transaction():
@@ -741,6 +963,7 @@ class SharedExpensesManager:
             converted_amount=converted,
             exchange_rate=rate,
             rate_as_of=rate_as_of,
+            created_by_member_id=await self._member_of(actor_user_id),
         )
 
         built = _build_shares(expense.id, amounts, now)
@@ -1124,6 +1347,20 @@ class SharedExpensesManager:
     # Internals
     # ------------------------------------------------------------------
     #
+
+    async def _member_of(self, user_id: str | None) -> str | None:
+        """Return the member id behind a Home Assistant account, if any.
+
+        None for an account nobody is tied to, and for no account at all: a
+        script, a test, a version that did not record who was acting.
+        """
+
+        if user_id is None:
+            return None
+
+        member = await self.get_member_for_user(user_id)
+
+        return None if member is None else member.id
 
     async def _get_active_group(self, group_id: str) -> Group:
         """Return a group, refusing archived ones."""

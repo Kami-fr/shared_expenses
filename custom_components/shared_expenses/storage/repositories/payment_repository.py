@@ -22,7 +22,8 @@ _COLUMNS = """
     kind,
     converted_amount,
     exchange_rate,
-    rate_as_of
+    rate_as_of,
+    created_by_member_id
 """
 
 
@@ -47,9 +48,10 @@ class PaymentRepository(BaseRepository):
                 kind,
                 converted_amount,
                 exchange_rate,
-                rate_as_of
+                rate_as_of,
+                created_by_member_id
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 payment.id,
@@ -65,6 +67,7 @@ class PaymentRepository(BaseRepository):
                 payment.converted_amount,
                 payment.exchange_rate,
                 payment.rate_as_of.isoformat() if payment.rate_as_of else None,
+                payment.created_by_member_id,
             ),
         )
 
@@ -107,7 +110,12 @@ class PaymentRepository(BaseRepository):
         return [self._from_row(row) for row in rows]
 
     async def update(self, payment: Payment) -> None:
-        """Update a payment."""
+        """Update a payment.
+
+        `created_by_member_id` is not here on purpose: who wrote a thing down is
+        not a thing that changes, and editing it would let somebody hand
+        themselves a payment that was never theirs.
+        """
 
         await self._connection.execute(
             """
@@ -171,4 +179,5 @@ class PaymentRepository(BaseRepository):
             rate_as_of=(
                 date.fromisoformat(row["rate_as_of"]) if row["rate_as_of"] else None
             ),
+            created_by_member_id=row["created_by_member_id"],
         )

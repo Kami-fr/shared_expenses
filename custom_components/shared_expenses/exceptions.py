@@ -43,7 +43,30 @@ class CannotRemoveOwnerError(SharedExpensesError):
     """The owner cannot leave their own group.
 
     Access to a group comes from being a member of it, so letting the owner out
-    would strand the group with nobody able to open it.
+    would strand the group with nobody able to open it. Handing the group to
+    somebody else is the way out, and the only one.
+    """
+
+
+class OwnerNeedsAccountError(SharedExpensesError):
+    """A group cannot be handed to somebody who cannot log in.
+
+    A member without a Home Assistant account carries expenses but never opens
+    the panel. Made owner, they would hold every right nobody can exercise, and
+    the group would have nobody able to hand it on again.
+    """
+
+
+#
+# Permissions
+#
+
+class NotAllowedError(SharedExpensesError):
+    """The group does not let this member do this.
+
+    Not a not-found: the thing is theirs to see, and refusing to say why would
+    only make the panel look broken. What is hidden is what somebody must not
+    know exists; what is refused here, they are looking straight at.
     """
 
 
