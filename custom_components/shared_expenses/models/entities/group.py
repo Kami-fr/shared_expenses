@@ -39,7 +39,7 @@ class Group:
     permissions: frozenset[Permission] = field(default=DEFAULT_PERMISSIONS)
     """What an ordinary member of this group may do.
 
-    The same for everybody: an owner and an admin are above it, and nobody else
-    is below it. Held as the set of what is granted rather than what is refused,
-    so an empty set reads as the closed group it is.
+    The same for everybody: the admin is above it, and nobody else is below it.
+    Held as the set of what is granted rather than what is refused, so an empty
+    set reads as the closed group it is.
     """

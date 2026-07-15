@@ -53,9 +53,9 @@ in it; an expense paid in anything else is converted on the way in.
 `default_category_id` is `ON DELETE SET NULL`, not `CASCADE`: deleting a
 category must not take the group with it.
 
-The four `allow_` columns say what an **ordinary** member may do here. An owner
-and an admin are above all of them — that is what `group_members.role` is for,
-and it is why one setting per group is enough instead of a matrix per person.
+The four `allow_` columns say what an **ordinary** member may do here. The admin
+is above all of them — that is what `group_members.role` is for, and it is why
+one setting per group is enough instead of a matrix per person.
 They map onto `Permission` in the model, which the domain sees as a set; the
 mapping lives in one dict in `group_repository.py`.
 
@@ -65,7 +65,7 @@ reading it is one nobody will remember to check. Every one defaults to 1: a
 group that existed before them keeps everything its members could already do.
 
 Deleting a group is not among them and never will be: it takes every expense
-with it, and it belongs to the owner alone.
+with it, and it belongs to the admin alone.
 
 ---
 
@@ -91,10 +91,18 @@ so past expenses stay attributable.
 | id | TEXT | ULID |
 | group_id | TEXT | FK → groups.id |
 | member_id | TEXT | FK → members.id |
-| role | TEXT | owner, admin, member |
+| role | TEXT | `admin` or `member` |
 | joined_at | TEXT | UTC ISO-8601 timestamp |
 | left_at | TEXT | UTC ISO-8601 timestamp (nullable) |
 | created_at | TEXT | UTC ISO-8601 timestamp |
+
+A group has exactly **one** admin, and nothing in the schema enforces it: the
+only thing that writes a role other than `member` is `transfer_admin`, which
+moves it inside one transaction. No command anywhere takes a role as an input —
+that is what makes the rest of the permission model hold, and it is checked in
+`tests/test_permissions.py` rather than by a constraint.
+
+There used to be an `owner` above the admin. v11 removed it — see ADR-013.
 
 ---
 
@@ -382,7 +390,7 @@ creates `schema_v1.sql` on an empty database, then applies `migration_v<n>.sql`
 one by one up to `DATABASE_VERSION`. Each migration file bumps the version
 itself. Downgrades are refused.
 
-**Current version: 10.**
+**Current version: 11.**
 
 | Version | What it added |
 |---------|---------------|
@@ -396,6 +404,7 @@ itself. Downgrades are refused.
 | 8 | `payments.kind`: a debt, said as one |
 | 9 | `payments.currency`, `converted_amount`, `exchange_rate`, `rate_as_of` |
 | 10 | The four `groups.allow_` columns, and `created_by_member_id` on expenses and payments |
+| 11 | Two roles instead of three: `owner` goes, `admin` stays |
 
 Migrations are additive. Every existing row must come out of one meaning what it
 meant going in — v7 converts every past expense to itself at a rate of one,
@@ -407,6 +416,12 @@ grants every existing group all four permissions, because that is exactly what
 its members could do the day before, and recovers `created_by_member_id` from
 the `created` revision where one exists — anything older keeps NULL, since
 nobody wrote it down and guessing the payer would invent a fact.
+
+v11 is the one whose **order** is the whole migration. A group could hold an
+owner *and* an admin, and must come out with exactly one admin, so the old
+admins are demoted before the owner is promoted. Written the other way round,
+the freshly promoted owner is demoted along with them and every group ends up
+with nobody in charge — which no constraint would catch, because there is none.
 
 The migration files carry the reasoning. They are the only place a decision
 about the schema is written down at the moment it is taken, so they are worth

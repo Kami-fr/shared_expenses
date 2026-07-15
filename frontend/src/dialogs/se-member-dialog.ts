@@ -31,7 +31,7 @@ export class SeMemberDialog extends LitElement {
 
   @property({ type: String }) public groupId!: string;
 
-  /** What the reader is here. Handing the project on is the owner's alone. */
+  /** What the reader is here. Handing the project on is the admin's alone. */
   @property({ attribute: false }) public role: GroupRole | null = null;
 
   /** Which member the reader is, if any. Yourself is always yours to change. */
@@ -197,7 +197,7 @@ export class SeMemberDialog extends LitElement {
 
   private renderAccount(user: HaUser) {
     const member = this.memberForUser(user.id);
-    const owner = this.isOwner(member);
+    const admin = this.isAdmin(member);
 
     // Ticking somebody in or out is managing the members — unless the somebody
     // is you, on your way out.
@@ -209,8 +209,8 @@ export class SeMemberDialog extends LitElement {
         <input
           type="checkbox"
           .checked=${member !== undefined}
-          ?disabled=${owner || !mayToggle || this.busy !== undefined}
-          title=${owner ? this.localize("owner_locked") : ""}
+          ?disabled=${admin || !mayToggle || this.busy !== undefined}
+          title=${admin ? this.localize("admin_locked") : ""}
           @change=${() => this.toggleAccount(user, member)}
         />
         <!--
@@ -222,36 +222,27 @@ export class SeMemberDialog extends LitElement {
         -->
         ${this.renderTintable(member, user.name, member?.id ?? user.id)}
         <span class="name">${user.name}</span>
-        ${owner
-          ? html`<span class="tag">${this.localize("group_owner")}</span>`
+        ${admin
+          ? html`<span class="tag">${this.localize("role_admin")}</span>`
           : nothing}
-        ${this.renderRoleTag(member, owner)} ${this.renderHandOver(member, owner)}
+        ${this.renderHandOver(member, admin)}
       </div>
       ${this.renderPalette(member)}
     `;
   }
 
-  /** An admin says so: they are above what the project allows, and it shows. */
-  private renderRoleTag(member: Member | undefined, owner: boolean) {
-    if (!member || owner || this.roleOf(member) !== "admin") {
-      return nothing;
-    }
-
-    return html`<span class="tag">${this.localize("role_admin")}</span>`;
-  }
-
   /**
-   * Hand the project to somebody else.
+   * Hand the project to somebody else, who becomes its admin.
    *
-   * The owner's alone, and offered only on an account that is in the project
+   * The admin's alone, and offered only on an account that is in the project
    * and can log in: a member without one would hold every right nobody can
    * exercise, and the backend refuses it — so the panel does not ask.
    *
-   * Confirmed once, because it cannot be taken back by the person doing it:
-   * afterwards only the new owner can hand it on again.
+   * Confirmed once, because it cannot be taken back by the person doing it: you
+   * become an ordinary member, and only the new admin can hand it on again.
    */
-  private renderHandOver(member: Member | undefined, owner: boolean) {
-    if (this.role !== "owner" || !member || owner) {
+  private renderHandOver(member: Member | undefined, admin: boolean) {
+    if (this.role !== "admin" || !member || admin) {
       return nothing;
     }
 
@@ -272,10 +263,10 @@ export class SeMemberDialog extends LitElement {
       <se-button
         variant="text"
         ?disabled=${this.busy !== undefined}
-        title=${this.localize("confirm_make_owner")}
+        title=${this.localize("confirm_make_admin")}
         @click=${() => this.handOver(member)}
       >
-        ${this.localize("make_owner")}
+        ${this.localize("make_admin")}
       </se-button>
     `;
   }
@@ -291,10 +282,10 @@ export class SeMemberDialog extends LitElement {
     this.handingTo = undefined;
 
     try {
-      await this.api.transferOwnership(this.groupId, member.id);
+      await this.api.transferAdmin(this.groupId, member.id);
 
-      // You are an admin now, and the switches are no longer yours: the page
-      // has to hear about it rather than keep offering what it last knew.
+      // You are an ordinary member now, and nothing here is yours any more: the
+      // page has to hear about it rather than keep offering what it last knew.
       this.dirty = true;
       await this.load();
     } catch (error) {
@@ -302,13 +293,6 @@ export class SeMemberDialog extends LitElement {
     } finally {
       this.busy = undefined;
     }
-  }
-
-  private roleOf(member: Member): GroupRole | undefined {
-    return this.memberships.find(
-      (membership) =>
-        membership.member_id === member.id && membership.left_at === null,
-    )?.role;
   }
 
   /**
@@ -468,8 +452,12 @@ export class SeMemberDialog extends LitElement {
     return this.members.find((member) => member.user_id === userId);
   }
 
-  /** The owner stays: the backend refuses to let them out of their group. */
-  private isOwner(member: Member | undefined): boolean {
+  /**
+   * The admin stays: the backend refuses to let them out of their own group.
+   *
+   * Handing it on is the way out, and it is offered on every other row.
+   */
+  private isAdmin(member: Member | undefined): boolean {
     if (!member) {
       return false;
     }
@@ -478,7 +466,7 @@ export class SeMemberDialog extends LitElement {
       (membership) =>
         membership.member_id === member.id &&
         membership.left_at === null &&
-        membership.role === "owner",
+        membership.role === "admin",
     );
   }
 

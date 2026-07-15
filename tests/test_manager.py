@@ -9,7 +9,7 @@ import pytest
 
 from custom_components.shared_expenses.const import DATABASE_VERSION
 from custom_components.shared_expenses.exceptions import (
-    CannotRemoveOwnerError,
+    CannotRemoveAdminError,
     CategoryNotFoundError,
     GroupArchivedError,
     GroupNotFoundError,
@@ -35,7 +35,7 @@ NOW = datetime(2026, 7, 14, 12, 0, tzinfo=UTC)
 async def make_group(manager: SharedExpensesManager, **kwargs):
     return await manager.create_group(
         group_name=kwargs.pop("group_name", "Appartement"),
-        owner_name=kwargs.pop("owner_name", "Stephane"),
+        admin_name=kwargs.pop("admin_name", "Stephane"),
         **kwargs,
     )
 
@@ -47,7 +47,7 @@ async def shares_of(manager: SharedExpensesManager, expense_id: str) -> dict[str
     }
 
 
-async def owner_of(manager: SharedExpensesManager, group_id: str):
+async def admin_of(manager: SharedExpensesManager, group_id: str):
     members = await manager.list_group_members(group_id)
 
     return next(member for member in members if member.name == "Stephane")
@@ -73,15 +73,15 @@ async def count_rows(database: Database, table: str) -> int:
     return count
 
 
-async def test_creating_a_group_creates_its_owner(manager: SharedExpensesManager):
-    group = await make_group(manager, owner_user_id="ha-user-1")
+async def test_creating_a_group_creates_its_admin(manager: SharedExpensesManager):
+    group = await make_group(manager, admin_user_id="ha-user-1")
 
     members = await manager.list_group_members(group.id)
     memberships = await manager.list_group_memberships(group.id)
 
     assert [member.name for member in members] == ["Stephane"]
     assert members[0].user_id == "ha-user-1"
-    assert memberships[0].role is GroupRole.OWNER
+    assert memberships[0].role is GroupRole.ADMIN
 
 
 async def test_a_group_starts_without_category(manager: SharedExpensesManager):
@@ -133,7 +133,7 @@ async def test_archiving_then_restoring_a_group(manager: SharedExpensesManager):
 
 async def test_an_archived_group_refuses_new_expenses(manager: SharedExpensesManager):
     group = await make_group(manager)
-    owner = (await manager.list_group_members(group.id))[0]
+    admin = (await manager.list_group_members(group.id))[0]
 
     await manager.archive_group(group.id)
 
@@ -142,7 +142,7 @@ async def test_an_archived_group_refuses_new_expenses(manager: SharedExpensesMan
             group_id=group.id,
             title="Courses",
             amount=1000,
-            paid_by_member_id=owner.id,
+            paid_by_member_id=admin.id,
             expense_date=NOW,
         )
 
@@ -152,13 +152,13 @@ async def test_deleting_a_group_cascades(
     database: Database,
 ):
     group = await make_group(manager)
-    owner = (await manager.list_group_members(group.id))[0]
+    admin = (await manager.list_group_members(group.id))[0]
 
     await manager.create_expense(
         group_id=group.id,
         title="Courses",
         amount=1000,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
     )
 
@@ -211,28 +211,28 @@ async def test_a_member_who_left_is_hidden_but_kept(manager: SharedExpensesManag
 async def test_an_expense_splits_equally_by_default(manager: SharedExpensesManager):
     group = await make_group(manager)
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     expense = await manager.create_expense(
         group_id=group.id,
         title="Restaurant",
         amount=5000,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
     )
 
-    assert await shares_of(manager, expense.id) == {owner.id: 2500, antonin.id: 2500}
+    assert await shares_of(manager, expense.id) == {admin.id: 2500, antonin.id: 2500}
 
 
 async def test_an_expense_inherits_the_group_currency(manager: SharedExpensesManager):
     group = await make_group(manager, currency="CHF")
-    owner = (await manager.list_group_members(group.id))[0]
+    admin = (await manager.list_group_members(group.id))[0]
 
     expense = await manager.create_expense(
         group_id=group.id,
         title="Restaurant",
         amount=5000,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
     )
 
@@ -246,7 +246,7 @@ async def test_the_category_rule_applies_to_its_expenses(
 
     group = await make_group(manager)
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     courses = await manager.create_category(
         group_id=group.id,
@@ -258,34 +258,34 @@ async def test_the_category_rule_applies_to_its_expenses(
         group_id=group.id,
         title="Courses Carrefour",
         amount=8542,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
         category_id=courses.id,
     )
 
-    assert await shares_of(manager, expense.id) == {owner.id: 8042, antonin.id: 500}
+    assert await shares_of(manager, expense.id) == {admin.id: 8042, antonin.id: 500}
 
 
 async def test_the_group_rule_applies_without_category(manager: SharedExpensesManager):
     group = await make_group(manager, split_rule=SplitRule(envelope=1000))
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     expense = await manager.create_expense(
         group_id=group.id,
         title="Divers",
         amount=8542,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
     )
 
-    assert await shares_of(manager, expense.id) == {owner.id: 8042, antonin.id: 500}
+    assert await shares_of(manager, expense.id) == {admin.id: 8042, antonin.id: 500}
 
 
 async def test_an_explicit_rule_beats_the_category_rule(manager: SharedExpensesManager):
     group = await make_group(manager)
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     courses = await manager.create_category(
         group_id=group.id,
@@ -297,13 +297,13 @@ async def test_an_explicit_rule_beats_the_category_rule(manager: SharedExpensesM
         group_id=group.id,
         title="Courses",
         amount=5000,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
         category_id=courses.id,
         split_rule=SplitRule(),
     )
 
-    assert await shares_of(manager, expense.id) == {owner.id: 2500, antonin.id: 2500}
+    assert await shares_of(manager, expense.id) == {admin.id: 2500, antonin.id: 2500}
 
 
 async def test_a_split_rule_survives_sqlite(manager: SharedExpensesManager):
@@ -322,32 +322,32 @@ async def test_a_split_rule_survives_sqlite(manager: SharedExpensesManager):
 async def test_explicit_shares_are_kept(manager: SharedExpensesManager):
     group = await make_group(manager)
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     expense = await manager.create_expense(
         group_id=group.id,
         title="Cinema",
         amount=3000,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
-        shares=[share_input(owner.id, 1000), share_input(antonin.id, 2000)],
+        shares=[share_input(admin.id, 1000), share_input(antonin.id, 2000)],
     )
 
-    assert await shares_of(manager, expense.id) == {owner.id: 1000, antonin.id: 2000}
+    assert await shares_of(manager, expense.id) == {admin.id: 1000, antonin.id: 2000}
 
 
 async def test_shares_that_do_not_add_up_are_refused(manager: SharedExpensesManager):
     group = await make_group(manager)
-    owner = (await manager.list_group_members(group.id))[0]
+    admin = (await manager.list_group_members(group.id))[0]
 
     with pytest.raises(InvalidExpenseSharesError):
         await manager.create_expense(
             group_id=group.id,
             title="Cinema",
             amount=3000,
-            paid_by_member_id=owner.id,
+            paid_by_member_id=admin.id,
             expense_date=NOW,
-            shares=[share_input(owner.id, 1000)],
+            shares=[share_input(admin.id, 1000)],
         )
 
 
@@ -357,14 +357,14 @@ async def test_a_non_positive_expense_is_refused(
     amount: int,
 ):
     group = await make_group(manager)
-    owner = (await manager.list_group_members(group.id))[0]
+    admin = (await manager.list_group_members(group.id))[0]
 
     with pytest.raises(InvalidExpenseError):
         await manager.create_expense(
             group_id=group.id,
             title="Nope",
             amount=amount,
-            paid_by_member_id=owner.id,
+            paid_by_member_id=admin.id,
             expense_date=NOW,
         )
 
@@ -372,19 +372,19 @@ async def test_a_non_positive_expense_is_refused(
 async def test_updating_an_expense_replaces_its_shares(manager: SharedExpensesManager):
     group = await make_group(manager)
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     expense = await manager.create_expense(
         group_id=group.id,
         title="Restaurant",
         amount=5000,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
     )
 
     await manager.update_expense(replace(expense, amount=8000))
 
-    assert await shares_of(manager, expense.id) == {owner.id: 4000, antonin.id: 4000}
+    assert await shares_of(manager, expense.id) == {admin.id: 4000, antonin.id: 4000}
 
 
 async def test_updating_an_expense_with_explicit_shares(manager: SharedExpensesManager):
@@ -392,22 +392,22 @@ async def test_updating_an_expense_with_explicit_shares(manager: SharedExpensesM
 
     group = await make_group(manager)
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     expense = await manager.create_expense(
         group_id=group.id,
         title="Restaurant",
         amount=5000,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
     )
 
     await manager.update_expense(
         replace(expense, amount=6000),
-        [share_input(owner.id, 1000), share_input(antonin.id, 5000)],
+        [share_input(admin.id, 1000), share_input(antonin.id, 5000)],
     )
 
-    assert await shares_of(manager, expense.id) == {owner.id: 1000, antonin.id: 5000}
+    assert await shares_of(manager, expense.id) == {admin.id: 1000, antonin.id: 5000}
 
 
 async def test_updating_an_expense_keeps_a_single_row(manager: SharedExpensesManager):
@@ -415,13 +415,13 @@ async def test_updating_an_expense_keeps_a_single_row(manager: SharedExpensesMan
 
     group = await make_group(manager)
     await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     expense = await manager.create_expense(
         group_id=group.id,
         title="Restaurant",
         amount=5000,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
     )
 
@@ -438,18 +438,18 @@ async def test_updating_an_expense_with_wrong_shares_is_refused(
     manager: SharedExpensesManager,
 ):
     group = await make_group(manager)
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     expense = await manager.create_expense(
         group_id=group.id,
         title="Restaurant",
         amount=5000,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
     )
 
     with pytest.raises(InvalidExpenseSharesError):
-        await manager.update_expense(expense, [share_input(owner.id, 1)])
+        await manager.update_expense(expense, [share_input(admin.id, 1)])
 
 
 async def test_deleting_an_expense_clears_its_shares_and_balances(
@@ -458,13 +458,13 @@ async def test_deleting_an_expense_clears_its_shares_and_balances(
 ):
     group = await make_group(manager)
     await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     expense = await manager.create_expense(
         group_id=group.id,
         title="Essence",
         amount=4000,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
     )
 
@@ -508,8 +508,8 @@ async def test_members_without_an_account_can_pile_up(manager: SharedExpensesMan
 
 
 async def test_a_user_only_sees_their_own_groups(manager: SharedExpensesManager):
-    mine = await make_group(manager, group_name="Appartement", owner_user_id="ha-1")
-    await make_group(manager, group_name="Vacances", owner_user_id="ha-2")
+    mine = await make_group(manager, group_name="Appartement", admin_user_id="ha-1")
+    await make_group(manager, group_name="Vacances", admin_user_id="ha-2")
 
     groups = await manager.list_user_groups("ha-1")
 
@@ -518,13 +518,13 @@ async def test_a_user_only_sees_their_own_groups(manager: SharedExpensesManager)
 
 
 async def test_a_stranger_sees_nothing(manager: SharedExpensesManager):
-    await make_group(manager, owner_user_id="ha-1")
+    await make_group(manager, admin_user_id="ha-1")
 
     assert await manager.list_user_groups("ha-nobody") == []
 
 
 async def test_leaving_a_group_hides_it(manager: SharedExpensesManager):
-    group = await make_group(manager, owner_user_id="ha-1")
+    group = await make_group(manager, admin_user_id="ha-1")
     antonin = await manager.link_user(user_id="ha-2", name="Antonin")
     await manager.add_member_to_group(group_id=group.id, member_id=antonin.id)
 
@@ -546,7 +546,7 @@ async def test_an_unauthorised_group_looks_like_a_missing_one(
 ):
     """Telling the two apart would leak that the group exists."""
 
-    group = await make_group(manager, owner_user_id="ha-1")
+    group = await make_group(manager, admin_user_id="ha-1")
 
     with pytest.raises(GroupNotFoundError):
         await manager.ensure_group_member(group.id, "ha-2")
@@ -560,28 +560,28 @@ async def test_an_unauthorised_group_looks_like_a_missing_one(
 async def test_a_member_without_an_account_grants_no_access(
     manager: SharedExpensesManager,
 ):
-    group = await make_group(manager, owner_user_id="ha-1")
+    group = await make_group(manager, admin_user_id="ha-1")
     await manager.create_group_member(group_id=group.id, name="Clara")
 
     assert await manager.list_user_groups("ha-1") != []
     assert await manager.is_group_member(group.id, "ha-nobody") is False
 
 
-async def test_the_owner_cannot_leave_their_own_group(manager: SharedExpensesManager):
+async def test_the_admin_cannot_leave_their_own_group(manager: SharedExpensesManager):
     """Otherwise the group would be stranded with nobody able to open it."""
 
-    group = await make_group(manager, owner_user_id="ha-1")
+    group = await make_group(manager, admin_user_id="ha-1")
 
     membership = (await manager.list_group_memberships(group.id))[0]
 
-    with pytest.raises(CannotRemoveOwnerError):
+    with pytest.raises(CannotRemoveAdminError):
         await manager.remove_member_from_group(membership)
 
     assert [g.name for g in await manager.list_user_groups("ha-1")] == ["Appartement"]
 
 
-async def test_anyone_but_the_owner_can_leave(manager: SharedExpensesManager):
-    group = await make_group(manager, owner_user_id="ha-1")
+async def test_anyone_but_the_admin_can_leave(manager: SharedExpensesManager):
+    group = await make_group(manager, admin_user_id="ha-1")
     antonin = await manager.link_user(user_id="ha-2", name="Antonin")
     await manager.add_member_to_group(group_id=group.id, member_id=antonin.id)
 
@@ -600,7 +600,7 @@ async def test_an_archived_group_stays_visible_to_its_members(
 ):
     """Archiving freezes a group; it must not hide it."""
 
-    group = await make_group(manager, owner_user_id="ha-1")
+    group = await make_group(manager, admin_user_id="ha-1")
 
     await manager.archive_group(group.id)
 
@@ -615,13 +615,13 @@ async def test_an_expense_remembers_the_rule_it_was_filled_in_with(
 ):
     group = await make_group(manager)
     await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     expense = await manager.create_expense(
         group_id=group.id,
         title="Courses",
         amount=8542,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
         split_rule=SplitRule(envelope=1000),
     )
@@ -637,21 +637,21 @@ async def test_a_stored_rule_names_its_members(manager: SharedExpensesManager):
 
     group = await make_group(manager)
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     expense = await manager.create_expense(
         group_id=group.id,
         title="Courses",
         amount=8542,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
         split_rule=SplitRule(envelope=1000),
     )
 
     rule = (await manager.get_expense(expense.id)).split_rule
 
-    assert set(rule.participants) == {owner.id, antonin.id}
-    assert rule.remainder.members == (owner.id,)
+    assert set(rule.participants) == {admin.id, antonin.id}
+    assert rule.remainder.members == (admin.id,)
 
 
 async def test_a_new_member_stays_out_of_a_past_expense(
@@ -663,20 +663,20 @@ async def test_a_new_member_stays_out_of_a_past_expense(
 
     group = await make_group(manager)
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     expense = await manager.create_expense(
         group_id=group.id,
         title="Courses",
         amount=8542,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
         split_rule=SplitRule(envelope=1000),
     )
 
     stored = await shares_of(manager, expense.id)
 
-    assert stored == {owner.id: 8042, antonin.id: 500}
+    assert stored == {admin.id: 8042, antonin.id: 500}
 
     clara = await manager.create_group_member(group_id=group.id, name="Clara")
 
@@ -688,7 +688,7 @@ async def test_a_new_member_stays_out_of_a_past_expense(
 
     replayed = resolve_shares(
         amount=8542,
-        payer_id=owner.id,
+        payer_id=admin.id,
         member_ids=members,
         rule=rule,
     )
@@ -702,7 +702,7 @@ async def test_an_equal_split_is_remembered_as_one(manager: SharedExpensesManage
 
     group = await make_group(manager)
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     # What the dialog sends for a plain equal split: the resolved shares, and
     # the rule as filled in.
@@ -710,9 +710,9 @@ async def test_an_equal_split_is_remembered_as_one(manager: SharedExpensesManage
         group_id=group.id,
         title="Restaurant",
         amount=5000,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
-        shares=[share_input(owner.id, 2500), share_input(antonin.id, 2500)],
+        shares=[share_input(admin.id, 2500), share_input(antonin.id, 2500)],
         split_rule=SplitRule(),
     )
 
@@ -720,7 +720,7 @@ async def test_an_equal_split_is_remembered_as_one(manager: SharedExpensesManage
 
     assert rule is not None
     assert rule.envelope is None
-    assert set(rule.participants) == {owner.id, antonin.id}
+    assert set(rule.participants) == {admin.id, antonin.id}
 
 
 async def test_explicit_shares_still_carry_their_rule(manager: SharedExpensesManager):
@@ -728,22 +728,22 @@ async def test_explicit_shares_still_carry_their_rule(manager: SharedExpensesMan
 
     group = await make_group(manager)
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     expense = await manager.create_expense(
         group_id=group.id,
         title="Courses",
         amount=8542,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
-        shares=[share_input(owner.id, 8042), share_input(antonin.id, 500)],
+        shares=[share_input(admin.id, 8042), share_input(antonin.id, 500)],
         split_rule=SplitRule(envelope=1000),
     )
 
     reloaded = await manager.get_expense(expense.id)
 
     assert reloaded.split_rule.envelope == 1000
-    assert await shares_of(manager, expense.id) == {owner.id: 8042, antonin.id: 500}
+    assert await shares_of(manager, expense.id) == {admin.id: 8042, antonin.id: 500}
 
 
 async def test_expenses_of_one_day_come_back_newest_entered_first(
@@ -752,14 +752,14 @@ async def test_expenses_of_one_day_come_back_newest_entered_first(
     """A date input carries no time: they all share one expense_date."""
 
     group = await make_group(manager)
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     for title in ("premiere", "deuxieme", "troisieme"):
         await manager.create_expense(
             group_id=group.id,
             title=title,
             amount=1000,
-            paid_by_member_id=owner.id,
+            paid_by_member_id=admin.id,
             expense_date=NOW,
         )
 
@@ -770,20 +770,20 @@ async def test_expenses_of_one_day_come_back_newest_entered_first(
 
 async def test_a_backdated_expense_stays_in_the_past(manager: SharedExpensesManager):
     group = await make_group(manager)
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     await manager.create_expense(
         group_id=group.id,
         title="aujourd'hui",
         amount=1000,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
     )
     await manager.create_expense(
         group_id=group.id,
         title="le mois dernier",
         amount=1000,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=datetime(2026, 6, 1, 12, 0, tzinfo=UTC),
     )
 
@@ -829,13 +829,13 @@ async def test_a_guest_is_hidden_then_brought_back(manager: SharedExpensesManage
 
 async def test_a_payment_to_oneself_is_refused(manager: SharedExpensesManager):
     group = await make_group(manager)
-    owner = (await manager.list_group_members(group.id))[0]
+    admin = (await manager.list_group_members(group.id))[0]
 
     with pytest.raises(InvalidPaymentError):
         await manager.create_payment(
             group_id=group.id,
-            from_member_id=owner.id,
-            to_member_id=owner.id,
+            from_member_id=admin.id,
+            to_member_id=admin.id,
             amount=1000,
             payment_date=NOW,
         )
@@ -844,13 +844,13 @@ async def test_a_payment_to_oneself_is_refused(manager: SharedExpensesManager):
 async def test_a_non_positive_payment_is_refused(manager: SharedExpensesManager):
     group = await make_group(manager)
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     with pytest.raises(InvalidPaymentError):
         await manager.create_payment(
             group_id=group.id,
             from_member_id=antonin.id,
-            to_member_id=owner.id,
+            to_member_id=admin.id,
             amount=-100,
             payment_date=NOW,
         )
@@ -862,14 +862,14 @@ async def test_the_group_currency_is_what_an_expense_gets(
     """Saying it plainly is allowed; it is only a different one that is not."""
 
     group = await make_group(manager, currency="CHF")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     expense = await manager.create_expense(
         group_id=group.id,
         title="Fondue",
         amount=10000,
         currency="CHF",
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
     )
 
@@ -881,13 +881,13 @@ async def test_someone_who_left_can_still_settle_up(manager: SharedExpensesManag
 
     group = await make_group(manager)
     clara = await manager.create_group_member(group_id=group.id, name="Clara")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     await manager.create_expense(
         group_id=group.id,
         title="Courses",
         amount=4000,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
     )
 
@@ -906,14 +906,14 @@ async def test_someone_who_left_can_still_settle_up(manager: SharedExpensesManag
     await manager.create_payment(
         group_id=group.id,
         from_member_id=clara.id,
-        to_member_id=owner.id,
+        to_member_id=admin.id,
         amount=2000,
         payment_date=NOW,
     )
 
     after = await manager.get_balances(group.id)
 
-    assert after.balances == {owner.id: 0, clara.id: 0}
+    assert after.balances == {admin.id: 0, clara.id: 0}
     assert after.settlements == []
 
 
@@ -922,20 +922,20 @@ async def test_a_corrected_payment_moves_the_balance(manager: SharedExpensesMana
 
     group = await make_group(manager)
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     await manager.create_expense(
         group_id=group.id,
         title="Essence",
         amount=4000,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
     )
 
     payment = await manager.create_payment(
         group_id=group.id,
         from_member_id=antonin.id,
-        to_member_id=owner.id,
+        to_member_id=admin.id,
         amount=500,
         payment_date=NOW,
     )
@@ -944,7 +944,7 @@ async def test_a_corrected_payment_moves_the_balance(manager: SharedExpensesMana
 
     result = await manager.get_balances(group.id)
 
-    assert result.balances == {owner.id: 0, antonin.id: 0}
+    assert result.balances == {admin.id: 0, antonin.id: 0}
     assert result.settlements == []
     assert (await manager.get_payment(payment.id)).amount == 2000
 
@@ -956,12 +956,12 @@ async def test_a_payment_corrected_to_oneself_is_refused(
 
     group = await make_group(manager)
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     payment = await manager.create_payment(
         group_id=group.id,
         from_member_id=antonin.id,
-        to_member_id=owner.id,
+        to_member_id=admin.id,
         amount=500,
         payment_date=NOW,
     )
@@ -969,36 +969,36 @@ async def test_a_payment_corrected_to_oneself_is_refused(
     with pytest.raises(InvalidPaymentError):
         await manager.update_payment(replace(payment, to_member_id=antonin.id))
 
-    assert (await manager.get_payment(payment.id)).to_member_id == owner.id
+    assert (await manager.get_payment(payment.id)).to_member_id == admin.id
 
 
 async def test_balances_and_settlement_end_to_end(manager: SharedExpensesManager):
     group = await make_group(manager)
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     await manager.create_expense(
         group_id=group.id,
         title="Essence",
         amount=4000,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
     )
 
     result = await manager.get_balances(group.id)
 
-    assert result.balances == {owner.id: 2000, antonin.id: -2000}
+    assert result.balances == {admin.id: 2000, antonin.id: -2000}
 
     transfers = [
         (s.from_member_id, s.to_member_id, s.amount) for s in result.settlements
     ]
 
-    assert transfers == [(antonin.id, owner.id, 2000)]
+    assert transfers == [(antonin.id, admin.id, 2000)]
 
     await manager.create_payment(
         group_id=group.id,
         from_member_id=antonin.id,
-        to_member_id=owner.id,
+        to_member_id=admin.id,
         amount=2000,
         payment_date=NOW,
     )
@@ -1020,7 +1020,7 @@ async def test_a_category_can_be_an_equal_split_when_the_group_is_not(
 
     group = await make_group(manager)
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     await manager.update_group(
         replace(
@@ -1028,8 +1028,8 @@ async def test_a_category_can_be_an_equal_split_when_the_group_is_not(
             split_rule=SplitRule(
                 envelope=0,
                 remainder=Remainder(
-                    members=(owner.id, antonin.id),
-                    percent={owner.id: 6000, antonin.id: 4000},
+                    members=(admin.id, antonin.id),
+                    percent={admin.id: 6000, antonin.id: 4000},
                 ),
             ),
         )
@@ -1046,12 +1046,12 @@ async def test_a_category_can_be_an_equal_split_when_the_group_is_not(
         group_id=group.id,
         title="Courses",
         amount=10000,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
         category_id=category.id,
     )
 
-    assert await shares_of(manager, expense.id) == {owner.id: 5000, antonin.id: 5000}
+    assert await shares_of(manager, expense.id) == {admin.id: 5000, antonin.id: 5000}
 
 
 async def test_a_category_with_no_rule_takes_the_group_one(
@@ -1061,7 +1061,7 @@ async def test_a_category_with_no_rule_takes_the_group_one(
 
     group = await make_group(manager)
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     await manager.update_group(
         replace(
@@ -1069,8 +1069,8 @@ async def test_a_category_with_no_rule_takes_the_group_one(
             split_rule=SplitRule(
                 envelope=0,
                 remainder=Remainder(
-                    members=(owner.id, antonin.id),
-                    percent={owner.id: 6000, antonin.id: 4000},
+                    members=(admin.id, antonin.id),
+                    percent={admin.id: 6000, antonin.id: 4000},
                 ),
             ),
         )
@@ -1086,12 +1086,12 @@ async def test_a_category_with_no_rule_takes_the_group_one(
         group_id=group.id,
         title="Courses",
         amount=10000,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
         category_id=category.id,
     )
 
-    assert await shares_of(manager, expense.id) == {owner.id: 6000, antonin.id: 4000}
+    assert await shares_of(manager, expense.id) == {admin.id: 6000, antonin.id: 4000}
 
 async def test_a_group_can_name_a_default_category(manager: SharedExpensesManager):
     """Most households spend on the same thing; picking it every time says nothing."""
@@ -1142,14 +1142,14 @@ async def test_an_expense_in_another_currency_converts(manager: SharedExpensesMa
 
     group = await make_group(manager, currency="EUR")
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     expense = await manager.create_expense(
         group_id=group.id,
         title="Diner a New York",
         amount=10_000,
         currency="USD",
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
         exchange_rate=876_810,
     )
@@ -1166,7 +1166,7 @@ async def test_an_expense_in_another_currency_converts(manager: SharedExpensesMa
     shares = await shares_of(manager, expense.id)
 
     assert sum(shares.values()) == 8_768
-    assert shares == {owner.id: 4_384, antonin.id: 4_384}
+    assert shares == {admin.id: 4_384, antonin.id: 4_384}
 
 
 async def test_a_converted_expense_settles_against_a_local_one(
@@ -1180,7 +1180,7 @@ async def test_a_converted_expense_settles_against_a_local_one(
 
     group = await make_group(manager, currency="EUR")
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     # Stephane pays 100 USD, worth 87,68 EUR.
     await manager.create_expense(
@@ -1188,7 +1188,7 @@ async def test_a_converted_expense_settles_against_a_local_one(
         title="Diner",
         amount=10_000,
         currency="USD",
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
         exchange_rate=876_810,
     )
@@ -1207,7 +1207,7 @@ async def test_a_converted_expense_settles_against_a_local_one(
     # Each bore half of both: (87,68 + 100) / 2 = 93,84 each.
     # Stephane put in 87,68 and bore 93,84, so he owes 6,16.
     # Antonin put in 100,00 and bore 93,84, so he is owed 6,16.
-    assert result.balances == {owner.id: -616, antonin.id: 616}
+    assert result.balances == {admin.id: -616, antonin.id: 616}
     assert sum(result.balances.values()) == 0
 
 
@@ -1215,14 +1215,14 @@ async def test_the_group_currency_needs_no_rate(manager: SharedExpensesManager):
     """The overwhelming case: nothing to fetch, nothing to convert."""
 
     group = await make_group(manager, currency="EUR")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     expense = await manager.create_expense(
         group_id=group.id,
         title="Courses",
         amount=8_542,
         currency="EUR",
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
     )
 
@@ -1242,14 +1242,14 @@ async def test_editing_a_converted_expense_keeps_its_rate(
 
     group = await make_group(manager, currency="EUR")
     await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     expense = await manager.create_expense(
         group_id=group.id,
         title="Diner",
         amount=10_000,
         currency="USD",
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
         exchange_rate=876_810,
     )
@@ -1270,14 +1270,14 @@ async def test_an_amount_edited_is_reconverted_at_the_same_rate(
 ):
     group = await make_group(manager, currency="EUR")
     await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     expense = await manager.create_expense(
         group_id=group.id,
         title="Diner",
         amount=10_000,
         currency="USD",
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
         exchange_rate=876_810,
     )
@@ -1294,7 +1294,7 @@ async def test_an_implausible_rate_is_refused(manager: SharedExpensesManager):
     """A typo in a rate turns 5 EUR into a fortune."""
 
     group = await make_group(manager, currency="EUR")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     with pytest.raises(InvalidExchangeRateError):
         await manager.create_expense(
@@ -1302,7 +1302,7 @@ async def test_an_implausible_rate_is_refused(manager: SharedExpensesManager):
             title="Diner",
             amount=10_000,
             currency="USD",
-            paid_by_member_id=owner.id,
+            paid_by_member_id=admin.id,
             expense_date=NOW,
             exchange_rate=0,
         )
@@ -1315,7 +1315,7 @@ async def test_a_debt_is_written_down_and_owed(manager: SharedExpensesManager):
     and Michel ends up owing him.
     """
 
-    group = await make_group(manager, owner_name="Dupont")
+    group = await make_group(manager, admin_name="Dupont")
     michel = await manager.create_group_member(group_id=group.id, name="Michel")
     dupont = next(
         m for m in await manager.list_group_members(group.id) if m.name == "Dupont"
@@ -1353,7 +1353,7 @@ async def test_a_debt_weighs_the_same_as_a_reimbursement(
     treated them apart would be counting the label instead of the cash.
     """
 
-    group = await make_group(manager, owner_name="Dupont")
+    group = await make_group(manager, admin_name="Dupont")
     michel = await manager.create_group_member(group_id=group.id, name="Michel")
     dupont = next(
         m for m in await manager.list_group_members(group.id) if m.name == "Dupont"
@@ -1388,12 +1388,12 @@ async def test_a_payment_is_a_reimbursement_unless_told_otherwise(
 ):
     group = await make_group(manager)
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     payment = await manager.create_payment(
         group_id=group.id,
         from_member_id=antonin.id,
-        to_member_id=owner.id,
+        to_member_id=admin.id,
         amount=1000,
         payment_date=NOW,
     )
@@ -1413,23 +1413,23 @@ async def test_shares_are_given_in_what_was_paid(manager: SharedExpensesManager)
 
     group = await make_group(manager, currency="EUR")
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     expense = await manager.create_expense(
         group_id=group.id,
         title="Diner a New York",
         amount=10_000,
         currency="USD",
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
         exchange_rate=876_810,
-        shares=[share_input(owner.id, 5_000), share_input(antonin.id, 5_000)],
+        shares=[share_input(admin.id, 5_000), share_input(antonin.id, 5_000)],
     )
 
     # Halves of the dollars, stored as halves of the euros they came to.
     shares = await shares_of(manager, expense.id)
 
-    assert shares == {owner.id: 4_384, antonin.id: 4_384}
+    assert shares == {admin.id: 4_384, antonin.id: 4_384}
     assert sum(shares.values()) == expense.converted_amount
 
 
@@ -1442,21 +1442,21 @@ async def test_an_exact_share_is_in_what_was_paid(manager: SharedExpensesManager
 
     group = await make_group(manager, currency="EUR")
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     expense = await manager.create_expense(
         group_id=group.id,
         title="Diner a New York",
         amount=10_000,
         currency="USD",
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
         exchange_rate=876_810,
         split_rule=SplitRule(
             envelope=0,
             remainder=Remainder(
                 fixed={antonin.id: 2_000},
-                members=(antonin.id, owner.id),
+                members=(antonin.id, admin.id),
             ),
         ),
     )
@@ -1481,14 +1481,14 @@ async def test_editing_a_foreign_expense_reapportions_its_shares(
 
     group = await make_group(manager, currency="EUR")
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     expense = await manager.create_expense(
         group_id=group.id,
         title="Diner a New York",
         amount=10_000,
         currency="USD",
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
         exchange_rate=876_810,
     )
@@ -1496,7 +1496,7 @@ async def test_editing_a_foreign_expense_reapportions_its_shares(
     # The bill was 200 dollars, not 100, and it is still split down the middle.
     await manager.update_expense(
         replace(expense, amount=20_000),
-        shares=[share_input(owner.id, 10_000), share_input(antonin.id, 10_000)],
+        shares=[share_input(admin.id, 10_000), share_input(antonin.id, 10_000)],
     )
 
     reloaded = await manager.get_expense(expense.id)
@@ -1504,7 +1504,7 @@ async def test_editing_a_foreign_expense_reapportions_its_shares(
 
     assert reloaded.converted_amount == 17_536
     assert sum(shares.values()) == 17_536
-    assert shares == {owner.id: 8_768, antonin.id: 8_768}
+    assert shares == {admin.id: 8_768, antonin.id: 8_768}
 
 
 async def test_a_second_group_can_be_created_from_the_same_account(
@@ -1515,31 +1515,31 @@ async def test_a_second_group_can_be_created_from_the_same_account(
     A member is one per Home Assistant account and the database enforces it, so
     minting a fresh one for every group made the second group impossible to
     create -- for anybody logged in, which is everybody. Every test here missed
-    it by leaving `owner_user_id` unset: a null user_id is distinct from every
+    it by leaving `admin_user_id` unset: a null user_id is distinct from every
     other null, so the index never fired.
     """
 
     first = await manager.create_group(
         group_name="Appartement",
-        owner_name="Stephane",
-        owner_user_id="ha-user-1",
+        admin_name="Stephane",
+        admin_user_id="ha-user-1",
     )
     second = await manager.create_group(
         group_name="Vacances",
-        owner_name="Stephane",
-        owner_user_id="ha-user-1",
+        admin_name="Stephane",
+        admin_user_id="ha-user-1",
     )
 
-    owner_of_first = (await manager.list_group_members(first.id))[0]
-    owner_of_second = (await manager.list_group_members(second.id))[0]
+    admin_of_first = (await manager.list_group_members(first.id))[0]
+    admin_of_second = (await manager.list_group_members(second.id))[0]
 
     # One member, owning both. Not two members who happen to share a name.
-    assert owner_of_first.id == owner_of_second.id
-    assert owner_of_first.user_id == "ha-user-1"
+    assert admin_of_first.id == admin_of_second.id
+    assert admin_of_first.user_id == "ha-user-1"
 
     memberships = await manager.list_group_memberships(second.id)
 
-    assert memberships[0].role is GroupRole.OWNER
+    assert memberships[0].role is GroupRole.ADMIN
 
 
 async def test_a_group_can_be_created_after_one_was_deleted(
@@ -1554,16 +1554,16 @@ async def test_a_group_can_be_created_after_one_was_deleted(
 
     first = await manager.create_group(
         group_name="Appartement",
-        owner_name="Stephane",
-        owner_user_id="ha-user-1",
+        admin_name="Stephane",
+        admin_user_id="ha-user-1",
     )
 
     await manager.delete_group(first.id)
 
     second = await manager.create_group(
         group_name="Coloc",
-        owner_name="Stephane",
-        owner_user_id="ha-user-1",
+        admin_name="Stephane",
+        admin_user_id="ha-user-1",
     )
 
     members = await manager.list_group_members(second.id)
@@ -1572,7 +1572,7 @@ async def test_a_group_can_be_created_after_one_was_deleted(
     assert members[0].user_id == "ha-user-1"
 
 
-async def test_an_owner_keeps_the_name_they_already_go_by(
+async def test_an_admin_keeps_the_name_they_already_go_by(
     manager: SharedExpensesManager,
 ):
     """A new group does not get to rename someone.
@@ -1583,14 +1583,14 @@ async def test_an_owner_keeps_the_name_they_already_go_by(
 
     await manager.create_group(
         group_name="Appartement",
-        owner_name="Stephane",
-        owner_user_id="ha-user-1",
+        admin_name="Stephane",
+        admin_user_id="ha-user-1",
     )
 
     second = await manager.create_group(
         group_name="Vacances",
-        owner_name="Stephane Fath",
-        owner_user_id="ha-user-1",
+        admin_name="Stephane Fath",
+        admin_user_id="ha-user-1",
     )
 
     members = await manager.list_group_members(second.id)
@@ -1610,21 +1610,21 @@ async def test_a_payment_in_another_currency_clears_what_it_is_worth(
 
     group = await make_group(manager, currency="EUR")
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     # Antonin owes 43,84 after a 87,68 dinner split in two.
     await manager.create_expense(
         group_id=group.id,
         title="Diner",
         amount=8_768,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
     )
 
     payment = await manager.create_payment(
         group_id=group.id,
         from_member_id=antonin.id,
-        to_member_id=owner.id,
+        to_member_id=admin.id,
         amount=5_000,
         currency="USD",
         exchange_rate=876_810,
@@ -1639,7 +1639,7 @@ async def test_a_payment_in_another_currency_clears_what_it_is_worth(
     balances = await manager.get_balances(group.id)
 
     assert balances.balances[antonin.id] == 0
-    assert balances.balances[owner.id] == 0
+    assert balances.balances[admin.id] == 0
     assert balances.settlements == []
 
 
@@ -1648,12 +1648,12 @@ async def test_the_rate_of_a_payment_is_frozen(manager: SharedExpensesManager):
 
     group = await make_group(manager, currency="EUR")
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     payment = await manager.create_payment(
         group_id=group.id,
         from_member_id=antonin.id,
-        to_member_id=owner.id,
+        to_member_id=admin.id,
         amount=5_000,
         currency="USD",
         exchange_rate=876_810,

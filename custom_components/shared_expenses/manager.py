@@ -11,7 +11,8 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .clients.frankfurter import fetch_rate
 from .exceptions import (
-    CannotRemoveOwnerError,
+    AdminNeedsAccountError,
+    CannotRemoveAdminError,
     CategoryNotFoundError,
     ExchangeRateUnavailableError,
     ExpenseNotFoundError,
@@ -23,7 +24,6 @@ from .exceptions import (
     MemberAlreadyInGroupError,
     MemberNotFoundError,
     NotAllowedError,
-    OwnerNeedsAccountError,
     PaymentNotFoundError,
 )
 from .helpers import revisions
@@ -82,23 +82,23 @@ class SharedExpensesManager:
         self,
         *,
         group_name: str,
-        owner_name: str,
-        owner_user_id: str | None = None,
+        admin_name: str,
+        admin_user_id: str | None = None,
         currency: str = "EUR",
         description: str | None = None,
         icon: str | None = None,
         color: str | None = None,
         split_rule: SplitRule | None = None,
     ) -> Group:
-        """Create a group with its owner.
+        """Create a group, run by whoever made it.
 
-        The owner is the member the account already has, when it has one. There
+        The admin is the member the account already has, when it has one. There
         is one member per Home Assistant account and the database enforces it,
         so minting a fresh one for every group left the second group anybody
         made impossible to create: the same person cannot be two people, and a
         member outlives the groups they pass through.
 
-        `owner_name` therefore names a member being met for the first time. It
+        `admin_name` therefore names a member being met for the first time. It
         never renames one: the name they go by is theirs, and a new group is no
         reason to overwrite it with whatever the account happens to be called.
         """
@@ -120,13 +120,13 @@ class SharedExpensesManager:
         # Whoever this account already is. A member without an account has
         # nothing to be found by, and is always somebody new.
         existing = (
-            await self.get_member_for_user(owner_user_id) if owner_user_id else None
+            await self.get_member_for_user(admin_user_id) if admin_user_id else None
         )
 
-        owner = existing or Member(
+        admin = existing or Member(
             id=new_id(),
-            user_id=owner_user_id,
-            name=owner_name,
+            user_id=admin_user_id,
+            name=admin_name,
             color=None,
             created_at=now,
         )
@@ -134,8 +134,8 @@ class SharedExpensesManager:
         group_member = GroupMember(
             id=new_id(),
             group_id=group.id,
-            member_id=owner.id,
-            role=GroupRole.OWNER,
+            member_id=admin.id,
+            role=GroupRole.ADMIN,
             joined_at=now,
             left_at=None,
             created_at=now,
@@ -145,7 +145,7 @@ class SharedExpensesManager:
             await self._database.group_repository.create(group)
 
             if existing is None:
-                await self._database.member_repository.create(owner)
+                await self._database.member_repository.create(admin)
 
             await self._database.group_member_repository.create(group_member)
 
@@ -225,53 +225,20 @@ class SharedExpensesManager:
         exist rather than that they are not allowed — the two answers leak
         different things, and only the first one is nobody's business.
 
-        An owner and an admin are above every permission. That is what the role
-        is for, and what makes a per-group switch enough: the one dimension that
-        is per person already exists.
+        The admin is above every permission. That is what the role is for, and
+        what makes a per-group switch enough: the one dimension that is per
+        person already exists.
         """
 
         await self.ensure_group_member(group_id, user_id)
 
-        role = await self.group_role(group_id, user_id)
-
-        if role in (GroupRole.OWNER, GroupRole.ADMIN):
+        if await self.group_role(group_id, user_id) is GroupRole.ADMIN:
             return
 
         group = await self.get_group(group_id)
 
         if permission not in group.permissions:
             raise NotAllowedError(permission)
-
-    async def ensure_may_grant_role(
-        self,
-        group_id: str,
-        user_id: str,
-        role: GroupRole,
-    ) -> None:
-        """Refuse a member handing out a standing above their own.
-
-        Roles are never what a group allows: a member who could hand one out
-        could bring in an account of their own as an admin, and every switch on
-        the group would be worth exactly nothing. This is the floor the whole
-        arrangement stands on.
-
-        Owner is refused outright, to everybody. A group has one, and it moves
-        rather than being handed out — see `transfer_ownership`. Nothing stopped
-        this until today, and a second owner is a group with two people who can
-        delete it and no way to say which of them is wrong.
-        """
-
-        if role is GroupRole.OWNER:
-            raise NotAllowedError(GroupRole.OWNER)
-
-        if role is GroupRole.MEMBER:
-            return
-
-        if await self.group_role(group_id, user_id) not in (
-            GroupRole.OWNER,
-            GroupRole.ADMIN,
-        ):
-            raise NotAllowedError(role)
 
     async def ensure_may_edit_member(
         self,
@@ -282,7 +249,8 @@ class SharedExpensesManager:
         """Refuse a member renaming or removing somebody who is not them.
 
         Yourself, always: a name is your own, and being unable to leave is the
-        very trap the owner was in. Anybody else is managing the members.
+        very trap the admin is still in — deliberately, and only until they hand
+        the group on. Anybody else is managing the members.
         """
 
         if await self._member_of(user_id) == member_id:
@@ -335,27 +303,29 @@ class SharedExpensesManager:
             Permission.EDIT_OTHERS,
         )
 
-    async def ensure_owner(self, group_id: str, user_id: str) -> None:
-        """Refuse anybody but the owner.
+    async def ensure_admin(self, group_id: str, user_id: str) -> None:
+        """Refuse anybody but the admin.
 
-        For the two things no switch will ever cover: deleting the group, and
-        handing it on.
+        For the three things no switch will ever cover: deleting the group,
+        saying what its members may do, and handing it on.
         """
 
         await self.ensure_group_member(group_id, user_id)
 
-        if await self.group_role(group_id, user_id) is not GroupRole.OWNER:
-            raise NotAllowedError("owner")
+        if await self.group_role(group_id, user_id) is not GroupRole.ADMIN:
+            raise NotAllowedError(GroupRole.ADMIN)
 
-    async def transfer_ownership(self, group_id: str, member_id: str) -> None:
+    async def transfer_admin(self, group_id: str, member_id: str) -> None:
         """Hand a group to one of its members.
 
-        The old owner stays, as an admin: they keep everything but the two
-        rights that are the owner's alone, and they can now leave — which until
-        today they could not, ever. Being locked into your own group was not a
-        rule protecting anything, it was the absence of this.
+        Whoever gives it up becomes an ordinary member — a group has one admin,
+        so there is nowhere else for them to land. They can then leave, which
+        until they hand it on they cannot: being stuck in your own group is not
+        a rule protecting anything, it is what the handing on is for.
 
-        One owner at a time, so both writes go together or neither does.
+        One admin at a time, and that is the whole of it: both writes go
+        together or neither does, or a group ends up with two people who can
+        delete it, or with none at all.
         """
 
         await self.get_group(group_id)
@@ -380,21 +350,21 @@ class SharedExpensesManager:
         if heir is None:
             raise MemberNotFoundError(member_id)
 
-        # Somebody who cannot log in cannot own the group: they would hold every
+        # Somebody who cannot log in cannot run the group: they would hold every
         # right nobody can exercise, and nobody could ever hand it on again.
         member = await self.get_member(member_id)
 
         if member.user_id is None:
-            raise OwnerNeedsAccountError(member_id)
+            raise AdminNeedsAccountError(member_id)
 
-        if heir.role is GroupRole.OWNER:
+        if heir.role is GroupRole.ADMIN:
             return
 
         current = next(
             (
                 membership
                 for membership in active
-                if membership.role is GroupRole.OWNER
+                if membership.role is GroupRole.ADMIN
             ),
             None,
         )
@@ -402,11 +372,11 @@ class SharedExpensesManager:
         async with self._database.transaction():
             if current is not None:
                 await self._database.group_member_repository.update(
-                    replace(current, role=GroupRole.ADMIN),
+                    replace(current, role=GroupRole.MEMBER),
                 )
 
             await self._database.group_member_repository.update(
-                replace(heir, role=GroupRole.OWNER),
+                replace(heir, role=GroupRole.ADMIN),
             )
 
     async def update_group(self, group: Group) -> None:
@@ -556,9 +526,15 @@ class SharedExpensesManager:
         *,
         group_id: str,
         member_id: str,
-        role: GroupRole = GroupRole.MEMBER,
     ) -> GroupMember:
-        """Add an existing member to a group."""
+        """Add an existing member to a group, as a member.
+
+        There is no role to pass, and that is the point. A group has one admin
+        and it is handed on, never handed out — see `transfer_admin`. A door
+        here for setting a role on the way in would be a door for bringing in an
+        account of your own as a second admin, and every permission on the group
+        would be worth nothing.
+        """
 
         await self._get_active_group(group_id)
 
@@ -577,7 +553,7 @@ class SharedExpensesManager:
             id=new_id(),
             group_id=group_id,
             member_id=member_id,
-            role=role,
+            role=GroupRole.MEMBER,
             joined_at=now,
             left_at=None,
             created_at=now,
@@ -594,9 +570,12 @@ class SharedExpensesManager:
         name: str,
         user_id: str | None = None,
         color: str | None = None,
-        role: GroupRole = GroupRole.MEMBER,
     ) -> Member:
-        """Create a member and add it to a group, in one transaction."""
+        """Create a member and add it to a group, in one transaction.
+
+        As a member, always, for the same reason `add_member_to_group` takes no
+        role: the admin is handed on, never handed out.
+        """
 
         await self._get_active_group(group_id)
 
@@ -614,7 +593,7 @@ class SharedExpensesManager:
             id=new_id(),
             group_id=group_id,
             member_id=member.id,
-            role=role,
+            role=GroupRole.MEMBER,
             joined_at=now,
             left_at=None,
             created_at=now,
@@ -629,12 +608,13 @@ class SharedExpensesManager:
     async def remove_member_from_group(self, group_member: GroupMember) -> None:
         """Mark a member as having left the group.
 
-        The owner stays: access comes from membership, so letting them out would
-        strand the group with nobody able to open it. Archive it instead.
+        The admin stays: access comes from membership, so letting them out would
+        strand the group with nobody able to run it. Hand it on first — that is
+        what handing on is for — or archive it.
         """
 
-        if group_member.role is GroupRole.OWNER:
-            raise CannotRemoveOwnerError(group_member.member_id)
+        if group_member.role is GroupRole.ADMIN:
+            raise CannotRemoveAdminError(group_member.member_id)
 
         await self._database.group_member_repository.update(
             replace(group_member, left_at=datetime.now(UTC)),

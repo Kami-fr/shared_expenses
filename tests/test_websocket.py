@@ -66,17 +66,17 @@ async def household(manager: SharedExpensesManager) -> dict[str, Any]:
 
     mine = await manager.create_group(
         group_name="Appartement",
-        owner_name="Stephane",
-        owner_user_id=MINE,
+        admin_name="Stephane",
+        admin_user_id=MINE,
     )
     theirs = await manager.create_group(
         group_name="Ski",
-        owner_name="Bruno",
-        owner_user_id=THEIRS,
+        admin_name="Bruno",
+        admin_user_id=THEIRS,
     )
 
-    my_owner = (await manager.list_group_members(mine.id))[0]
-    their_owner = (await manager.list_group_members(theirs.id))[0]
+    my_admin = (await manager.list_group_members(mine.id))[0]
+    their_admin = (await manager.list_group_members(theirs.id))[0]
 
     their_category = await manager.create_category(
         group_id=theirs.id,
@@ -87,14 +87,14 @@ async def household(manager: SharedExpensesManager) -> dict[str, Any]:
         group_id=mine.id,
         title="Courses",
         amount=8542,
-        paid_by_member_id=my_owner.id,
+        paid_by_member_id=my_admin.id,
         expense_date=NOW,
     )
     their_expense = await manager.create_expense(
         group_id=theirs.id,
         title="Forfait",
         amount=40000,
-        paid_by_member_id=their_owner.id,
+        paid_by_member_id=their_admin.id,
         expense_date=NOW,
         category_id=their_category.id,
     )
@@ -107,7 +107,7 @@ async def household(manager: SharedExpensesManager) -> dict[str, Any]:
     their_payment = await manager.create_payment(
         group_id=theirs.id,
         from_member_id=their_guest.id,
-        to_member_id=their_owner.id,
+        to_member_id=their_admin.id,
         amount=1000,
         payment_date=NOW,
     )
@@ -115,8 +115,8 @@ async def household(manager: SharedExpensesManager) -> dict[str, Any]:
     return {
         "mine": mine,
         "theirs": theirs,
-        "my_owner": my_owner,
-        "their_owner": their_owner,
+        "my_admin": my_admin,
+        "their_admin": their_admin,
         "their_expense": their_expense,
         "their_category": their_category,
         "their_payment": their_payment,
@@ -302,7 +302,7 @@ async def test_an_expense_cannot_be_created_in_another_household(
             "group_id": household["theirs"].id,
             "title": "Intrusion",
             "amount": 100,
-            "paid_by_member_id": household["their_owner"].id,
+            "paid_by_member_id": household["their_admin"].id,
             "expense_date": NOW.isoformat(),
         },
     )
@@ -372,7 +372,7 @@ async def test_creating_an_expense_records_who_did_it(
             "group_id": household["mine"].id,
             "title": "Essence",
             "amount": 4000,
-            "paid_by_member_id": household["my_owner"].id,
+            "paid_by_member_id": household["my_admin"].id,
             "expense_date": NOW.isoformat(),
         },
     )
@@ -530,7 +530,7 @@ async def test_a_foreign_expense_goes_through_the_real_command(
     """
 
     connection = FakeConnection(MINE)
-    owner = household["my_owner"]
+    admin = household["my_admin"]
     other = await manager.create_group_member(
         group_id=household["mine"].id,
         name="Antonin",
@@ -547,10 +547,10 @@ async def test_a_foreign_expense_goes_through_the_real_command(
             "amount": 10_000,
             "currency": "USD",
             "exchange_rate": 876_810,
-            "paid_by_member_id": owner.id,
+            "paid_by_member_id": admin.id,
             "expense_date": NOW.isoformat(),
             "shares": [
-                {"member_id": owner.id, "amount": 5_000},
+                {"member_id": admin.id, "amount": 5_000},
                 {"member_id": other.id, "amount": 5_000},
             ],
         },
@@ -572,7 +572,7 @@ async def test_a_foreign_expense_goes_through_the_real_command(
         if share.expense_id == expense["id"]
     }
 
-    assert shares == {owner.id: 4_384, other.id: 4_384}
+    assert shares == {admin.id: 4_384, other.id: 4_384}
 
 
 async def test_an_expense_can_change_currency(
@@ -653,9 +653,9 @@ async def test_a_group_created_deleted_and_created_again(
 ):
     """Stephane's own sequence, through the command that answered him.
 
-    The panel does not pass an owner: the handler takes the connected account,
+    The panel does not pass an admin: the handler takes the connected account,
     which is the whole point and was also what broke. Nothing below the handler
-    would show it -- every manager test left the owner accountless, and a null
+    would show it -- every manager test left the admin accountless, and a null
     user_id collides with nothing.
     """
 
@@ -702,7 +702,7 @@ async def test_a_payment_carries_a_note(
     """
 
     connection = FakeConnection(MINE)
-    owner = household["my_owner"]
+    admin = household["my_admin"]
     other = await manager.create_group_member(
         group_id=household["mine"].id,
         name="Antonin",
@@ -715,7 +715,7 @@ async def test_a_payment_carries_a_note(
         {
             "type": "shared_expenses/create_payment",
             "group_id": household["mine"].id,
-            "from_member_id": owner.id,
+            "from_member_id": admin.id,
             "to_member_id": other.id,
             "amount": 4_625,
             "payment_date": NOW.isoformat(),
@@ -767,7 +767,7 @@ async def test_a_debt_becomes_a_reimbursement(
     """
 
     connection = FakeConnection(MINE)
-    owner = household["my_owner"]
+    admin = household["my_admin"]
     other = await manager.create_group_member(
         group_id=household["mine"].id,
         name="Antonin",
@@ -775,7 +775,7 @@ async def test_a_debt_becomes_a_reimbursement(
 
     debt = await manager.create_payment(
         group_id=household["mine"].id,
-        from_member_id=owner.id,
+        from_member_id=admin.id,
         to_member_id=other.id,
         amount=4_625,
         payment_date=NOW,
@@ -805,7 +805,7 @@ async def test_the_kind_of_a_payment_is_written_down(
     """And the history says so, which is the same mechanism seen from the front."""
 
     connection = FakeConnection(MINE)
-    owner = household["my_owner"]
+    admin = household["my_admin"]
     other = await manager.create_group_member(
         group_id=household["mine"].id,
         name="Antonin",
@@ -813,7 +813,7 @@ async def test_the_kind_of_a_payment_is_written_down(
 
     debt = await manager.create_payment(
         group_id=household["mine"].id,
-        from_member_id=owner.id,
+        from_member_id=admin.id,
         to_member_id=other.id,
         amount=4_625,
         payment_date=NOW,
@@ -861,7 +861,7 @@ async def test_a_payment_in_another_currency_goes_through(
     """
 
     connection = FakeConnection(MINE)
-    owner = household["my_owner"]
+    admin = household["my_admin"]
     other = await manager.create_group_member(
         group_id=household["mine"].id,
         name="Antonin",
@@ -874,7 +874,7 @@ async def test_a_payment_in_another_currency_goes_through(
         {
             "type": "shared_expenses/create_payment",
             "group_id": household["mine"].id,
-            "from_member_id": owner.id,
+            "from_member_id": admin.id,
             "to_member_id": other.id,
             "amount": 5_000,
             "currency": "USD",

@@ -4,14 +4,24 @@
  * Every amount is in cents, like in the backend.
  */
 
-export type GroupRole = "owner" | "admin" | "member";
+/**
+ * What somebody is in a project. There is exactly one admin.
+ *
+ * Two, where there used to be three — an owner above an admin above a member.
+ * The middle step named somebody who was almost in charge, which is not a
+ * station worth having in a household's shopping list.
+ *
+ * A role is never handed out, only handed on: `transferAdmin` moves it, and
+ * whoever gives it up becomes an ordinary member.
+ */
+export type GroupRole = "admin" | "member";
 
 /**
  * One thing a project either lets its members do, or does not.
  *
- * A setting of the project, the same for everybody in it. The owner and the
- * admins are above them — that is what the role is for, and it is why one
- * switch per project is enough instead of a matrix per person.
+ * A setting of the project, the same for everybody in it. The admin is above
+ * them — that is what the role is for, and it is why one switch per project is
+ * enough instead of a matrix per person.
  *
  * Mirrors `Permission` in the backend. The panel only ever hides what the
  * backend would refuse: it is a courtesy, never the guard.

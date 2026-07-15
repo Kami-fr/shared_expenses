@@ -12,7 +12,7 @@ import voluptuous as vol
 
 from ..exceptions import MemberNotFoundError
 from ..manager import SharedExpensesManager
-from ..models import GroupRole, Permission
+from ..models import Permission
 from .api import Scope, api_command
 from .serializers import group_member_to_dict, member_to_dict
 
@@ -77,9 +77,10 @@ async def websocket_list_memberships(
         vol.Required("group_id"): cv.string,
         vol.Optional("user_id"): vol.Any(None, cv.string),
         vol.Optional("color"): vol.Any(None, cv.string),
-        vol.Optional("role", default=GroupRole.MEMBER.value): vol.In(
-            [role.value for role in GroupRole]
-        ),
+        # No role. A group has one admin, handed on rather than handed out, so
+        # anybody arriving arrives as a member. A door here for naming a role on
+        # the way in would be a door for bringing in an account of your own as a
+        # second admin, and every permission on the group would be worth nothing.
     }
 )
 @websocket_api.async_response
@@ -90,7 +91,7 @@ async def websocket_create_member(
     msg: dict[str, Any],
     manager: SharedExpensesManager,
 ) -> None:
-    """Add someone to a group.
+    """Add someone to a group, as a member.
 
     With a `user_id`, this attaches the Home Assistant account, reusing the
     member it already has elsewhere rather than creating a second one. Without,
@@ -98,16 +99,12 @@ async def websocket_create_member(
     """
 
     group_id = msg["group_id"]
-    role = GroupRole(msg["role"])
-
-    await manager.ensure_may_grant_role(group_id, connection.user.id, role)
 
     if (user_id := msg.get("user_id")) is None:
         member = await manager.create_group_member(
             group_id=group_id,
             name=msg["name"],
             color=msg.get("color"),
-            role=role,
         )
     else:
         member = await manager.link_user(user_id=user_id, name=msg["name"])
@@ -119,7 +116,6 @@ async def websocket_create_member(
             await manager.add_member_to_group(
                 group_id=group_id,
                 member_id=member.id,
-                role=role,
             )
 
     connection.send_result(msg["id"], member_to_dict(member))
@@ -175,9 +171,7 @@ async def websocket_update_member(
         vol.Required("type"): "shared_expenses/add_member_to_group",
         vol.Required("group_id"): cv.string,
         vol.Required("member_id"): cv.string,
-        vol.Optional("role", default=GroupRole.MEMBER.value): vol.In(
-            [role.value for role in GroupRole]
-        ),
+        # No role, for the same reason create_member has none.
     }
 )
 @websocket_api.async_response
@@ -188,16 +182,11 @@ async def websocket_add_member_to_group(
     msg: dict[str, Any],
     manager: SharedExpensesManager,
 ) -> None:
-    """Add an existing member to a group."""
-
-    role = GroupRole(msg["role"])
-
-    await manager.ensure_may_grant_role(msg["group_id"], connection.user.id, role)
+    """Put an existing member back into a group, as a member."""
 
     membership = await manager.add_member_to_group(
         group_id=msg["group_id"],
         member_id=msg["member_id"],
-        role=role,
     )
 
     connection.send_result(msg["id"], group_member_to_dict(membership))

@@ -16,7 +16,8 @@ import voluptuous as vol
 
 from ..const import DOMAIN
 from ..exceptions import (
-    CannotRemoveOwnerError,
+    AdminNeedsAccountError,
+    CannotRemoveAdminError,
     CategoryNotFoundError,
     ExchangeRateUnavailableError,
     ExpenseNotFoundError,
@@ -30,7 +31,6 @@ from ..exceptions import (
     MemberAlreadyInGroupError,
     MemberNotFoundError,
     NotAllowedError,
-    OwnerNeedsAccountError,
     PaymentNotFoundError,
     SharedExpensesError,
 )
@@ -78,8 +78,8 @@ class Requires(Enum):
     forget. `None` is the explicit way out and means every member may do it.
     """
 
-    OWNER = "owner"
-    """Nobody but the owner. For what no switch will ever cover."""
+    ADMIN = "admin"
+    """Nobody but the group's admin. For what no switch will ever cover."""
 
     MINE = "mine"
     """Theirs, or the group's leave to touch what is not.
@@ -95,8 +95,8 @@ ERROR_CODES: dict[type[SharedExpensesError], str] = {
     GroupArchivedError: "group_archived",
     MemberNotFoundError: "member_not_found",
     MemberAlreadyInGroupError: "member_already_in_group",
-    CannotRemoveOwnerError: "cannot_remove_owner",
-    OwnerNeedsAccountError: "owner_needs_account",
+    CannotRemoveAdminError: "cannot_remove_admin",
+    AdminNeedsAccountError: "admin_needs_account",
     NotAllowedError: "not_allowed",
     CategoryNotFoundError: "category_not_found",
     ExpenseNotFoundError: "expense_not_found",
@@ -280,8 +280,8 @@ async def _require(
     if requires is None:
         return
 
-    if requires is Requires.OWNER:
-        await manager.ensure_owner(group_id, user_id)
+    if requires is Requires.ADMIN:
+        await manager.ensure_admin(group_id, user_id)
         return
 
     if requires is Requires.MINE:

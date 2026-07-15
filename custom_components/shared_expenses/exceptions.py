@@ -39,20 +39,20 @@ class MemberAlreadyInGroupError(SharedExpensesError):
     """Member already belongs to the group."""
 
 
-class CannotRemoveOwnerError(SharedExpensesError):
-    """The owner cannot leave their own group.
+class CannotRemoveAdminError(SharedExpensesError):
+    """The admin cannot leave their own group.
 
-    Access to a group comes from being a member of it, so letting the owner out
-    would strand the group with nobody able to open it. Handing the group to
-    somebody else is the way out, and the only one.
+    Access to a group comes from being a member of it, so letting them out would
+    strand the group with nobody able to run it. Handing the group to somebody
+    else is the way out, and the only one.
     """
 
 
-class OwnerNeedsAccountError(SharedExpensesError):
+class AdminNeedsAccountError(SharedExpensesError):
     """A group cannot be handed to somebody who cannot log in.
 
     A member without a Home Assistant account carries expenses but never opens
-    the panel. Made owner, they would hold every right nobody can exercise, and
+    the panel. Made admin, they would hold every right nobody can exercise, and
     the group would have nobody able to hand it on again.
     """
 

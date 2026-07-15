@@ -50,6 +50,22 @@ export class SeSelect extends LitElement {
     select:focus {
       border-color: var(--primary-color, #03a9f4);
     }
+
+    /*
+     * The list that drops down, which is not the box you can see.
+     *
+     * The popup is painted by the browser, and on a desktop it takes the
+     * option's own background — not the select's. An option has none by
+     * default, so the popup came out white while the text kept the theme's
+     * near-white, and the choices were invisible until you hovered one.
+     *
+     * Never showed on a phone: there the popup is a system dialog that ignores
+     * the page's CSS entirely and follows the OS theme, so it read fine.
+     */
+    option {
+      background-color: var(--card-background-color, #fff);
+      color: var(--primary-text-color);
+    }
   `;
 
   protected render() {

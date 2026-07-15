@@ -193,7 +193,7 @@ def test_the_group_currency_is_what_counts_not_the_till():
 async def make_group(manager: SharedExpensesManager, **kwargs):
     return await manager.create_group(
         group_name=kwargs.pop("group_name", "Appartement"),
-        owner_name=kwargs.pop("owner_name", "Stephane"),
+        admin_name=kwargs.pop("admin_name", "Stephane"),
         **kwargs,
     )
 
@@ -202,7 +202,7 @@ async def test_statistics_end_to_end(manager: SharedExpensesManager):
     group = await make_group(manager)
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
     members = await manager.list_group_members(group.id)
-    owner = next(m for m in members if m.name == "Stephane")
+    admin = next(m for m in members if m.name == "Stephane")
 
     food = await manager.create_category(group_id=group.id, name="Courses")
 
@@ -210,7 +210,7 @@ async def test_statistics_end_to_end(manager: SharedExpensesManager):
         group_id=group.id,
         title="Courses",
         amount=9000,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
         category_id=food.id,
     )
@@ -242,13 +242,13 @@ async def test_a_reimbursement_is_not_spending(manager: SharedExpensesManager):
     group = await make_group(manager)
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
     members = await manager.list_group_members(group.id)
-    owner = next(m for m in members if m.name == "Stephane")
+    admin = next(m for m in members if m.name == "Stephane")
 
     await manager.create_expense(
         group_id=group.id,
         title="Courses",
         amount=9000,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
     )
 
@@ -257,7 +257,7 @@ async def test_a_reimbursement_is_not_spending(manager: SharedExpensesManager):
     await manager.create_payment(
         group_id=group.id,
         from_member_id=antonin.id,
-        to_member_id=owner.id,
+        to_member_id=admin.id,
         amount=4500,
         payment_date=NOW,
     )
@@ -275,13 +275,13 @@ async def test_the_statistics_of_another_group_never_leak(
 ):
     mine = await make_group(manager, group_name="Appartement")
     theirs = await make_group(manager, group_name="Ski")
-    owner = (await manager.list_group_members(theirs.id))[0]
+    admin = (await manager.list_group_members(theirs.id))[0]
 
     await manager.create_expense(
         group_id=theirs.id,
         title="Forfait",
         amount=4000,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
     )
 

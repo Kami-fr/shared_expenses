@@ -14,7 +14,6 @@ import type {
   GroupBalances,
   GroupStatistics,
   GroupMember,
-  GroupRole,
   HaUser,
   HomeAssistant,
   Member,
@@ -31,7 +30,7 @@ export interface CreateGroupInput {
   description?: string | null;
   icon?: string | null;
   color?: string | null;
-  owner_name?: string | null;
+  admin_name?: string | null;
   split_rule?: SplitRule | null;
   default_category_id?: string | null;
 }
@@ -40,7 +39,7 @@ export interface CreateGroupInput {
  * What may be changed about a project, which is not what it was made with.
  *
  * A new project allows everything, so there is nothing to say at creation; the
- * switches are the owner's afterwards. Hence its own type rather than a bare
+ * switches are the admin's afterwards. Hence its own type rather than a bare
  * `Partial<CreateGroupInput>` — sending `permissions` to create_group would be
  * refused outright, its schema not knowing the word.
  */
@@ -121,13 +120,14 @@ export class SharedExpensesApi {
   }
 
   /**
-   * Hand a project to another member. The owner's alone.
+   * Hand a project to another member, who becomes its admin. The admin's alone.
    *
-   * The old owner stays as an admin, and may then leave — which, without this,
-   * they never could.
+   * Whoever gives it up becomes an ordinary member — a project has one admin,
+   * so this is giving it away, not sharing it — and may then leave, which
+   * without this they never could.
    */
-  public transferOwnership(groupId: string, memberId: string): Promise<null> {
-    return this.call("transfer_ownership", {
+  public transferAdmin(groupId: string, memberId: string): Promise<null> {
+    return this.call("transfer_admin", {
       group_id: groupId,
       member_id: memberId,
     });
@@ -165,13 +165,18 @@ export class SharedExpensesApi {
     return this.call("list_memberships", { group_id: groupId });
   }
 
+  /**
+   * Add somebody to a project, as a member.
+   *
+   * There is no role to pass, and the backend's schema does not know the word:
+   * a project has one admin, handed on rather than handed out.
+   */
   public createMember(input: {
     name: string;
     group_id: string;
     /** A Home Assistant account id, or nothing for someone without one. */
     user_id?: string | null;
     color?: string | null;
-    role?: GroupRole;
   }): Promise<Member> {
     return this.call("create_member", input);
   }
@@ -196,15 +201,10 @@ export class SharedExpensesApi {
   }
 
   /** Put an existing member back into a group they had left. */
-  public addMemberToGroup(
-    groupId: string,
-    memberId: string,
-    role?: GroupRole,
-  ): Promise<GroupMember> {
+  public addMemberToGroup(groupId: string, memberId: string): Promise<GroupMember> {
     return this.call("add_member_to_group", {
       group_id: groupId,
       member_id: memberId,
-      ...(role ? { role } : {}),
     });
   }
 

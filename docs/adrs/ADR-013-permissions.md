@@ -41,37 +41,57 @@ switches, one column each on `groups`:
 | `manage_group` | Rename, describe, default rule, archive |
 | `edit_others` | Touch an expense or a payment that is not theirs |
 
-**The role says who is above them.** An owner and an admin bypass every switch.
-That is the per-person dimension, it already existed, and it is enough: the
-switches set the floor, the role lifts one person off it.
+**The role says who is above them.** A group has exactly one **admin**, and they
+bypass every switch. That is the per-person dimension, it already existed, and
+it is enough: the switches set the floor, the role lifts one person off it.
 
 **Everything is granted by default**, on a new group and on every group that
 existed before this. Nobody comes back from a restart to find they cannot do
 what they did yesterday. Shutting a door is a deliberate act, taken by the
-owner.
+admin.
 
-**Two things are the owner's alone and will never be switches.** Deleting the
-group, because it takes every expense with it and cannot be undone. And handing
-the group on, which is new, and which finally lets the old owner leave: they
-become an admin, and the group always has exactly one owner.
+**Three things are the admin's alone and will never be switches.** Deleting the
+group, because it takes every expense with it and cannot be undone. Saying what
+the group allows, because a member who could open the switches could open all of
+them. And handing the group on, which is what lets the admin leave at all: they
+become an ordinary member, and the group still has exactly one admin.
+
+### Two roles, not three
+
+There was an `owner` above the `admin`. It went, and the word with it.
+
+An admin was above every permission, exactly as an owner was, and differed only
+in not being able to delete the group, change what it allowed, or hand it on. So
+the middle step named somebody who was *almost* in charge — which, for a
+household's shopping list, is not a station worth having. Nobody wants to
+explain the difference to a flatmate, and any household that genuinely needs two
+tiers of authority over its shared shopping has a problem this integration
+cannot solve.
+
+One admin, then, and the word "owner" is gone from screen, code and schema.
+Migration v11 demotes any existing middle-tier admin to member and promotes the
+owner — in that order, or a group ends up with none at all.
 
 ### The floor
 
-**Roles are never governed by the switches.** A member who could hand out a role
-could bring in a second account of their own as an admin, and every setting here
-would be worth precisely nothing. Handing out `admin` is the owner's and the
-admins'; handing out `owner` is refused to everybody, including the owner —
-ownership moves through `transfer_ownership` or not at all. Two owners is a
-group with two people who can delete it and no way to say which of them is
-wrong, and nothing stopped that before today.
+**Roles are never handed out, only handed on.** There is no role parameter on
+`create_member` or `add_member_to_group`: the schema does not know the word, so
+the refusal happens at the door and no handler can get it wrong. `transfer_admin`
+is the only thing that moves a role, and it is the admin's.
+
+This is what the whole model stands on. A member who could name a role could
+bring in an account of their own as a second admin, and every switch would be
+worth precisely nothing. Making it impossible to express beats making it
+possible to express and then refusing it.
 
 **A group is never handed to somebody without a Home Assistant account.** They
-carry expenses but never open the panel: made owner, they would hold every right
+carry expenses but never open the panel: made admin, they would hold every right
 nobody can exercise, and the group could never be handed on again.
 
 **You are always yours.** Your own name, your own colour, and your own way out:
-none of them is managing the members. Being unable to leave is the very trap the
-owner was in.
+none of them is managing the members. The one exception is the admin, who cannot
+leave until they hand the group on — because access comes from membership, and a
+group whose admin walked out is a group nobody can run.
 
 ### Where it is enforced
 
@@ -80,7 +100,7 @@ In the decorator, beside the wall that was already there:
 ```python
 @api_command(Scope.GROUP, Permission.MANAGE_CATEGORIES)
 @api_command(Scope.EXPENSE, Requires.MINE)
-@api_command(Scope.GROUP, Requires.OWNER)
+@api_command(Scope.GROUP, Requires.ADMIN)
 ```
 
 A rule each handler has to remember to apply is a rule one of them will forget.
@@ -118,6 +138,11 @@ account, across every group — so there was no group to ask about otherwise.
 The switches are per group, so the same person can be trusted in one project and
 not in another without anybody configuring a matrix.
 
+One admin means one point of failure: with them away, nobody else can change the
+settings or delete the project. That is the price of not having a tier nobody
+could explain, and for a household it is the right side of the trade — the admin
+is somebody in the house, not an absent administrator.
+
 None of this is a security boundary against a hostile Home Assistant account.
 Anybody who can log in can call the WebSocket API directly, and these rules are
 what the API enforces — but the group wall (ADR-006, `Scope`) is what keeps
@@ -129,10 +154,16 @@ in a household may do what, not about defending one from the other.
 **A permission per person.** The matrix nobody fills in. Rejected: the role
 already carries the per-person dimension, and two dials beat twenty cells.
 
-**Dropping `admin`.** It meant nothing, so it was a candidate for deletion
-rather than for a meaning. Kept, because without it the only way to lift one
-person above the switches is to hand them the group — and the owner has two
-rights nobody should get by accident.
+**Keeping `owner` above `admin`.** Rejected, and this is the change v11 makes:
+the middle tier could do everything the top one could except three things, so it
+named somebody almost in charge. Two roles are explainable to a flatmate in one
+sentence; three were not.
+
+**Several admins.** Tempting — no single point of failure, and the last one
+simply cannot leave. Rejected: "handed on" is a clearer contract than "handed
+out", and it is the contract that makes the floor above hold without a single
+escalation check. A household that needs two people in charge of its shopping
+list can hand the role across in two taps.
 
 **Permissions as a JSON blob on the group.** One column, one migration, and new
 permissions for free. Rejected: `docs/database.md` and the schema are where the
@@ -141,6 +172,6 @@ reading them is a permission nobody will remember to check. A permission is a
 contract, and a contract deserves a migration.
 
 **Defaulting new groups to closed.** Safer on paper. Rejected: a household is
-not a company, and a project where nobody can add a category until the owner
+not a company, and a project where nobody can add a category until the admin
 goes and finds a setting is a project that annoys four people to protect against
 nothing.

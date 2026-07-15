@@ -47,6 +47,22 @@ export const sharedStyles = css`
   }
 
   /*
+   * The list it drops, which the rules above have nothing to do with.
+   *
+   * A desktop browser paints the popup from the option's own background, and an
+   * option has none — so the popup came out white, wearing the muted grey this
+   * select gives its face, and the currencies were barely legible. The face is
+   * a suffix and stays muted; the list is a list and reads like one.
+   *
+   * A phone never saw it: the popup there is a system dialog that ignores the
+   * page's CSS.
+   */
+  .currency option {
+    background-color: var(--card-background-color, #fff);
+    color: var(--primary-text-color);
+  }
+
+  /*
    * A button that asks to be read as a link: "+ add a description", "see all",
    * "try again". Always a button, never an anchor — it goes nowhere.
    */

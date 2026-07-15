@@ -81,7 +81,7 @@ async def websocket_get_group(
         vol.Optional("description"): vol.Any(None, cv.string),
         vol.Optional("icon"): vol.Any(None, cv.string),
         vol.Optional("color"): vol.Any(None, cv.string),
-        vol.Optional("owner_name"): vol.Any(None, cv.string),
+        vol.Optional("admin_name"): vol.Any(None, cv.string),
         vol.Optional("split_rule"): vol.Any(None, SPLIT_RULE_SCHEMA),
     }
 )
@@ -93,14 +93,14 @@ async def websocket_create_group(
     msg: dict[str, Any],
     manager: SharedExpensesManager,
 ) -> None:
-    """Create a group and its owner."""
+    """Create a group, run by whoever asked for it."""
 
     user = connection.user
 
     group = await manager.create_group(
         group_name=msg["name"],
-        owner_name=msg.get("owner_name") or user.name or "Owner",
-        owner_user_id=user.id,
+        admin_name=msg.get("admin_name") or user.name or "Admin",
+        admin_user_id=user.id,
         currency=msg["currency"],
         description=msg.get("description"),
         icon=msg.get("icon"),
@@ -160,10 +160,10 @@ async def websocket_update_group(
         changes["split_rule"] = split_rule_from_msg(msg)
 
     if "permissions" in msg:
-        # Who may do what is the owner's to say, whatever the group allows its
+        # Who may do what is the admin's to say, whatever the group allows its
         # members: a group that let them manage it would otherwise let them hand
         # themselves everything else, and the switches would guard nothing.
-        await manager.ensure_owner(msg["group_id"], connection.user.id)
+        await manager.ensure_admin(msg["group_id"], connection.user.id)
 
         changes["permissions"] = permissions_from_msg(msg)
 
@@ -208,7 +208,7 @@ async def websocket_archive_group(
     }
 )
 @websocket_api.async_response
-@api_command(Scope.GROUP, Requires.OWNER)
+@api_command(Scope.GROUP, Requires.ADMIN)
 async def websocket_delete_group(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
@@ -217,8 +217,8 @@ async def websocket_delete_group(
 ) -> None:
     """Delete a group and everything it contains.
 
-    The owner's alone, and never a switch: it takes every expense in the group
-    with it, and there is no undoing it. Until today any member could do this.
+    The admin's alone, and never a switch: it takes every expense in the group
+    with it, and there is no undoing it. Until recently any member could.
     """
 
     await manager.delete_group(msg["group_id"])
@@ -228,26 +228,26 @@ async def websocket_delete_group(
 
 @websocket_api.websocket_command(
     {
-        vol.Required("type"): "shared_expenses/transfer_ownership",
+        vol.Required("type"): "shared_expenses/transfer_admin",
         vol.Required("group_id"): cv.string,
         vol.Required("member_id"): cv.string,
     }
 )
 @websocket_api.async_response
-@api_command(Scope.GROUP, Requires.OWNER)
-async def websocket_transfer_ownership(
+@api_command(Scope.GROUP, Requires.ADMIN)
+async def websocket_transfer_admin(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
     manager: SharedExpensesManager,
 ) -> None:
-    """Hand the group to another member.
+    """Hand the group to another member, who becomes its admin.
 
-    Scoped on the group rather than the member: the question is who owns this
-    group, and only its owner may answer it.
+    Scoped on the group rather than the member: the question is who runs this
+    group, and only whoever runs it may answer it.
     """
 
-    await manager.transfer_ownership(msg["group_id"], msg["member_id"])
+    await manager.transfer_admin(msg["group_id"], msg["member_id"])
 
     connection.send_result(msg["id"], None)
 
@@ -280,6 +280,6 @@ COMMANDS = (
     websocket_update_group,
     websocket_archive_group,
     websocket_delete_group,
-    websocket_transfer_ownership,
+    websocket_transfer_admin,
     websocket_get_balances,
 )

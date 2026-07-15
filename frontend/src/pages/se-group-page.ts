@@ -713,7 +713,7 @@ export class SeGroupPage extends LitElement {
             ${this.group!.archived ? translate("restore") : translate("archive")}
           </button>`
         : nothing}
-      ${this.myRole() === "owner"
+      ${this.myRole() === "admin"
         ? html`<button
             role="menuitem"
             class="danger separated"
@@ -1262,7 +1262,7 @@ export class SeGroupPage extends LitElement {
   private may(permission: Permission): boolean {
     const role = this.myRole();
 
-    if (role === "owner" || role === "admin") {
+    if (role === "admin") {
       return true;
     }
 

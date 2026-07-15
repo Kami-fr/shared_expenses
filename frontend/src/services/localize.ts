@@ -164,14 +164,14 @@ const EN = {
   ha_accounts: "Home Assistant accounts",
   ha_accounts_hint: "Ticked accounts take part in this project and can open it.",
   no_ha_accounts: "No account found.",
-  group_owner: "Owner",
-  owner_locked: "The owner cannot leave. Hand the project on first, or archive it.",
-  cannot_remove_owner:
-    "The owner cannot leave. Hand the project on first, or archive it.",
-  make_owner: "Make owner",
-  confirm_make_owner:
-    "Hand the project to this person? You stay as an admin, and only they will be able to hand it on or delete it.",
-  owner_needs_account: "Only somebody with a Home Assistant account can own a project.",
+  admin_locked: "The admin cannot leave. Hand the project on first, or archive it.",
+  cannot_remove_admin:
+    "The admin cannot leave. Hand the project on first, or archive it.",
+  make_admin: "Hand the project over",
+  confirm_make_admin:
+    "Hand the project to this person? You become an ordinary member, and only they will be able to hand it on or delete it.",
+  admin_needs_account:
+    "Only somebody with a Home Assistant account can run a project.",
 
   permissions: "What members may do",
   permissions_hint:
@@ -190,7 +190,6 @@ const EN = {
   guests: "Without an account",
   guests_hint: "They carry expenses but never log in.",
   no_account: "No account",
-  role_owner: "Owner",
   role_admin: "Admin",
   role_member: "Member",
 
@@ -397,16 +396,15 @@ const FR: Record<Key, string> = {
   ha_accounts: "Comptes Home Assistant",
   ha_accounts_hint: "Les comptes cochés participent au projet et peuvent l'ouvrir.",
   no_ha_accounts: "Aucun compte trouvé.",
-  group_owner: "Propriétaire",
-  owner_locked:
-    "Le propriétaire ne peut pas partir. Transmettez le projet, ou archivez-le.",
-  cannot_remove_owner:
-    "Le propriétaire ne peut pas partir. Transmettez le projet, ou archivez-le.",
-  make_owner: "Rendre propriétaire",
-  confirm_make_owner:
-    "Transmettre le projet à cette personne ? Vous restez administrateur, et elle seule pourra le transmettre ou le supprimer.",
-  owner_needs_account:
-    "Seule une personne ayant un compte Home Assistant peut être propriétaire.",
+  admin_locked:
+    "L'administrateur ne peut pas partir. Cédez le projet, ou archivez-le.",
+  cannot_remove_admin:
+    "L'administrateur ne peut pas partir. Cédez le projet, ou archivez-le.",
+  make_admin: "Céder le projet",
+  confirm_make_admin:
+    "Céder le projet à cette personne ? Vous redevenez un membre ordinaire, et elle seule pourra le céder ou le supprimer.",
+  admin_needs_account:
+    "Seule une personne ayant un compte Home Assistant peut administrer un projet.",
 
   permissions: "Ce que les membres peuvent faire",
   permissions_hint:
@@ -428,7 +426,6 @@ const FR: Record<Key, string> = {
   guests: "Sans compte",
   guests_hint: "Ils portent des dépenses mais ne se connectent jamais.",
   no_account: "Sans compte",
-  role_owner: "Propriétaire",
   role_admin: "Administrateur",
   role_member: "Membre",
 

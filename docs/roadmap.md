@@ -107,19 +107,24 @@ member could delete the whole group.
       managing categories, editing the project, touching what is not theirs.
       Per project and not per person — the per-person dimension is `role`, and
       it already existed.
-- [x] The role means something at last: an owner and an admin are above every
-      switch. Deleting the project is the owner's alone.
-- [x] The owner can hand the project on, and only then leave. Being locked into
-      your own group for life was not a rule protecting anything, it was the
-      absence of this.
-- [x] Roles are never governed by the switches: a member who could hand one out
-      could bring in a second account of their own as an admin. Handing out
-      `owner` is refused to everybody — a second owner was possible before.
+- [x] The role means something at last: the admin is above every switch, and
+      deleting the project is theirs alone.
+- [x] Two roles instead of three (v11): `owner` goes, `admin` stays and is
+      handed on. The middle step named somebody almost in charge of a shopping
+      list, which is not a station worth having.
+- [x] The admin can hand the project on, becoming an ordinary member, and only
+      then leave. Being locked into your own group for life was not a rule
+      protecting anything, it was the absence of this.
+- [x] No command anywhere takes a role: the schema does not know the word, so a
+      member who might have brought in a second account of their own as an admin
+      is refused at the door rather than by a check somebody could forget.
 - [x] `created_by_member_id` (v10): an entry is yours if you entered it or it is
       about you. Recovered for the past from the creation revision.
 - [x] `update_member` requires its group: a guard skippable by leaving a field
       out is not a guard.
-- [x] 31 tests, each guard sabotaged to prove the suite fails when it should.
+- [x] 33 tests, each guard sabotaged to prove the suite fails when it should.
+      The tests that came before walk through every line of this without ever
+      waking it: everything is granted by default, so only a refusal reaches it.
       See ADR-013.
 
 ## Later

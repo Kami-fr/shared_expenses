@@ -17,9 +17,9 @@ belong to, and nothing else.
 - **Who may do what** — a project starts by letting everybody do everything,
   which is what a household usually wants. Four switches take that back one at a
   time: managing members, managing categories, editing the project, and touching
-  what somebody else entered and paid. They are the same for everybody; the
-  owner and the admins are always above them. Deleting the project is the
-  owner's alone, and the owner can hand it on — and then leave.
+  what somebody else entered and paid. They are the same for everybody. One
+  person is the project's **admin** and is always above them; they alone delete
+  it, and they can hand it on — becoming an ordinary member, free to leave.
 - **Expenses** — a title, an amount, who paid, a date, a category, and a split.
 - **Split rules** — beyond splitting equally: fixed amounts or percentages per
   person, an envelope shared between some and the rest to whoever paid. A

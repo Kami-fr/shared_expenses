@@ -22,12 +22,12 @@ NOW = datetime(2026, 7, 14, 12, 0, tzinfo=UTC)
 async def make_group(manager: SharedExpensesManager, **kwargs):
     return await manager.create_group(
         group_name=kwargs.pop("group_name", "Appartement"),
-        owner_name=kwargs.pop("owner_name", "Stephane"),
+        admin_name=kwargs.pop("admin_name", "Stephane"),
         **kwargs,
     )
 
 
-async def owner_of(manager: SharedExpensesManager, group_id: str):
+async def admin_of(manager: SharedExpensesManager, group_id: str):
     members = await manager.list_group_members(group_id)
 
     return next(member for member in members if member.name == "Stephane")
@@ -92,13 +92,13 @@ async def test_creating_an_expense_records_who_and_what(
     manager: SharedExpensesManager,
 ):
     group = await make_group(manager)
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     expense = await manager.create_expense(
         group_id=group.id,
         title="Courses",
         amount=8542,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
         actor_user_id="ha-1",
     )
@@ -111,7 +111,7 @@ async def test_creating_an_expense_records_who_and_what(
     assert history[0].entity_label == "Courses"
     assert history[0].actor_user_id == "ha-1"
     assert changed(history[0], "amount").after == 8542
-    assert changed(history[0], "shares").after == {owner.id: 8542}
+    assert changed(history[0], "shares").after == {admin.id: 8542}
 
 
 async def test_an_edited_expense_says_what_moved(manager: SharedExpensesManager):
@@ -119,13 +119,13 @@ async def test_an_edited_expense_says_what_moved(manager: SharedExpensesManager)
 
     group = await make_group(manager)
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     expense = await manager.create_expense(
         group_id=group.id,
         title="Courses",
         amount=8542,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
         actor_user_id="ha-1",
     )
@@ -152,8 +152,8 @@ async def test_an_edited_expense_says_what_moved(manager: SharedExpensesManager)
     assert changed(latest, "title").after == "Courses Carrefour"
 
     # The shares moved with the amount, and that is the part that is money.
-    assert changed(latest, "shares").before == {owner.id: 4271, antonin.id: 4271}
-    assert changed(latest, "shares").after == {owner.id: 4500, antonin.id: 4500}
+    assert changed(latest, "shares").before == {admin.id: 4271, antonin.id: 4271}
+    assert changed(latest, "shares").after == {admin.id: 4500, antonin.id: 4500}
 
 
 async def test_saving_an_expense_unchanged_records_nothing(
@@ -162,13 +162,13 @@ async def test_saving_an_expense_unchanged_records_nothing(
     """A save that changed nothing did not happen; noise buries the real ones."""
 
     group = await make_group(manager)
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     expense = await manager.create_expense(
         group_id=group.id,
         title="Courses",
         amount=8542,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
     )
 
@@ -185,13 +185,13 @@ async def test_a_deleted_expense_leaves_its_history_behind(
     """The whole reason the table holds no foreign key to the expense."""
 
     group = await make_group(manager)
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     expense = await manager.create_expense(
         group_id=group.id,
         title="Essence",
         amount=4000,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
     )
 
@@ -216,12 +216,12 @@ async def test_a_deleted_expense_leaves_its_history_behind(
 async def test_a_payment_is_accounted_for_too(manager: SharedExpensesManager):
     group = await make_group(manager)
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     payment = await manager.create_payment(
         group_id=group.id,
         from_member_id=antonin.id,
-        to_member_id=owner.id,
+        to_member_id=admin.id,
         amount=500,
         payment_date=NOW,
     )
@@ -249,13 +249,13 @@ async def test_the_history_of_another_group_never_comes_back(
 
     mine = await make_group(manager, group_name="Appartement")
     theirs = await make_group(manager, group_name="Ski")
-    owner = await owner_of(manager, theirs.id)
+    admin = await admin_of(manager, theirs.id)
 
     expense = await manager.create_expense(
         group_id=theirs.id,
         title="Forfait",
         amount=4000,
-        paid_by_member_id=owner.id,
+        paid_by_member_id=admin.id,
         expense_date=NOW,
     )
 
@@ -268,12 +268,12 @@ async def test_a_failed_write_records_no_history(manager: SharedExpensesManager)
 
     group = await make_group(manager)
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
-    owner = await owner_of(manager, group.id)
+    admin = await admin_of(manager, group.id)
 
     payment = await manager.create_payment(
         group_id=group.id,
         from_member_id=antonin.id,
-        to_member_id=owner.id,
+        to_member_id=admin.id,
         amount=500,
         payment_date=NOW,
     )

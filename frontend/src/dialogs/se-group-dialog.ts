@@ -25,7 +25,7 @@ export class SeGroupDialog extends LitElement {
   /** Set to correct an existing group, leave out to create one. */
   @property({ attribute: false }) public group?: Group;
 
-  /** What the reader is here. The switches are the owner's alone. */
+  /** What the reader is here. The switches are the admin's alone. */
   @property({ attribute: false }) public role: GroupRole | null = null;
 
   @state() private name = "";
@@ -154,7 +154,7 @@ export class SeGroupDialog extends LitElement {
   /**
    * What the project lets its members do.
    *
-   * The owner's alone, and shown to nobody else — not even greyed out. A member
+   * The admin's alone, and shown to nobody else — not even greyed out. A member
    * has no say and no reason to study the list; what they may do, they find out
    * by the panel offering it or not.
    *
@@ -163,7 +163,7 @@ export class SeGroupDialog extends LitElement {
    * somebody who has no idea yet.
    */
   private renderPermissions() {
-    if (!this.group || this.role !== "owner") {
+    if (!this.group || this.role !== "admin") {
       return nothing;
     }
 
@@ -228,14 +228,14 @@ export class SeGroupDialog extends LitElement {
       // figure in the group.
       //
       // The permissions go the other way — only on an edit, and only from the
-      // owner, whose dialog is the only one that showed them. Sending them from
+      // admin, whose dialog is the only one that showed them. Sending them from
       // anybody else would be sending back whatever was loaded, which the
       // backend refuses outright, so the save would fail on a field nobody
       // touched.
       const group = this.group
         ? await this.api.updateGroup(this.group.id, {
             ...fields,
-            ...(this.role === "owner" ? { permissions: [...this.permissions] } : {}),
+            ...(this.role === "admin" ? { permissions: [...this.permissions] } : {}),
           })
         : await this.api.createGroup({ ...fields, currency: this.currency });
 

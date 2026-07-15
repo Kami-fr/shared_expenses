@@ -9,23 +9,24 @@ class Permission(StrEnum):
     A setting of the group, the same for everybody in it: a household of three
     does not want a matrix to fill in, and the one dimension that is per person
     already exists — `GroupRole`. So these say what an ordinary member may do,
-    and an owner or an admin is simply above them.
+    and the admin is simply above them.
 
     Every one of them is granted by default, on a new group and on every group
     that existed before they did. Nobody is handed a household where people
     suddenly cannot do what they did yesterday; shutting a door is a deliberate
-    act, taken by whoever owns the group.
+    act, taken by the admin.
 
     Deleting a group is not here and never will be: it takes every expense with
-    it, and it belongs to the owner alone.
+    it, and it belongs to the admin alone.
     """
 
     MANAGE_MEMBERS = "manage_members"
     """Add, remove and rename members, and tick the accounts taking part.
 
-    Never who is an admin: a member who could hand out roles could hand one to
-    themselves, and every setting here would be worth nothing. Roles belong to
-    the owner and the admins, whatever this says.
+    Never who runs the group. A group has one admin and it is handed on rather
+    than handed out, so there is no role to grant here and no door to prop open:
+    a member who could hand one out could hand one to themselves, and every
+    setting here would be worth nothing.
     """
 
     MANAGE_CATEGORIES = "manage_categories"

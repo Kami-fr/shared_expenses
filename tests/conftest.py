@@ -93,7 +93,7 @@ class FakeConnection:
 
     Holds no Home Assistant machinery: the handlers only ever call
     `send_result`, `send_error`, and read from `user`. A real account has a
-    name, and creating a group falls back on it to name the owner, so this one
+    name, and creating a group falls back on it to name the admin, so this one
     has one too — the stand-in is only worth what it stands in for.
     """
 
