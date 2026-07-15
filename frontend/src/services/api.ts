@@ -272,6 +272,20 @@ export class SharedExpensesApi {
     return this.call("delete_expense", { expense_id: expenseId });
   }
 
+  /**
+   * Bring a deleted expense back, as the one it was.
+   *
+   * Takes the project as well as the expense, because there is no expense left
+   * to find the project from: it is built from the deletion, which is the only
+   * place it still exists.
+   */
+  public restoreExpense(groupId: string, expenseId: string): Promise<Expense> {
+    return this.call("restore_expense", {
+      group_id: groupId,
+      expense_id: expenseId,
+    });
+  }
+
   public listExpenseShares(groupId: string): Promise<ExpenseShare[]> {
     return this.call("list_expense_shares", { group_id: groupId });
   }
@@ -295,6 +309,14 @@ export class SharedExpensesApi {
 
   public deletePayment(paymentId: string): Promise<null> {
     return this.call("delete_payment", { payment_id: paymentId });
+  }
+
+  /** Bring a deleted payment back. See `restoreExpense`. */
+  public restorePayment(groupId: string, paymentId: string): Promise<Payment> {
+    return this.call("restore_payment", {
+      group_id: groupId,
+      payment_id: paymentId,
+    });
   }
 
   // Exchange rates

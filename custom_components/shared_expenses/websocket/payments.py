@@ -11,7 +11,7 @@ from homeassistant.helpers import config_validation as cv
 import voluptuous as vol
 
 from ..manager import SharedExpensesManager
-from ..models import PaymentKind
+from ..models import PaymentKind, RevisionEntity
 from .api import Requires, Scope, api_command, as_utc
 from .serializers import payment_to_dict
 
@@ -161,9 +161,43 @@ async def websocket_delete_payment(
     connection.send_result(msg["id"], None)
 
 
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "shared_expenses/restore_payment",
+        vol.Required("group_id"): cv.string,
+        vol.Required("payment_id"): cv.string,
+    }
+)
+@websocket_api.async_response
+@api_command(Scope.GROUP)
+async def websocket_restore_payment(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+    manager: SharedExpensesManager,
+) -> None:
+    """Bring a deleted payment back. See `websocket_restore_expense`."""
+
+    await manager.ensure_may_restore(
+        msg["group_id"],
+        msg["payment_id"],
+        RevisionEntity.PAYMENT,
+        connection.user.id,
+    )
+
+    restored = await manager.restore_payment(
+        msg["group_id"],
+        msg["payment_id"],
+        actor_user_id=connection.user.id,
+    )
+
+    connection.send_result(msg["id"], payment_to_dict(restored))
+
+
 COMMANDS = (
     websocket_list_payments,
     websocket_create_payment,
     websocket_update_payment,
+    websocket_restore_payment,
     websocket_delete_payment,
 )

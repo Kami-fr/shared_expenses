@@ -240,7 +240,7 @@ only writing down. The word was the whole of what was missing.
 | entity_type | TEXT | `expense` or `payment` |
 | entity_id | TEXT | The expense or payment, **not** a foreign key |
 | entity_label | TEXT | What it was called, for the group journal (nullable) |
-| action | TEXT | `created`, `updated`, `deleted` |
+| action | TEXT | `created`, `updated`, `deleted`, `restored` |
 | actor_user_id | TEXT | The Home Assistant account behind the change (nullable) |
 | changes | TEXT | The fields that moved, as JSON |
 | at | TEXT | UTC ISO-8601 timestamp |
@@ -252,6 +252,28 @@ be asked its title.
 
 Ids inside `changes` are resolved when read, not when written, so a member who
 is renamed reads back under the name they go by now.
+
+**A deletion carries a snapshot, not a diff.** Every field, including the four
+an expense's history never shows — `converted_amount`, `exchange_rate`,
+`rate_as_of`, `split_rule` — plus `created_by_member_id`. This row is the only
+place the expense still exists, and it is what `restore_expense` builds it back
+from. The rate above all: what somebody owed was settled on the day they owed
+it, and converting afresh on a restore would quietly bring back a different
+debt.
+
+A restore re-inserts the expense **with the id it always had**, so its history
+runs on unbroken — created, updated, deleted, restored, one line — and every
+link the journal holds to it works again. No new action needed a migration:
+`action` is plain TEXT with no constraint on it.
+
+The panel spells out the fields of an `updated` and of nothing else. A creation
+lists what it was born with, a deletion takes every field there is, and a
+restore is a deletion read backwards: naming them says only what the verb
+already said. The snapshot is data, not display.
+
+Deletions written before this carry only the eight fields the history showed.
+They still restore: the money is worked out again for the thing's own day, and
+the rate of a day gone by does not move.
 
 ---
 

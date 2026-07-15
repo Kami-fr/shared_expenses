@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator
+from dataclasses import replace
 from pathlib import Path
 import sys
 import tempfile
@@ -160,3 +161,80 @@ async def loaded(hass: FakeHass, manager: SharedExpensesManager) -> FakeHass:
     hass.data = {DOMAIN: {"entry-id": manager}}
 
     return hass
+
+
+#
+# One project, three people. Shared by the tests about who may do what and the
+# ones about bringing things back — pytest injects it, so neither has to import
+# it from the other, which is what shadowing complaints are made of.
+#
+
+ADMIN = "ha-admin"
+PLAIN = "ha-plain"
+
+
+@pytest.fixture
+async def project(manager: SharedExpensesManager) -> dict[str, Any]:
+    """Return a group with its admin, an ordinary member, and a guest.
+
+    Everything is granted: that is what a group looks like out of the box, and
+    what a test has to take away on purpose.
+
+    Three people and two roles. There is no third: whoever makes the group runs
+    it, everybody else is a member, and nobody is handed anything in between.
+    """
+
+    group = await manager.create_group(
+        group_name="Montigny",
+        admin_name="Stephane",
+        admin_user_id=ADMIN,
+    )
+
+    admin = await manager.get_member_for_user(ADMIN)
+    assert admin is not None
+
+    plain = await manager.create_group_member(
+        group_id=group.id,
+        name="Antonin",
+        user_id=PLAIN,
+    )
+
+    # No account: carries expenses, never logs in.
+    guest = await manager.create_group_member(group_id=group.id, name="Marc")
+
+    return {"group": group, "admin": admin, "plain": plain, "guest": guest}
+
+
+async def send(
+    hass: FakeHass,
+    connection: FakeConnection,
+    handler: Any,
+    payload: dict[str, Any],
+) -> None:
+    """Send a message through a command's own schema and decorators.
+
+    The type is derived from the handler rather than spelled out, so a payload
+    can never be sent to a command it does not belong to.
+    """
+
+    command = handler.__name__.removeprefix("websocket_")
+
+    msg = handler._ws_schema(
+        {"id": 1, "type": f"shared_expenses/{command}", **payload},
+    )
+
+    handler(hass, connection, msg)
+
+    await hass.settle()
+
+
+async def close_project(
+    manager: SharedExpensesManager,
+    group_id: str,
+    *keep: Any,
+) -> None:
+    """Take every permission off a group but the ones named."""
+
+    group = await manager.get_group(group_id)
+
+    await manager.update_group(replace(group, permissions=frozenset(keep)))

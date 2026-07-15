@@ -13,27 +13,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
+from ..helpers.splits import rule_from_dict, rule_to_dict
 from ..models import Expense, ExpenseShare, FieldChange, Payment
-
-#: The fields of an expense worth accounting for.
-EXPENSE_FIELDS = (
-    "title",
-    "description",
-    "amount",
-    "currency",
-    "paid_by_member_id",
-    "expense_date",
-    "category_id",
-)
-
-#: The fields of a payment worth accounting for.
-PAYMENT_FIELDS = (
-    "description",
-    "amount",
-    "from_member_id",
-    "to_member_id",
-    "payment_date",
-)
 
 
 def expense_state(
@@ -108,13 +89,93 @@ def creation(state: dict[str, Any]) -> tuple[FieldChange, ...]:
     )
 
 
+def expense_snapshot(
+    expense: Expense,
+    shares: Sequence[ExpenseShare],
+) -> dict[str, Any]:
+    """Return everything needed to build this expense again.
+
+    What `expense_state` says, plus the four things it leaves out because they
+    are not worth reading in a history: the money already worked out, the rule
+    it came from, and who typed it.
+
+    The rate is the reason this exists. What somebody owes was settled on the
+    day they were owed it; restoring an expense by converting it afresh would
+    quietly restate the debt at today's rate, which is a different debt. It is
+    kept, not recomputed.
+
+    Only ever put on a deletion. It is the last place the expense is written
+    down — the row is about to be gone — and none of these fields is shown: a
+    deletion takes everything, which is not news field by field.
+    """
+
+    return {
+        **expense_state(expense, shares),
+        "converted_amount": expense.converted_amount,
+        "exchange_rate": expense.exchange_rate,
+        "rate_as_of": (
+            None if expense.rate_as_of is None else expense.rate_as_of.isoformat()
+        ),
+        "split_rule": rule_to_dict(expense.split_rule),
+        "created_by_member_id": expense.created_by_member_id,
+    }
+
+
+def payment_snapshot(payment: Payment) -> dict[str, Any]:
+    """Return everything needed to build this payment again.
+
+    Same idea as `expense_snapshot`, and the same reason: the frozen rate.
+    """
+
+    return {
+        **payment_state(payment),
+        "exchange_rate": payment.exchange_rate,
+        "rate_as_of": (
+            None if payment.rate_as_of is None else payment.rate_as_of.isoformat()
+        ),
+        "created_by_member_id": payment.created_by_member_id,
+    }
+
+
 def deletion(state: dict[str, Any]) -> tuple[FieldChange, ...]:
     """Return the changes standing for something being deleted.
 
     The whole state, not an empty list: this is the last place it is written
-    down, and a deletion nobody can look at is the change most worth reading.
+    down. Nothing here is read out to anybody — a deletion takes every field, so
+    saying which is no news — but it is what a restore is built from, and a
+    field missing here is a field that comes back wrong or not at all.
     """
 
     return tuple(
         FieldChange(field=key, before=value, after=None) for key, value in state.items()
     )
+
+
+def restored(state: dict[str, Any]) -> tuple[FieldChange, ...]:
+    """Return the changes standing for something being brought back.
+
+    The mirror of `deletion`: nothing, then everything. Read no more than a
+    deletion is — the line says it came back, and the thing itself says the
+    rest, now that there is a thing again to look at.
+    """
+
+    return creation(state)
+
+
+def from_changes(changes: Sequence[FieldChange]) -> dict[str, Any]:
+    """Return the state a deletion froze, as a plain dict.
+
+    The inverse of `deletion`. Older deletions carry fewer keys than today's do
+    — they were written before a snapshot was a thing — so whoever reads this
+    has to cope with what is missing rather than assume.
+    """
+
+    return {change.field: change.before for change in changes}
+
+
+def rule_from_state(state: dict[str, Any]) -> Any:
+    """Return the split rule a snapshot froze, if it froze one."""
+
+    stored = state.get("split_rule")
+
+    return None if stored is None else rule_from_dict(stored)

@@ -77,6 +77,7 @@ export class SeHistoryDialog extends LitElement {
     return html`
       <se-history
         withSubject
+        restorable
         .localize=${this.localize}
         .revisions=${this.revisions}
         .members=${this.members}
@@ -84,9 +85,38 @@ export class SeHistoryDialog extends LitElement {
         .openable=${this.openable}
         .currency=${this.group.currency}
         .language=${this.language}
+        @revision-restored=${this.restore}
       ></se-history>
     `;
   }
+
+  /**
+   * Bring back what a deletion took away.
+   *
+   * The page is told, and it is the page that reloads: the expense is back in
+   * the balances and in the list, and this dialog holds neither. It closes,
+   * because what it was showing has just changed underneath it and the honest
+   * place to see the result is the list it came back into.
+   */
+  private restore = async (event: CustomEvent) => {
+    const { entityType, entityId } = event.detail;
+
+    this.error = undefined;
+
+    try {
+      if (entityType === "expense") {
+        await this.api.restoreExpense(this.group.id, entityId);
+      } else {
+        await this.api.restorePayment(this.group.id, entityId);
+      }
+
+      this.dispatchEvent(
+        new CustomEvent("history-restored", { bubbles: true, composed: true }),
+      );
+    } catch (error) {
+      this.error = errorMessage(error, this.localize);
+    }
+  };
 
   private async load() {
     try {

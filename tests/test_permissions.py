@@ -12,7 +12,6 @@ file did.
 
 from __future__ import annotations
 
-from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Any
 
@@ -28,80 +27,9 @@ from custom_components.shared_expenses.websocket import (
     members,
     payments,
 )
-from tests.conftest import FakeConnection, FakeHass
-from tests.test_websocket import call as _call
+from tests.conftest import ADMIN, PLAIN, FakeConnection, FakeHass, close_project, send
 
 NOW = datetime(2026, 7, 14, 12, 0, tzinfo=UTC)
-
-ADMIN = "ha-admin"
-PLAIN = "ha-plain"
-
-
-async def call(
-    hass: FakeHass,
-    connection: FakeConnection,
-    handler: Any,
-    payload: dict[str, Any],
-) -> None:
-    """Send a message, naming the command from the handler that answers it.
-
-    Same door as everywhere else — the real schema, the real decorators — with
-    the type derived rather than spelled out, so a payload can never be sent to
-    a command it does not belong to.
-    """
-
-    command = handler.__name__.removeprefix("websocket_")
-
-    await _call(
-        hass,
-        connection,
-        handler,
-        {"type": f"shared_expenses/{command}", **payload},
-    )
-
-
-@pytest.fixture
-async def household(manager: SharedExpensesManager) -> dict[str, Any]:
-    """Return a group with its admin, an ordinary member, and a guest.
-
-    Everything is granted: that is what a group looks like out of the box, and
-    what every one of these tests has to take away on purpose.
-
-    Three people and two roles. There is no third: whoever makes the group runs
-    it, everybody else is a member, and nobody is handed anything in between.
-    """
-
-    group = await manager.create_group(
-        group_name="Montigny",
-        admin_name="Stephane",
-        admin_user_id=ADMIN,
-    )
-
-    admin = await manager.get_member_for_user(ADMIN)
-    assert admin is not None
-
-    plain = await manager.create_group_member(
-        group_id=group.id,
-        name="Antonin",
-        user_id=PLAIN,
-    )
-
-    # No account: carries expenses, never logs in.
-    guest = await manager.create_group_member(group_id=group.id, name="Marc")
-
-    return {"group": group, "admin": admin, "plain": plain, "guest": guest}
-
-
-async def close(
-    manager: SharedExpensesManager,
-    group_id: str,
-    *keep: Permission,
-) -> None:
-    """Take every permission off a group but the ones named."""
-
-    group = await manager.get_group(group_id)
-
-    await manager.update_group(replace(group, permissions=frozenset(keep)))
 
 
 #
@@ -111,15 +39,15 @@ async def close(
 
 async def test_a_new_group_is_run_by_whoever_made_it(
     manager: SharedExpensesManager,
-    household: dict[str, Any],
+    project: dict[str, Any],
 ):
     """One admin, and exactly one."""
 
-    memberships = await manager.list_group_memberships(household["group"].id)
+    memberships = await manager.list_group_memberships(project["group"].id)
 
     admins = [m for m in memberships if m.role is GroupRole.ADMIN]
 
-    assert [m.member_id for m in admins] == [household["admin"].id]
+    assert [m.member_id for m in admins] == [project["admin"].id]
 
 
 @pytest.mark.parametrize(
@@ -140,7 +68,7 @@ async def test_a_new_group_is_run_by_whoever_made_it(
     ],
 )
 async def test_no_door_takes_a_role_on_the_way_in(
-    household: dict[str, Any],
+    project: dict[str, Any],
     handler_of: Any,
     payload_of: Any,
 ):
@@ -163,7 +91,7 @@ async def test_no_door_takes_a_role_on_the_way_in(
     payload = {
         "id": 1,
         "type": f"shared_expenses/{command}",
-        **payload_of(household),
+        **payload_of(project),
     }
 
     handler._ws_schema(dict(payload))
@@ -175,18 +103,18 @@ async def test_no_door_takes_a_role_on_the_way_in(
 async def test_somebody_added_is_a_member(
     loaded: FakeHass,
     manager: SharedExpensesManager,
-    household: dict[str, Any],
+    project: dict[str, Any],
 ):
     """And the group still has exactly one admin afterwards."""
 
     connection = FakeConnection(PLAIN)
 
-    await call(
+    await send(
         loaded,
         connection,
         members.websocket_create_member,
         {
-            "group_id": household["group"].id,
+            "group_id": project["group"].id,
             "name": "Clara",
             "user_id": "ha-clara",
         },
@@ -194,11 +122,11 @@ async def test_somebody_added_is_a_member(
 
     assert connection.errors == {}
 
-    memberships = await manager.list_group_memberships(household["group"].id)
+    memberships = await manager.list_group_memberships(project["group"].id)
     admins = [m for m in memberships if m.role is GroupRole.ADMIN]
 
     assert len(admins) == 1
-    assert admins[0].member_id == household["admin"].id
+    assert admins[0].member_id == project["admin"].id
 
 
 #
@@ -234,18 +162,18 @@ async def test_somebody_added_is_a_member(
 async def test_a_closed_switch_refuses_an_ordinary_member(
     loaded: FakeHass,
     manager: SharedExpensesManager,
-    household: dict[str, Any],
+    project: dict[str, Any],
     permission: Permission,
     handler_of: Any,
     payload_of: Any,
 ):
     """The whole point: a switch that is off stops somebody doing the thing."""
 
-    await close(manager, household["group"].id)
+    await close_project(manager, project["group"].id)
 
     connection = FakeConnection(PLAIN)
 
-    await call(loaded, connection, handler_of(), payload_of(household))
+    await send(loaded, connection, handler_of(), payload_of(project))
 
     assert connection.errors[1][0] == "not_allowed", (
         f"{permission} was off and the command went through anyway"
@@ -276,7 +204,7 @@ async def test_a_closed_switch_refuses_an_ordinary_member(
 async def test_an_open_switch_lets_an_ordinary_member_through(
     loaded: FakeHass,
     manager: SharedExpensesManager,
-    household: dict[str, Any],
+    project: dict[str, Any],
     permission: Permission,
     handler_of: Any,
     payload_of: Any,
@@ -287,11 +215,11 @@ async def test_an_open_switch_lets_an_ordinary_member_through(
     one's clothes.
     """
 
-    await close(manager, household["group"].id, permission)
+    await close_project(manager, project["group"].id, permission)
 
     connection = FakeConnection(PLAIN)
 
-    await call(loaded, connection, handler_of(), payload_of(household))
+    await send(loaded, connection, handler_of(), payload_of(project))
 
     assert connection.errors == {}, f"{permission} was on and it was refused anyway"
     assert 1 in connection.results
@@ -300,19 +228,19 @@ async def test_an_open_switch_lets_an_ordinary_member_through(
 async def test_the_admin_is_above_every_switch(
     loaded: FakeHass,
     manager: SharedExpensesManager,
-    household: dict[str, Any],
+    project: dict[str, Any],
 ):
     """What makes one switch per group enough, instead of a matrix per person."""
 
-    await close(manager, household["group"].id)
+    await close_project(manager, project["group"].id)
 
     connection = FakeConnection(ADMIN)
 
-    await call(
+    await send(
         loaded,
         connection,
         categories.websocket_create_category,
-        {"group_id": household["group"].id, "name": "Courses"},
+        {"group_id": project["group"].id, "name": "Courses"},
     )
 
     assert connection.errors == {}
@@ -327,28 +255,28 @@ async def test_the_admin_is_above_every_switch(
 async def test_you_may_always_edit_what_you_entered(
     loaded: FakeHass,
     manager: SharedExpensesManager,
-    household: dict[str, Any],
+    project: dict[str, Any],
 ):
     """Recording what somebody else paid must not cost you your own typo."""
 
-    await close(manager, household["group"].id)
+    await close_project(manager, project["group"].id)
 
     expense = await manager.create_expense(
-        group_id=household["group"].id,
+        group_id=project["group"].id,
         title="Courses",
         amount=5000,
         # Somebody else paid...
-        paid_by_member_id=household["admin"].id,
+        paid_by_member_id=project["admin"].id,
         expense_date=NOW,
         # ...and the ordinary member is the one who typed it in.
         actor_user_id=PLAIN,
     )
 
-    assert expense.created_by_member_id == household["plain"].id
+    assert expense.created_by_member_id == project["plain"].id
 
     connection = FakeConnection(PLAIN)
 
-    await call(
+    await send(
         loaded,
         connection,
         expenses.websocket_update_expense,
@@ -362,24 +290,24 @@ async def test_you_may_always_edit_what_you_entered(
 async def test_you_may_always_edit_what_you_paid(
     loaded: FakeHass,
     manager: SharedExpensesManager,
-    household: dict[str, Any],
+    project: dict[str, Any],
 ):
     """The other half of "yours": the money was yours even if the typing was not."""
 
-    await close(manager, household["group"].id)
+    await close_project(manager, project["group"].id)
 
     expense = await manager.create_expense(
-        group_id=household["group"].id,
+        group_id=project["group"].id,
         title="Essence",
         amount=5000,
-        paid_by_member_id=household["plain"].id,
+        paid_by_member_id=project["plain"].id,
         expense_date=NOW,
         actor_user_id=ADMIN,
     )
 
     connection = FakeConnection(PLAIN)
 
-    await call(
+    await send(
         loaded,
         connection,
         expenses.websocket_update_expense,
@@ -393,24 +321,24 @@ async def test_you_may_always_edit_what_you_paid(
 async def test_somebody_elses_expense_needs_the_permission(
     loaded: FakeHass,
     manager: SharedExpensesManager,
-    household: dict[str, Any],
+    project: dict[str, Any],
 ):
     """Neither paid nor typed: not yours, and the group has to say so."""
 
-    await close(manager, household["group"].id)
+    await close_project(manager, project["group"].id)
 
     expense = await manager.create_expense(
-        group_id=household["group"].id,
+        group_id=project["group"].id,
         title="Restaurant",
         amount=5000,
-        paid_by_member_id=household["admin"].id,
+        paid_by_member_id=project["admin"].id,
         expense_date=NOW,
         actor_user_id=ADMIN,
     )
 
     connection = FakeConnection(PLAIN)
 
-    await call(
+    await send(
         loaded,
         connection,
         expenses.websocket_update_expense,
@@ -420,11 +348,11 @@ async def test_somebody_elses_expense_needs_the_permission(
     assert connection.errors[1][0] == "not_allowed"
 
     # And the same message goes straight through once the group allows it.
-    await close(manager, household["group"].id, Permission.EDIT_OTHERS)
+    await close_project(manager, project["group"].id, Permission.EDIT_OTHERS)
 
     allowed = FakeConnection(PLAIN)
 
-    await call(
+    await send(
         loaded,
         allowed,
         expenses.websocket_update_expense,
@@ -437,24 +365,24 @@ async def test_somebody_elses_expense_needs_the_permission(
 async def test_deleting_somebody_elses_expense_needs_the_permission(
     loaded: FakeHass,
     manager: SharedExpensesManager,
-    household: dict[str, Any],
+    project: dict[str, Any],
 ):
     """Deleting is editing, and it is the one that cannot be undone."""
 
-    await close(manager, household["group"].id)
+    await close_project(manager, project["group"].id)
 
     expense = await manager.create_expense(
-        group_id=household["group"].id,
+        group_id=project["group"].id,
         title="Restaurant",
         amount=5000,
-        paid_by_member_id=household["admin"].id,
+        paid_by_member_id=project["admin"].id,
         expense_date=NOW,
         actor_user_id=ADMIN,
     )
 
     connection = FakeConnection(PLAIN)
 
-    await call(
+    await send(
         loaded,
         connection,
         expenses.websocket_delete_expense,
@@ -468,16 +396,16 @@ async def test_deleting_somebody_elses_expense_needs_the_permission(
 async def test_a_payment_is_yours_when_it_is_about_you(
     loaded: FakeHass,
     manager: SharedExpensesManager,
-    household: dict[str, Any],
+    project: dict[str, Any],
 ):
     """A debt you owe is as much yours to correct as the lender's."""
 
-    await close(manager, household["group"].id)
+    await close_project(manager, project["group"].id)
 
     payment = await manager.create_payment(
-        group_id=household["group"].id,
-        from_member_id=household["admin"].id,
-        to_member_id=household["plain"].id,
+        group_id=project["group"].id,
+        from_member_id=project["admin"].id,
+        to_member_id=project["plain"].id,
         amount=1000,
         payment_date=NOW,
         actor_user_id=ADMIN,
@@ -485,7 +413,7 @@ async def test_a_payment_is_yours_when_it_is_about_you(
 
     connection = FakeConnection(PLAIN)
 
-    await call(
+    await send(
         loaded,
         connection,
         payments.websocket_update_payment,
@@ -498,16 +426,16 @@ async def test_a_payment_is_yours_when_it_is_about_you(
 async def test_a_payment_between_two_others_is_not_yours(
     loaded: FakeHass,
     manager: SharedExpensesManager,
-    household: dict[str, Any],
+    project: dict[str, Any],
 ):
     """Neither party, nor the one who wrote it down."""
 
-    await close(manager, household["group"].id)
+    await close_project(manager, project["group"].id)
 
     payment = await manager.create_payment(
-        group_id=household["group"].id,
-        from_member_id=household["admin"].id,
-        to_member_id=household["guest"].id,
+        group_id=project["group"].id,
+        from_member_id=project["admin"].id,
+        to_member_id=project["guest"].id,
         amount=1000,
         payment_date=NOW,
         actor_user_id=ADMIN,
@@ -515,7 +443,7 @@ async def test_a_payment_between_two_others_is_not_yours(
 
     connection = FakeConnection(PLAIN)
 
-    await call(
+    await send(
         loaded,
         connection,
         payments.websocket_update_payment,
@@ -532,7 +460,7 @@ async def test_a_payment_between_two_others_is_not_yours(
 
 async def test_only_the_admin_may_change_the_permissions(
     loaded: FakeHass,
-    household: dict[str, Any],
+    project: dict[str, Any],
 ):
     """Even where the group lets its members manage it.
 
@@ -542,12 +470,12 @@ async def test_only_the_admin_may_change_the_permissions(
 
     connection = FakeConnection(PLAIN)
 
-    await call(
+    await send(
         loaded,
         connection,
         groups.websocket_update_group,
         {
-            "group_id": household["group"].id,
+            "group_id": project["group"].id,
             "permissions": [str(Permission.MANAGE_MEMBERS)],
         },
     )
@@ -558,25 +486,25 @@ async def test_only_the_admin_may_change_the_permissions(
 async def test_the_admin_changes_the_permissions(
     loaded: FakeHass,
     manager: SharedExpensesManager,
-    household: dict[str, Any],
+    project: dict[str, Any],
 ):
     """And what is sent is the whole set, so a switch can actually go off."""
 
     connection = FakeConnection(ADMIN)
 
-    await call(
+    await send(
         loaded,
         connection,
         groups.websocket_update_group,
         {
-            "group_id": household["group"].id,
+            "group_id": project["group"].id,
             "permissions": [str(Permission.MANAGE_CATEGORIES)],
         },
     )
 
     assert connection.errors == {}
 
-    group = await manager.get_group(household["group"].id)
+    group = await manager.get_group(project["group"].id)
 
     assert group.permissions == {Permission.MANAGE_CATEGORIES}
 
@@ -584,21 +512,21 @@ async def test_the_admin_changes_the_permissions(
 async def test_only_the_admin_deletes_the_group(
     loaded: FakeHass,
     manager: SharedExpensesManager,
-    household: dict[str, Any],
+    project: dict[str, Any],
 ):
     """It takes every expense with it. Until recently, any member could."""
 
     connection = FakeConnection(PLAIN)
 
-    await call(
+    await send(
         loaded,
         connection,
         groups.websocket_delete_group,
-        {"group_id": household["group"].id},
+        {"group_id": project["group"].id},
     )
 
     assert connection.errors[1][0] == "not_allowed"
-    assert await manager.get_group(household["group"].id) is not None
+    assert await manager.get_group(project["group"].id) is not None
 
 
 #
@@ -609,7 +537,7 @@ async def test_only_the_admin_deletes_the_group(
 async def test_the_admin_hands_the_group_over(
     loaded: FakeHass,
     manager: SharedExpensesManager,
-    household: dict[str, Any],
+    project: dict[str, Any],
 ):
     """The new admin runs it, and the old one becomes an ordinary member.
 
@@ -619,68 +547,68 @@ async def test_the_admin_hands_the_group_over(
 
     connection = FakeConnection(ADMIN)
 
-    await call(
+    await send(
         loaded,
         connection,
         groups.websocket_transfer_admin,
-        {"group_id": household["group"].id, "member_id": household["plain"].id},
+        {"group_id": project["group"].id, "member_id": project["plain"].id},
     )
 
     assert connection.errors == {}
 
-    assert await manager.group_role(household["group"].id, PLAIN) is GroupRole.ADMIN
-    assert await manager.group_role(household["group"].id, ADMIN) is GroupRole.MEMBER
+    assert await manager.group_role(project["group"].id, PLAIN) is GroupRole.ADMIN
+    assert await manager.group_role(project["group"].id, ADMIN) is GroupRole.MEMBER
 
 
 async def test_the_group_has_one_admin_after_a_transfer(
     loaded: FakeHass,
     manager: SharedExpensesManager,
-    household: dict[str, Any],
+    project: dict[str, Any],
 ):
     """Counted rather than assumed: two admins is the failure worth catching."""
 
     connection = FakeConnection(ADMIN)
 
-    await call(
+    await send(
         loaded,
         connection,
         groups.websocket_transfer_admin,
-        {"group_id": household["group"].id, "member_id": household["plain"].id},
+        {"group_id": project["group"].id, "member_id": project["plain"].id},
     )
 
-    memberships = await manager.list_group_memberships(household["group"].id)
+    memberships = await manager.list_group_memberships(project["group"].id)
 
     admins = [m for m in memberships if m.role is GroupRole.ADMIN and m.left_at is None]
 
     assert len(admins) == 1
-    assert admins[0].member_id == household["plain"].id
+    assert admins[0].member_id == project["plain"].id
 
 
 async def test_handing_it_on_costs_the_old_admin_their_standing(
     loaded: FakeHass,
     manager: SharedExpensesManager,
-    household: dict[str, Any],
+    project: dict[str, Any],
 ):
     """Not a courtesy title: they are a member, and the switches now bind them."""
 
     handing_over = FakeConnection(ADMIN)
 
-    await call(
+    await send(
         loaded,
         handing_over,
         groups.websocket_transfer_admin,
-        {"group_id": household["group"].id, "member_id": household["plain"].id},
+        {"group_id": project["group"].id, "member_id": project["plain"].id},
     )
 
-    await close(manager, household["group"].id)
+    await close_project(manager, project["group"].id)
 
     connection = FakeConnection(ADMIN)
 
-    await call(
+    await send(
         loaded,
         connection,
         categories.websocket_create_category,
-        {"group_id": household["group"].id, "name": "Courses"},
+        {"group_id": project["group"].id, "name": "Courses"},
     )
 
     assert connection.errors[1][0] == "not_allowed"
@@ -689,7 +617,7 @@ async def test_handing_it_on_costs_the_old_admin_their_standing(
 async def test_the_old_admin_can_finally_leave(
     loaded: FakeHass,
     manager: SharedExpensesManager,
-    household: dict[str, Any],
+    project: dict[str, Any],
 ):
     """The whole reason handing on had to exist.
 
@@ -700,57 +628,57 @@ async def test_the_old_admin_can_finally_leave(
 
     handing_over = FakeConnection(ADMIN)
 
-    await call(
+    await send(
         loaded,
         handing_over,
         groups.websocket_transfer_admin,
-        {"group_id": household["group"].id, "member_id": household["plain"].id},
+        {"group_id": project["group"].id, "member_id": project["plain"].id},
     )
 
     leaving = FakeConnection(ADMIN)
 
-    await call(
+    await send(
         loaded,
         leaving,
         members.websocket_remove_member_from_group,
-        {"group_id": household["group"].id, "member_id": household["admin"].id},
+        {"group_id": project["group"].id, "member_id": project["admin"].id},
     )
 
     assert leaving.errors == {}
-    assert await manager.group_role(household["group"].id, ADMIN) is None
+    assert await manager.group_role(project["group"].id, ADMIN) is None
 
 
 async def test_the_admin_cannot_leave_without_handing_it_on(
     loaded: FakeHass,
     manager: SharedExpensesManager,
-    household: dict[str, Any],
+    project: dict[str, Any],
 ):
     """The other side of the same rule."""
 
     connection = FakeConnection(ADMIN)
 
-    await call(
+    await send(
         loaded,
         connection,
         members.websocket_remove_member_from_group,
-        {"group_id": household["group"].id, "member_id": household["admin"].id},
+        {"group_id": project["group"].id, "member_id": project["admin"].id},
     )
 
     assert connection.errors[1][0] == "cannot_remove_admin"
-    assert await manager.group_role(household["group"].id, ADMIN) is GroupRole.ADMIN
+    assert await manager.group_role(project["group"].id, ADMIN) is GroupRole.ADMIN
 
 
 async def test_nobody_but_the_admin_hands_the_group_on(
     loaded: FakeHass,
-    household: dict[str, Any],
+    project: dict[str, Any],
 ):
     connection = FakeConnection(PLAIN)
 
-    await call(
+    await send(
         loaded,
         connection,
         groups.websocket_transfer_admin,
-        {"group_id": household["group"].id, "member_id": household["plain"].id},
+        {"group_id": project["group"].id, "member_id": project["plain"].id},
     )
 
     assert connection.errors[1][0] == "not_allowed"
@@ -759,7 +687,7 @@ async def test_nobody_but_the_admin_hands_the_group_on(
 async def test_the_group_is_never_handed_to_somebody_who_cannot_log_in(
     loaded: FakeHass,
     manager: SharedExpensesManager,
-    household: dict[str, Any],
+    project: dict[str, Any],
 ):
     """A member without an account carries expenses but never opens the panel.
 
@@ -769,15 +697,15 @@ async def test_the_group_is_never_handed_to_somebody_who_cannot_log_in(
 
     connection = FakeConnection(ADMIN)
 
-    await call(
+    await send(
         loaded,
         connection,
         groups.websocket_transfer_admin,
-        {"group_id": household["group"].id, "member_id": household["guest"].id},
+        {"group_id": project["group"].id, "member_id": project["guest"].id},
     )
 
     assert connection.errors[1][0] == "admin_needs_account"
-    assert await manager.group_role(household["group"].id, ADMIN) is GroupRole.ADMIN
+    assert await manager.group_role(project["group"].id, ADMIN) is GroupRole.ADMIN
 
 
 #
@@ -788,21 +716,21 @@ async def test_the_group_is_never_handed_to_somebody_who_cannot_log_in(
 async def test_you_may_always_rename_yourself(
     loaded: FakeHass,
     manager: SharedExpensesManager,
-    household: dict[str, Any],
+    project: dict[str, Any],
 ):
     """A name is your own, whatever the group says about managing members."""
 
-    await close(manager, household["group"].id)
+    await close_project(manager, project["group"].id)
 
     connection = FakeConnection(PLAIN)
 
-    await call(
+    await send(
         loaded,
         connection,
         members.websocket_update_member,
         {
-            "member_id": household["plain"].id,
-            "group_id": household["group"].id,
+            "member_id": project["plain"].id,
+            "group_id": project["group"].id,
             "name": "Antonin R.",
         },
     )
@@ -813,19 +741,19 @@ async def test_you_may_always_rename_yourself(
 async def test_renaming_somebody_else_needs_the_permission(
     loaded: FakeHass,
     manager: SharedExpensesManager,
-    household: dict[str, Any],
+    project: dict[str, Any],
 ):
-    await close(manager, household["group"].id)
+    await close_project(manager, project["group"].id)
 
     connection = FakeConnection(PLAIN)
 
-    await call(
+    await send(
         loaded,
         connection,
         members.websocket_update_member,
         {
-            "member_id": household["guest"].id,
-            "group_id": household["group"].id,
+            "member_id": project["guest"].id,
+            "group_id": project["group"].id,
             "name": "Vole",
         },
     )
@@ -836,39 +764,39 @@ async def test_renaming_somebody_else_needs_the_permission(
 async def test_you_may_always_leave(
     loaded: FakeHass,
     manager: SharedExpensesManager,
-    household: dict[str, Any],
+    project: dict[str, Any],
 ):
     """Being unable to leave is the trap the admin is in until they hand on."""
 
-    await close(manager, household["group"].id)
+    await close_project(manager, project["group"].id)
 
     connection = FakeConnection(PLAIN)
 
-    await call(
+    await send(
         loaded,
         connection,
         members.websocket_remove_member_from_group,
-        {"group_id": household["group"].id, "member_id": household["plain"].id},
+        {"group_id": project["group"].id, "member_id": project["plain"].id},
     )
 
     assert connection.errors == {}
-    assert await manager.group_role(household["group"].id, PLAIN) is None
+    assert await manager.group_role(project["group"].id, PLAIN) is None
 
 
 async def test_removing_somebody_else_needs_the_permission(
     loaded: FakeHass,
     manager: SharedExpensesManager,
-    household: dict[str, Any],
+    project: dict[str, Any],
 ):
-    await close(manager, household["group"].id)
+    await close_project(manager, project["group"].id)
 
     connection = FakeConnection(PLAIN)
 
-    await call(
+    await send(
         loaded,
         connection,
         members.websocket_remove_member_from_group,
-        {"group_id": household["group"].id, "member_id": household["guest"].id},
+        {"group_id": project["group"].id, "member_id": project["guest"].id},
     )
 
     assert connection.errors[1][0] == "not_allowed"
@@ -881,7 +809,7 @@ async def test_removing_somebody_else_needs_the_permission(
 
 async def test_a_stranger_is_told_the_group_does_not_exist(
     loaded: FakeHass,
-    household: dict[str, Any],
+    project: dict[str, Any],
 ):
     """Never "not allowed": that would confirm the group is there.
 
@@ -892,11 +820,11 @@ async def test_a_stranger_is_told_the_group_does_not_exist(
 
     connection = FakeConnection("ha-stranger")
 
-    await call(
+    await send(
         loaded,
         connection,
         groups.websocket_delete_group,
-        {"group_id": household["group"].id},
+        {"group_id": project["group"].id},
     )
 
     assert connection.errors[1][0] == "group_not_found"

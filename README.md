@@ -44,7 +44,8 @@ belong to, and nothing else.
   it was yours.
 - **History** — every change to an expense or a reimbursement, with who made it
   and what moved. Deletions included, which is where an expense's own history
-  cannot help.
+  cannot help — and a deleted expense can be brought back from there, as the one
+  it was: same date, same shares, same frozen rate.
 - **Mobile first** — a single panel, thumb-reachable, in your own theme, light
   or dark.
 

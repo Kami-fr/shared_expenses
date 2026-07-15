@@ -127,6 +127,21 @@ member could delete the whole group.
       waking it: everything is granted by default, so only a refusal reaches it.
       See ADR-013.
 
+## Sprint 12 — Undo
+
+- [x] A deleted expense or payment can be brought back from the group journal,
+      as the one it was: same id, so its history runs on unbroken, and same
+      frozen rate — converting afresh would restore a different debt from the
+      one that was deleted.
+- [x] A deletion carries a snapshot rather than a diff. It is the only place the
+      thing still exists, and what a restore is built from.
+- [x] The panel spells out the fields of an `updated` and of nothing else. A
+      deletion takes every field there is, so naming them says only what
+      "deleted" already said.
+- [x] "It cannot be brought back" left the delete confirmation, being no longer
+      true.
+- [x] 14 tests, the frozen rate sabotaged to prove they catch a re-conversion.
+
 ## Later
 
 - [ ] Weighted splits (by shares, rather than by amount or percentage)

@@ -42,6 +42,15 @@ export class SeHistory extends LitElement {
    */
   @property({ attribute: false }) public openable?: Set<string>;
 
+  /**
+   * Whether to offer bringing a deleted entry back.
+   *
+   * Off inside one expense's own history: you got there from the expense, so it
+   * exists, so nothing on that page was ever deleted. On in the group journal,
+   * which is the only place a deleted expense can still be seen at all.
+   */
+  @property({ type: Boolean }) public restorable = false;
+
   public static styles = [
     sharedStyles,
     css`
@@ -107,6 +116,11 @@ export class SeHistory extends LitElement {
         color: var(--secondary-text-color);
       }
 
+      /* Reads as a link, on the line whose deletion it undoes. See .link. */
+      .restore {
+        margin-top: 4px;
+      }
+
       .change {
         font-size: 13px;
         margin-top: 4px;
@@ -168,7 +182,7 @@ export class SeHistory extends LitElement {
           <span class="when">${formatDayDate(revision.at, this.language)}</span>
         </div>
         <div class="what">${this.headline(revision)}</div>
-        ${this.renderChanges(revision)}
+        ${this.renderChanges(revision)} ${this.renderRestore(revision)}
       </div>
       ${canOpen ? html`<span class="chevron">›</span>` : nothing}
     `;
@@ -185,6 +199,43 @@ export class SeHistory extends LitElement {
   private pick(revision: Revision) {
     this.dispatchEvent(
       new CustomEvent("revision-picked", {
+        detail: { entityType: revision.entity_type, entityId: revision.entity_id },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
+  /**
+   * Bring back what this line took away.
+   *
+   * Offered on a deletion, and only while the thing is still gone: `openable`
+   * says what the group still holds, so a deletion whose id is back in it has
+   * already been restored and there is nothing left to undo. A button that
+   * would answer "already there" is a button not worth pressing.
+   *
+   * Left out entirely without `openable` — the caller is then showing a list it
+   * has no facts about, and offering to act on it would be a guess.
+   */
+  private renderRestore(revision: Revision) {
+    if (revision.action !== "deleted" || !this.openable) {
+      return nothing;
+    }
+
+    if (this.openable.has(revision.entity_id) || !this.restorable) {
+      return nothing;
+    }
+
+    return html`
+      <button class="link restore" @click=${() => this.restore(revision)}>
+        ${this.localize("restore_entry")}
+      </button>
+    `;
+  }
+
+  private restore(revision: Revision) {
+    this.dispatchEvent(
+      new CustomEvent("revision-restored", {
         detail: { entityType: revision.entity_type, entityId: revision.entity_id },
         bubbles: true,
         composed: true,
@@ -215,12 +266,15 @@ export class SeHistory extends LitElement {
   /**
    * The changes, dropping the ones this version cannot say.
    *
-   * A creation lists everything it was born with, which on the group journal
-   * would drown out the changes that actually mean something. Only what moved
-   * gets spelled out; what a thing started as can be read on the thing itself.
+   * Only what moved gets spelled out. A creation lists everything it was born
+   * with, which on the group journal would drown out the changes that actually
+   * mean something; a deletion takes every field there is, so naming them one
+   * by one says only what "deleted" already said; and a restore is a deletion
+   * read backwards. What a thing holds can be read on the thing itself — and
+   * for a deletion, on the restore that brings it back.
    */
   private renderChanges(revision: Revision) {
-    if (revision.action === "created") {
+    if (revision.action !== "updated") {
       return nothing;
     }
 

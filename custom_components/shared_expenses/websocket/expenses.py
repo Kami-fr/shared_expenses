@@ -11,6 +11,7 @@ from homeassistant.helpers import config_validation as cv
 import voluptuous as vol
 
 from ..manager import SharedExpensesManager
+from ..models import RevisionEntity
 from .api import (
     SHARE_SCHEMA,
     SPLIT_RULE_SCHEMA,
@@ -230,6 +231,48 @@ async def websocket_delete_expense(
 
 @websocket_api.websocket_command(
     {
+        vol.Required("type"): "shared_expenses/restore_expense",
+        vol.Required("group_id"): cv.string,
+        vol.Required("expense_id"): cv.string,
+    }
+)
+@websocket_api.async_response
+@api_command(Scope.GROUP)
+async def websocket_restore_expense(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+    manager: SharedExpensesManager,
+) -> None:
+    """Bring a deleted expense back.
+
+    Scoped on the group and not on the expense, because there is no expense to
+    scope on: that is the whole point. The group is the caller's own door, and
+    the manager refuses a revision belonging to any other.
+
+    Whether they may is asked of the expense the deletion froze — the same rule
+    as editing it, on the same facts. Somebody who could not have touched it
+    cannot bring it back either.
+    """
+
+    await manager.ensure_may_restore(
+        msg["group_id"],
+        msg["expense_id"],
+        RevisionEntity.EXPENSE,
+        connection.user.id,
+    )
+
+    restored = await manager.restore_expense(
+        msg["group_id"],
+        msg["expense_id"],
+        actor_user_id=connection.user.id,
+    )
+
+    connection.send_result(msg["id"], expense_to_dict(restored))
+
+
+@websocket_api.websocket_command(
+    {
         vol.Required("type"): "shared_expenses/list_expense_shares",
         vol.Required("group_id"): cv.string,
     }
@@ -255,5 +298,6 @@ COMMANDS = (
     websocket_create_expense,
     websocket_update_expense,
     websocket_delete_expense,
+    websocket_restore_expense,
     websocket_list_expense_shares,
 )

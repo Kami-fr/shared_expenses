@@ -281,7 +281,7 @@ export interface Revision {
   entity_id: string;
   /** What it was called at the time, so a deleted one can still be named. */
   entity_label: string | null;
-  action: "created" | "updated" | "deleted";
+  action: "created" | "updated" | "deleted" | "restored";
   actor_user_id: string | null;
   changes: FieldChange[];
   at: string;

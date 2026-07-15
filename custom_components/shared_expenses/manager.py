@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import replace
 from datetime import UTC, date, datetime
+from typing import Any
 
 import aiohttp
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -25,6 +26,7 @@ from .exceptions import (
     MemberNotFoundError,
     NotAllowedError,
     PaymentNotFoundError,
+    SharedExpensesError,
 )
 from .helpers import revisions
 from .helpers.balances import GroupBalances, compute_balances, simplify_settlements
@@ -302,6 +304,49 @@ class SharedExpensesManager:
             user_id,
             Permission.EDIT_OTHERS,
         )
+
+    async def ensure_may_restore(
+        self,
+        group_id: str,
+        entity_id: str,
+        entity_type: RevisionEntity,
+        user_id: str,
+    ) -> None:
+        """Refuse a member bringing back something that was never theirs.
+
+        The same rule as editing it, asked of the deletion that froze it: there
+        is no row left to ask. Somebody who could not have touched the expense
+        cannot undelete it either — a restore is the largest edit there is.
+
+        One method for both kinds. The keys of an expense and of a payment do
+        not overlap, so asking for all of them and taking what is there says
+        exactly the right thing without a branch.
+        """
+
+        state = await self._deleted_state(
+            group_id,
+            entity_id,
+            entity_type,
+            (
+                ExpenseNotFoundError
+                if entity_type is RevisionEntity.EXPENSE
+                else PaymentNotFoundError
+            ),
+        )
+
+        me = await self._member_of(user_id)
+
+        theirs = {
+            state.get("created_by_member_id"),
+            state.get("paid_by_member_id"),
+            state.get("from_member_id"),
+            state.get("to_member_id"),
+        }
+
+        if me is not None and me in theirs:
+            return
+
+        await self.ensure_permission(group_id, user_id, Permission.EDIT_OTHERS)
 
     async def ensure_admin(self, group_id: str, user_id: str) -> None:
         """Refuse anybody but the admin.
@@ -851,7 +896,11 @@ class SharedExpensesManager:
         *,
         actor_user_id: str | None = None,
     ) -> None:
-        """Delete a payment."""
+        """Delete a payment.
+
+        A snapshot, as on an expense, and for the same reason: this revision is
+        the last place it exists, and a restore is built from it.
+        """
 
         payment = await self.get_payment(payment_id)
 
@@ -865,7 +914,7 @@ class SharedExpensesManager:
                 label=None,
                 action=RevisionAction.DELETED,
                 actor_user_id=actor_user_id,
-                changes=revisions.deletion(revisions.payment_state(payment)),
+                changes=revisions.deletion(revisions.payment_snapshot(payment)),
             )
 
     #
@@ -1081,11 +1130,16 @@ class SharedExpensesManager:
         *,
         actor_user_id: str | None = None,
     ) -> None:
-        """Delete an expense."""
+        """Delete an expense.
+
+        A snapshot rather than the state the history reads: the row is about to
+        be gone, this revision is the last place it exists, and it is what a
+        restore is built from.
+        """
 
         expense = await self.get_expense(expense_id)
 
-        state = revisions.expense_state(
+        state = revisions.expense_snapshot(
             expense,
             await self._database.expense_repository.get_shares(expense_id),
         )
@@ -1102,6 +1156,233 @@ class SharedExpensesManager:
                 actor_user_id=actor_user_id,
                 changes=revisions.deletion(state),
             )
+
+    async def restore_expense(
+        self,
+        group_id: str,
+        expense_id: str,
+        *,
+        actor_user_id: str | None = None,
+    ) -> Expense:
+        """Bring a deleted expense back, with the id it always had.
+
+        The same expense, not a copy of it: the id, the date, the payer, the
+        shares and above all the rate it was frozen at. Its history therefore
+        runs on unbroken — added, changed, deleted, restored, one line — and
+        every link the journal holds to it works again.
+
+        Built from the deletion revision, which is the only place it still
+        exists. Anything the snapshot does not carry is reworked rather than
+        guessed at; see `_restored_money`.
+        """
+
+        group = await self._get_active_group(group_id)
+
+        # Already back. The state asked for is the state there is, so this is
+        # not a failure — somebody else got there first, or a second press
+        # landed. Nothing to record: nothing happened.
+        existing = await self._database.expense_repository.get(expense_id)
+
+        if existing is not None:
+            return existing
+
+        state = await self._deleted_state(
+            group_id,
+            expense_id,
+            RevisionEntity.EXPENSE,
+            ExpenseNotFoundError,
+        )
+
+        expense_date = datetime.fromisoformat(state["expense_date"])
+        currency = state.get("currency") or group.currency
+
+        converted, rate, rate_as_of = await self._restored_money(
+            state=state,
+            group=group,
+            amount=state["amount"],
+            currency=currency,
+            on=expense_date.date(),
+        )
+
+        now = datetime.now(UTC)
+
+        expense = Expense(
+            id=expense_id,
+            group_id=group_id,
+            category_id=state.get("category_id"),
+            title=state["title"],
+            description=state.get("description"),
+            amount=state["amount"],
+            currency=currency,
+            paid_by_member_id=state["paid_by_member_id"],
+            expense_date=expense_date,
+            # Now, because now is when this row was written. The expense keeps
+            # its own date, which is the one anybody reads; this only breaks
+            # ties between things entered on the same day.
+            created_at=now,
+            split_rule=revisions.rule_from_state(state),
+            converted_amount=converted,
+            exchange_rate=rate,
+            rate_as_of=rate_as_of,
+            created_by_member_id=state.get("created_by_member_id"),
+        )
+
+        built = _build_shares(expense.id, state.get("shares") or {}, now)
+
+        async with self._database.transaction():
+            await self._database.expense_repository.create(expense, built)
+
+            await self._record(
+                group_id=group_id,
+                entity_type=RevisionEntity.EXPENSE,
+                entity_id=expense.id,
+                label=expense.title,
+                action=RevisionAction.RESTORED,
+                actor_user_id=actor_user_id,
+                changes=revisions.restored(revisions.expense_state(expense, built)),
+            )
+
+        return expense
+
+    async def restore_payment(
+        self,
+        group_id: str,
+        payment_id: str,
+        *,
+        actor_user_id: str | None = None,
+    ) -> Payment:
+        """Bring a deleted payment back, with the id it always had."""
+
+        group = await self._get_active_group(group_id)
+
+        existing = await self._database.payment_repository.get(payment_id)
+
+        if existing is not None:
+            return existing
+
+        state = await self._deleted_state(
+            group_id,
+            payment_id,
+            RevisionEntity.PAYMENT,
+            PaymentNotFoundError,
+        )
+
+        payment_date = datetime.fromisoformat(state["payment_date"])
+        currency = state.get("currency") or group.currency
+
+        converted, rate, rate_as_of = await self._restored_money(
+            state=state,
+            group=group,
+            amount=state["amount"],
+            currency=currency,
+            on=payment_date.date(),
+        )
+
+        payment = Payment(
+            id=payment_id,
+            group_id=group_id,
+            description=state.get("description"),
+            from_member_id=state["from_member_id"],
+            to_member_id=state["to_member_id"],
+            amount=state["amount"],
+            currency=currency,
+            payment_date=payment_date,
+            created_at=datetime.now(UTC),
+            kind=PaymentKind(state.get("kind") or PaymentKind.REIMBURSEMENT),
+            converted_amount=converted,
+            exchange_rate=rate,
+            rate_as_of=rate_as_of,
+            created_by_member_id=state.get("created_by_member_id"),
+        )
+
+        async with self._database.transaction():
+            await self._database.payment_repository.create(payment)
+
+            await self._record(
+                group_id=group_id,
+                entity_type=RevisionEntity.PAYMENT,
+                entity_id=payment.id,
+                label=None,
+                action=RevisionAction.RESTORED,
+                actor_user_id=actor_user_id,
+                changes=revisions.restored(revisions.payment_state(payment)),
+            )
+
+        return payment
+
+    async def _deleted_state(
+        self,
+        group_id: str,
+        entity_id: str,
+        entity_type: RevisionEntity,
+        missing: type[SharedExpensesError],
+    ) -> dict[str, Any]:
+        """Return what the latest deletion of this thing froze.
+
+        The group is given rather than taken from the revision: the caller has
+        been cleared for that group, and a revision of another one must not come
+        back through this door.
+
+        Nothing to restore reads as the thing not existing, which is the truth:
+        it does not, and there is no record of it ever having.
+        """
+
+        found = await self._database.revision_repository.list_by_entity(entity_id)
+
+        # Newest first, so the first deletion found is the one that put it away.
+        deletion = next(
+            (
+                revision
+                for revision in found
+                if revision.group_id == group_id
+                and revision.entity_type is entity_type
+                and revision.action is RevisionAction.DELETED
+            ),
+            None,
+        )
+
+        if deletion is None:
+            raise missing(entity_id)
+
+        return revisions.from_changes(deletion.changes)
+
+    async def _restored_money(
+        self,
+        *,
+        state: dict[str, Any],
+        group: Group,
+        amount: int,
+        currency: str,
+        on: date,
+    ) -> tuple[int, int, date | None]:
+        """Return what a restored thing is worth to the group, and at what rate.
+
+        Kept, never recomputed, when the snapshot carries it. What somebody owed
+        was settled on the day they owed it, and converting afresh at today's
+        rate would restore a different debt from the one that was deleted.
+
+        Older deletions have no snapshot — they were written before there was
+        one — so the money is worked out again, for the thing's *own* day. The
+        rate of a day gone by does not move, so this lands on the very rate it
+        was frozen at, and on a group's own currency it is one either way.
+        """
+
+        converted = state.get("converted_amount")
+        rate = state.get("exchange_rate")
+
+        if converted is not None and rate is not None:
+            stored = state.get("rate_as_of")
+            as_of = None if stored is None else date.fromisoformat(stored)
+
+            return converted, rate, as_of
+
+        return await self._convert(
+            amount=amount,
+            paid_in=currency,
+            group=group,
+            on=on,
+            given_rate=None,
+        )
 
     #
     # ------------------------------------------------------------------

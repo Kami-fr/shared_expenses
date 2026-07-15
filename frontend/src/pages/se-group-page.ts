@@ -1171,6 +1171,7 @@ export class SeGroupPage extends LitElement {
           .language=${this.language}
           @dialog-cancelled=${this.closeDialog}
           @revision-picked=${this.openFromHistory}
+          @history-restored=${this.handleChanged}
         ></se-history-dialog>
       `;
     }

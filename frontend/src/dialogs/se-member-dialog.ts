@@ -1,5 +1,6 @@
 import { LitElement, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import { live } from "lit/directives/live.js";
 
 import "../components/se-button";
 import "../components/se-dialog";
@@ -59,7 +60,13 @@ export class SeMemberDialog extends LitElement {
   /** The member whose palette is open, if any. */
   @state() private tinting?: string;
 
-  /** The member whose removal is awaiting a second click. */
+  /**
+   * The guest whose removal is awaiting a second click.
+   *
+   * Guests only. The accounts had one too and it was the bug: a box flips under
+   * the finger before it asks anything, so the question arrived after the
+   * answer looked given. See `toggleAccount`.
+   */
   @state() private confirming?: string;
 
   /** The member the project is about to be handed to, awaiting a second click. */
@@ -206,9 +213,25 @@ export class SeMemberDialog extends LitElement {
 
     return html`
       <div class="row">
+        <!--
+          live(), and it is not a nicety.
+
+          A finger flips the box itself, and Lit only writes a property back
+          when the value it renders has changed. Both sides say "in the group",
+          so it writes nothing and the box keeps the flip — showing somebody out
+          who is still in, until the dialog is thrown away and built again. The
+          member reappearing "ticked" next time was not the tick coming back: it
+          was the only moment the truth got a word in.
+
+          live() compares against the DOM rather than against the last render,
+          so the box can never drift from what the backend says. Which matters
+          most on the path nobody tries: a removal that fails leaves the data
+          alone, and without this the box would stay wrong and quietly claim it
+          had worked.
+        -->
         <input
           type="checkbox"
-          .checked=${member !== undefined}
+          .checked=${live(member !== undefined)}
           ?disabled=${admin || !mayToggle || this.busy !== undefined}
           title=${admin ? this.localize("admin_locked") : ""}
           @change=${() => this.toggleAccount(user, member)}
@@ -492,17 +515,27 @@ export class SeMemberDialog extends LitElement {
     }
   }
 
+  /**
+   * Put an account in the project, or take it out. Straight away.
+   *
+   * There used to be a confirmation here — a first press armed it, a second
+   * carried it out — and it was the whole of the bug. A box flips under the
+   * finger before anybody is asked anything, so the question always arrives
+   * after the answer looks given; and nothing on the row said one was pending,
+   * so the honest reading of the screen was "done", and it was not.
+   *
+   * A checkbox is a state, not a command, and confirming a state cannot be made
+   * to work. Nor is there anything to protect: taking somebody out only ends
+   * their membership. Their expenses stay, their balance stays, and ticking the
+   * box again returns the very same member — `link_user` hands back the one the
+   * account already has, name and colour and all. The undo is the same gesture.
+   *
+   * The guests keep their confirmation, where a × is a command and asking twice
+   * is what a command is for.
+   */
   private async toggleAccount(user: HaUser, member: Member | undefined) {
-    // Taking someone out costs them access to the group: ask once.
-    if (member && this.confirming !== member.id) {
-      this.confirming = member.id;
-      this.requestUpdate();
-      return;
-    }
-
     this.busy = user.id;
     this.error = undefined;
-    this.confirming = undefined;
 
     try {
       if (member) {
