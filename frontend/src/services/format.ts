@@ -134,7 +134,7 @@ export function centsToInput(cents: number): string {
  * Return what somebody goes by, in one word.
  *
  * For the places a name is a label rather than a sentence — a column beside a
- * figure, where "Stéphane Fath" pushes the money about and says nothing the
+ * figure, where a full name pushes the money about and says nothing the
  * household did not already know. The first word, because that is the one a
  * household uses.
  */

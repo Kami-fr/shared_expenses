@@ -68,6 +68,16 @@ class FakeHass:
 
         return func(*args)
 
+    def verify_event_loop_thread(self, what: str) -> None:
+        """Home Assistant refuses a loop-only call made off the loop.
+
+        A no-op here, because these tests are the loop. It exists because the
+        manager sends a dispatcher signal on every write and the real thing is
+        asked this first — a stand-in that does not answer what it stands in for
+        fails the caller rather than the code, which is how this fake has misled
+        before.
+        """
+
     def async_create_background_task(
         self,
         target: Any,
@@ -154,11 +164,13 @@ async def manager(database: Database) -> SharedExpensesManager:
 async def loaded(hass: FakeHass, manager: SharedExpensesManager) -> FakeHass:
     """Return a `hass` holding the manager where the commands look for it.
 
-    Registered exactly as `__init__.py` does it, so a command that cannot find
-    its manager here would not find it in Home Assistant either.
+    Registered exactly as `__init__.py` does it — the same dict, under the same
+    key — so a command that cannot find its manager here would not find it in
+    Home Assistant either. The coordinator is left out: nothing driven through
+    these tests reads it, and a stand-in for it would stand in for nothing.
     """
 
-    hass.data = {DOMAIN: {"entry-id": manager}}
+    hass.data = {DOMAIN: {"entry-id": {"manager": manager}}}
 
     return hass
 

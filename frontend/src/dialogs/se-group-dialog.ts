@@ -1,5 +1,6 @@
 import { LitElement, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import { live } from "lit/directives/live.js";
 
 import "../components/se-button";
 import "../components/se-dialog";
@@ -36,6 +37,9 @@ export class SeGroupDialog extends LitElement {
 
   /** What the project grants, as it stands in the dialog. */
   @state() private permissions = new Set<Permission>();
+
+  /** Whether the project is on the dashboard, as it stands in the dialog. */
+  @state() private exposed = false;
 
   @state() private busy = false;
 
@@ -84,6 +88,7 @@ export class SeGroupDialog extends LitElement {
       this.description = this.group.description ?? "";
       this.currency = this.group.currency;
       this.permissions = new Set(this.group.permissions);
+      this.exposed = this.group.exposed;
     }
   }
 
@@ -134,7 +139,7 @@ export class SeGroupDialog extends LitElement {
                 @value-changed=${(e: CustomEvent) => (this.currency = e.detail.value)}
               ></se-select>`}
 
-          ${this.renderPermissions()}
+          ${this.renderPermissions()} ${this.renderDashboard()}
         </div>
 
         <se-button slot="actions" variant="text" @click=${this.cancel}>
@@ -195,6 +200,47 @@ export class SeGroupDialog extends LitElement {
     `;
   }
 
+  /**
+   * Whether this project's figures go on the dashboard.
+   *
+   * The admin's alone, like the permissions, and for a heavier reason: this one
+   * takes a wall down rather than moving one. So it says what it does before
+   * anybody touches it, rather than after somebody notices.
+   *
+   * Home Assistant has no wall around entities. The machinery is there — an
+   * entity policy per account — but nothing sets it and there is no interface
+   * for it, so every account in the house reads every entity's state whatever
+   * this integration thinks about who is in which project.
+   */
+  private renderDashboard() {
+    if (!this.group || this.role !== "admin") {
+      return nothing;
+    }
+
+    const translate = this.localize;
+
+    return html`
+      <div class="section">
+        <h3>${translate("dashboard")}</h3>
+
+        <label class="switch">
+          <input
+            type="checkbox"
+            .checked=${live(this.exposed)}
+            @change=${(event: Event) =>
+              (this.exposed = (event.target as HTMLInputElement).checked)}
+          />
+          <span class="body">
+            <span class="title">${translate("dashboard_on")}</span>
+            <span class="hint">${translate("dashboard_on_hint")}</span>
+          </span>
+        </label>
+
+        ${this.exposed ? nothing : html`<div class="muted">${translate("dashboard_hint")}</div>`}
+      </div>
+    `;
+  }
+
   private toggle(permission: Permission, event: Event) {
     // A new Set, not a mutation: Lit compares by identity, and the same Set
     // handed back changed would render nothing at all.
@@ -235,7 +281,9 @@ export class SeGroupDialog extends LitElement {
       const group = this.group
         ? await this.api.updateGroup(this.group.id, {
             ...fields,
-            ...(this.role === "admin" ? { permissions: [...this.permissions] } : {}),
+            ...(this.role === "admin"
+              ? { permissions: [...this.permissions], exposed: this.exposed }
+              : {}),
           })
         : await this.api.createGroup({ ...fields, currency: this.currency });
 

@@ -39,6 +39,7 @@ ExchangeRate          stands apart: a fact about the market, not about a group
 | icon | TEXT | Material Design icon |
 | color | TEXT | Hex color |
 | archived | INTEGER | 0 = active, 1 = archived |
+| exposed | INTEGER | 0 or 1, default 0 |
 | created_at | TEXT | UTC ISO-8601 timestamp |
 | split_rule | TEXT | Default split rule as JSON (nullable) |
 | default_category_id | TEXT | FK → categories.id, the category a new expense opens on (nullable) |
@@ -66,6 +67,16 @@ group that existed before them keeps everything its members could already do.
 
 Deleting a group is not among them and never will be: it takes every expense
 with it, and it belongs to the admin alone.
+
+`exposed` is not a permission and does not sit with them, although the admin
+alone sets it too. The permissions say what people *in* the group may do;
+this says whether the group's figures leave it at all. Home Assistant does not
+wall entities off — the machinery is there, an entity policy per account, but
+nothing sets it and `USER_POLICY` grants `CAT_ENTITIES` outright — so every
+account in the house reads every entity's state whatever this integration says
+about who is in which group. Hence 0: a switch that takes a wall down must be
+thrown, never inherited. It is written into the group's journal like the
+permissions are.
 
 ---
 
@@ -428,7 +439,7 @@ creates `schema_v1.sql` on an empty database, then applies `migration_v<n>.sql`
 one by one up to `DATABASE_VERSION`. Each migration file bumps the version
 itself. Downgrades are refused.
 
-**Current version: 11.**
+**Current version: 12.**
 
 | Version | What it added |
 |---------|---------------|
@@ -443,6 +454,7 @@ itself. Downgrades are refused.
 | 9 | `payments.currency`, `converted_amount`, `exchange_rate`, `rate_as_of` |
 | 10 | The four `groups.allow_` columns, and `created_by_member_id` on expenses and payments |
 | 11 | Two roles instead of three: `owner` goes, `admin` stays |
+| 12 | `groups.exposed`: whether a project puts its figures on the dashboard |
 
 Migrations are additive. Every existing row must come out of one meaning what it
 meant going in — v7 converts every past expense to itself at a rate of one,

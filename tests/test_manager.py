@@ -1589,7 +1589,7 @@ async def test_an_admin_keeps_the_name_they_already_go_by(
 
     second = await manager.create_group(
         group_name="Vacances",
-        admin_name="Stephane Fath",
+        admin_name="Stephane Dupont",
         admin_user_id="ha-user-1",
     )
 

@@ -30,6 +30,7 @@ _COLUMNS = f"""
     icon,
     color,
     archived,
+    exposed,
     created_at,
     split_rule,
     default_category_id,
@@ -46,6 +47,7 @@ _JOINED_COLUMNS = f"""
     groups.icon,
     groups.color,
     groups.archived,
+    groups.exposed,
     groups.created_at,
     groups.split_rule,
     groups.default_category_id,
@@ -72,12 +74,13 @@ class GroupRepository(BaseRepository):
                 icon,
                 color,
                 archived,
+                exposed,
                 created_at,
                 split_rule,
                 default_category_id,
                 {columns}
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, {placeholders})
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, {placeholders})
             """,
             (
                 group.id,
@@ -87,6 +90,7 @@ class GroupRepository(BaseRepository):
                 group.icon,
                 group.color,
                 int(group.archived),
+                int(group.exposed),
                 group.created_at.isoformat(),
                 rule_to_json(group.split_rule),
                 group.default_category_id,
@@ -192,6 +196,7 @@ class GroupRepository(BaseRepository):
                 icon = ?,
                 color = ?,
                 archived = ?,
+                exposed = ?,
                 split_rule = ?,
                 default_category_id = ?,
                 {assignments}
@@ -204,6 +209,7 @@ class GroupRepository(BaseRepository):
                 group.icon,
                 group.color,
                 int(group.archived),
+                int(group.exposed),
                 rule_to_json(group.split_rule),
                 group.default_category_id,
                 *_permission_values(group),
@@ -234,6 +240,7 @@ class GroupRepository(BaseRepository):
             icon=row["icon"],
             color=row["color"],
             archived=bool(row["archived"]),
+            exposed=bool(row["exposed"]),
             created_at=datetime.fromisoformat(row["created_at"]),
             split_rule=rule_from_json(row["split_rule"]),
             default_category_id=row["default_category_id"],

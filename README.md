@@ -48,6 +48,12 @@ belong to, and nothing else.
   Deletions included, which is where an expense's own history cannot help — and
   a deleted expense can be brought back from there, as the one it was: same
   date, same shares, same frozen rate.
+- **On the dashboard, if you ask** — a project can expose a balance per member,
+  whether anything is still owed, and when it was last used; and `add_expense`
+  and `settle_up` are actions, so a tag on the fridge or a button card can add
+  the shopping. Off by default and per project: Home Assistant does not wall
+  entities off, so every account in the house would read the figures, member of
+  the project or not. That is a switch to throw knowingly, not a default.
 - **Mobile first** — a single panel, thumb-reachable, in your own theme, light
   or dark.
 

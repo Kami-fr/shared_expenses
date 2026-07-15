@@ -365,12 +365,12 @@ def _get_manager(hass: HomeAssistant) -> SharedExpensesManager | None:
     The integration declares `single_config_entry`, so there is at most one.
     """
 
-    entries: dict[str, SharedExpensesManager] = hass.data.get(DOMAIN, {})
+    entries: dict[str, dict[str, Any]] = hass.data.get(DOMAIN, {})
 
     if not entries:
         return None
 
-    return next(iter(entries.values()))
+    return next(iter(entries.values()))["manager"]
 
 
 def _message(err: SharedExpensesError) -> str:

@@ -9,8 +9,10 @@ from typing import Any
 
 import aiohttp
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .clients.frankfurter import fetch_rate
+from .const import SIGNAL_GROUP_CHANGED
 from .exceptions import (
     AdminNeedsAccountError,
     CannotRemoveAdminError,
@@ -540,11 +542,19 @@ class SharedExpensesManager:
         )
 
     async def delete_group(self, group_id: str) -> None:
-        """Delete a group and everything it contains."""
+        """Delete a group and everything it contains.
+
+        Says so itself rather than through `_record`, being the one write that
+        journals nothing: the revisions cascade away with the group, so there is
+        nobody left to tell. The dashboard still has to hear it — a group with
+        entities on it has just stopped existing.
+        """
 
         await self.get_group(group_id)
 
         await self._database.group_repository.delete(group_id)
+
+        async_dispatcher_send(self._database.hass, SIGNAL_GROUP_CHANGED, group_id)
 
     #
     # ------------------------------------------------------------------
@@ -1778,7 +1788,22 @@ class SharedExpensesManager:
         actor_user_id: str | None,
         changes: tuple[FieldChange, ...],
     ) -> None:
-        """Append a revision. Call inside the transaction it accounts for."""
+        """Append a revision, and say the group moved.
+
+        Every write worth accounting for comes through here, so this is where
+        the dashboard hears about it: one place rather than a `_notify` sprinkled
+        down thirty methods, one of which would be forgotten. A change nobody
+        journals is a change nobody needed to be told about either — the two
+        questions have the same answer, which is why they share a door.
+
+        Sent before the commit, and that is safe because nobody reads yet: the
+        listeners only schedule a refresh, and the refresh runs its own task
+        after this transaction has closed. Sending after the commit would need
+        the caller to remember to, which is the kind of remembering this method
+        exists to take away.
+        """
+
+        async_dispatcher_send(self._database.hass, SIGNAL_GROUP_CHANGED, group_id)
 
         await self._database.revision_repository.create(
             Revision(

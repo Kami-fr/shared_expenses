@@ -36,6 +36,15 @@ class Group:
     default_category_id: str | None = None
     """The category a new expense starts on. `None` means none in particular."""
 
+    exposed: bool = False
+    """Whether this group puts its figures on the Home Assistant dashboard.
+
+    False, and deliberately so. Entities are not walled: every account in the
+    house reads every entity's state, whatever this integration says about who
+    is in which group. Turning this on takes that wall down for this group, and
+    nothing that takes a wall down may happen to somebody who did not ask.
+    """
+
     permissions: frozenset[Permission] = field(default=DEFAULT_PERMISSIONS)
     """What an ordinary member of this group may do.
 

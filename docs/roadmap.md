@@ -157,9 +157,30 @@ member could delete the whole group.
       not in `openable` either, and would have looked restorable on that alone.
 - [x] 10 tests, the group's recording sabotaged to prove they catch its absence.
 
+## Sprint 14 — The dashboard
+
+- [x] A project can put its figures on the dashboard: a balance per member, one
+      sensor saying whether anything is still owed, and when it was last used.
+      Grouped under a device per project.
+- [x] Off by default, per project, admin only, and written into the journal.
+      Entities are not walled — `USER_POLICY` grants every account every entity
+      — so this takes a wall down and has to be thrown rather than inherited.
+- [x] Actions rather than buttons: `add_expense` and `settle_up` take fields, so
+      an NFC tag on the fridge works. From the interface they carry the account
+      and obey every rule; from an automation there is nobody to ask, so they go
+      through and the journal records "Someone".
+- [x] The coordinator refreshes on a signal, never on a clock: a shared expense
+      changes when somebody types it in. One signal, sent from `_record`, which
+      every write worth accounting for already went through.
+- [x] 19 tests. The exposure filter sabotaged to prove they catch a project
+      reaching the dashboard without asking.
+
 ## Later
 
 - [ ] Weighted splits (by shares, rather than by amount or percentage)
+- [ ] The actions take ids, because no selector knows what a project is. A
+      picker would mean teaching a form about them — worth doing, not worth
+      holding the actions back for.
 - [ ] Frontend tests. Every bug above that reached a user lived in the panel,
       where neither `tsc` nor the build nor the Python suite can see. Layout,
       at least, is measurable: Chrome headless against the built bundle catches

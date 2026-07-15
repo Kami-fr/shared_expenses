@@ -51,6 +51,8 @@ export interface UpdateGroupInput extends Partial<CreateGroupInput> {
    * "taken away", so a switch turned off has to arrive as an absence.
    */
   permissions?: Permission[];
+  /** Whether the project puts its figures on the dashboard. The admin's alone. */
+  exposed?: boolean;
 }
 
 export interface CreateExpenseInput {

@@ -77,6 +77,14 @@ export interface Group {
   default_category_id: string | null;
   /** What an ordinary member of this project may do. Everything, by default. */
   permissions: Permission[];
+  /**
+   * Whether this project puts its figures on the Home Assistant dashboard.
+   *
+   * False, and deliberately. Entities are not walled: every account in the
+   * house reads every entity's state, whatever this integration says about who
+   * is in which project.
+   */
+  exposed: boolean;
 }
 
 export interface Member {

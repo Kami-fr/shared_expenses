@@ -87,6 +87,7 @@ def group_state(group: Group) -> dict[str, Any]:
         "description": group.description,
         "currency": group.currency,
         "archived": group.archived,
+        "exposed": group.exposed,
         "default_category_id": group.default_category_id,
         "split_rule": rule_to_dict(group.split_rule),
         # Sorted, so the same set always reads the same way: a set has no order,

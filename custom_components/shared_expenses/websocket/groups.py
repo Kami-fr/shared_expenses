@@ -123,6 +123,7 @@ async def websocket_create_group(
         vol.Optional("split_rule"): vol.Any(None, SPLIT_RULE_SCHEMA),
         vol.Optional("default_category_id"): vol.Any(None, cv.string),
         vol.Optional("permissions"): PERMISSIONS_SCHEMA,
+        vol.Optional("exposed"): bool,
     }
 )
 @websocket_api.async_response
@@ -166,6 +167,14 @@ async def websocket_update_group(
         await manager.ensure_admin(msg["group_id"], connection.user.id)
 
         changes["permissions"] = permissions_from_msg(msg)
+
+    if "exposed" in msg:
+        # The admin's too, and for a heavier reason: this one takes a wall down
+        # rather than moving one. Entities are read by every account in the
+        # house, member or not.
+        await manager.ensure_admin(msg["group_id"], connection.user.id)
+
+        changes["exposed"] = msg["exposed"]
 
     updated = replace(group, **changes)
 

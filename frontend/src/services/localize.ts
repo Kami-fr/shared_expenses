@@ -173,6 +173,12 @@ const EN = {
   admin_needs_account:
     "Only somebody with a Home Assistant account can run a project.",
 
+  dashboard: "On the dashboard",
+  dashboard_hint:
+    "Off. Home Assistant does not wall entities off: every account in the house would read this project's balances, member or not.",
+  dashboard_on: "Put this project on the dashboard",
+  dashboard_on_hint:
+    "A sensor per member, and one saying whether anything is still owed. Readable by every account in the house — not only by the people in this project.",
   permissions: "What members may do",
   permissions_hint:
     "The same for everybody in the project. You and the admins are above these, always.",
@@ -416,6 +422,12 @@ const FR: Record<Key, string> = {
   admin_needs_account:
     "Seule une personne ayant un compte Home Assistant peut administrer un projet.",
 
+  dashboard: "Sur le tableau de bord",
+  dashboard_hint:
+    "Non. Home Assistant ne cloisonne pas les entités : tous les comptes de la maison liraient les soldes de ce projet, membres ou non.",
+  dashboard_on: "Mettre ce projet sur le tableau de bord",
+  dashboard_on_hint:
+    "Un capteur par membre, et un qui dit s'il reste quelque chose dû. Lisibles par tous les comptes de la maison — pas seulement par les gens de ce projet.",
   permissions: "Ce que les membres peuvent faire",
   permissions_hint:
     "Identique pour tout le monde dans le projet. Vous et les administrateurs passez toujours au-dessus.",
