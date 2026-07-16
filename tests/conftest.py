@@ -209,7 +209,7 @@ async def project(manager: SharedExpensesManager) -> dict[str, Any]:
     """
 
     group = await manager.create_group(
-        group_name="Montigny",
+        group_name="The Flat",
         admin_name="Stephane",
         admin_user_id=ADMIN,
     )

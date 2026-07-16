@@ -28,7 +28,7 @@ entity's state in the house.
 That is exactly what `Scope`, `ensure_group_member` and `list_user_groups` exist
 to prevent. A member of the flat's project is not a member of the one somebody
 shares with their partner, and the panel is careful never to let them learn it
-is there. A sensor called `sensor.montigny_antonin_balance` tells them, and
+is there. A sensor called `sensor.the_flat_antonin_balance` tells them, and
 tells them the figure.
 
 ## Decision

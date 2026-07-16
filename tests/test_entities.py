@@ -60,7 +60,7 @@ class FakeCoordinator:
 def a_snapshot(**over: Any) -> GroupSnapshot:
     """Return one project as the coordinator would have read it."""
 
-    group = SimpleNamespace(id="g1", name="Montigny", currency="EUR", exposed=True)
+    group = SimpleNamespace(id="g1", name="The Flat", currency="EUR", exposed=True)
 
     members = (
         SimpleNamespace(id="m1", name="Stephane"),
@@ -183,7 +183,7 @@ def test_somebody_who_left_keeps_their_name() -> None:
     """A nameless entity is not anonymous.
 
     Home Assistant reads one as the device's own and calls it after the project,
-    so the sensor of a member who had gone read "Montigny — unavailable", which
+    so the sensor of a member who had gone read "The Flat — unavailable", which
     says the project is broken rather than that somebody left. The name is held
     and never given back.
     """

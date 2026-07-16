@@ -103,7 +103,7 @@ async def test_renaming_the_project_is_recorded(
 
     entries = await journal(manager, project, RevisionEntity.GROUP)
 
-    assert moved(entries[0], "name").before == "Montigny"
+    assert moved(entries[0], "name").before == "The Flat"
     assert moved(entries[0], "name").after == "Maison"
 
 
@@ -139,7 +139,7 @@ async def test_a_save_that_changed_nothing_is_not_an_event(
         loaded,
         connection,
         groups.websocket_update_group,
-        {"group_id": project["group"].id, "name": "Montigny"},
+        {"group_id": project["group"].id, "name": "The Flat"},
     )
 
     assert connection.errors == {}

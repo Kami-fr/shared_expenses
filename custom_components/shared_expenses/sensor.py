@@ -196,7 +196,7 @@ class BalanceSensor(MoneySensor):
         # This was a property returning None once they left the project, which
         # is not the same as having no name: Home Assistant reads a nameless
         # entity as the device's own and calls it after the project. So the
-        # sensor of somebody who had gone read "Montigny — unavailable", which
+        # sensor of somebody who had gone read "The Flat — unavailable", which
         # says the project is broken rather than that somebody left.
         #
         # Held instead, and only ever replaced by a better one. A member always
