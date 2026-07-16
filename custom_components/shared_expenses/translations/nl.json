@@ -23,11 +23,11 @@
   "services": {
     "add_expense": {
       "name": "Uitgave toevoegen",
-      "description": "Voegt een uitgave toe aan een project. Vanuit de interface volgt ze de regels van het project, net als het paneel; vanuit een automatisering zit er geen account achter, dus ze gaat door en de geschiedenis noteert \"Iemand\".",
+      "description": "Voegt een uitgave toe aan een groep. Vanuit de interface volgt ze de regels van de groep, net als het paneel; vanuit een automatisering zit er geen account achter, dus ze gaat door en de geschiedenis noteert \"Iemand\".",
       "fields": {
         "group_id": {
-          "name": "Project",
-          "description": "De id van het project, zoals die in het adres van het paneel verschijnt."
+          "name": "Groep",
+          "description": "De id van de groep, zoals die in het adres van het paneel verschijnt."
         },
         "title": {
           "name": "Titel",
@@ -47,7 +47,7 @@
         },
         "currency": {
           "name": "Valuta",
-          "description": "ISO 4217-code van wat er betaald is. Weggelaten, die van het project. De koers van de dag wordt opgehaald en op de uitgave vastgezet."
+          "description": "ISO 4217-code van wat er betaald is. Weggelaten, die van de groep. De koers van de dag wordt opgehaald en op de uitgave vastgezet."
         },
         "category_id": {
           "name": "Categorie",
@@ -64,8 +64,8 @@
       "description": "Legt vast dat een lid een ander heeft terugbetaald.",
       "fields": {
         "group_id": {
-          "name": "Project",
-          "description": "De id van het project, zoals die in het adres van het paneel verschijnt."
+          "name": "Groep",
+          "description": "De id van de groep, zoals die in het adres van het paneel verschijnt."
         },
         "from_member_id": {
           "name": "Van",
@@ -85,7 +85,7 @@
         },
         "currency": {
           "name": "Valuta",
-          "description": "ISO 4217-code van wat er betaald is. Weggelaten, die van het project."
+          "description": "ISO 4217-code van wat er betaald is. Weggelaten, die van de groep."
         },
         "description": {
           "name": "Beschrijving",

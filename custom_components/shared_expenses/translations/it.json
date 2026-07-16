@@ -23,11 +23,11 @@
   "services": {
     "add_expense": {
       "name": "Aggiungi spesa",
-      "description": "Aggiunge una spesa a un progetto. Dall'interfaccia rispetta le regole del progetto, come il pannello; da un'automazione non c'è nessun account dietro, quindi passa e la cronologia registra «Qualcuno».",
+      "description": "Aggiunge una spesa a un gruppo. Dall'interfaccia rispetta le regole del gruppo, come il pannello; da un'automazione non c'è nessun account dietro, quindi passa e la cronologia registra «Qualcuno».",
       "fields": {
         "group_id": {
-          "name": "Progetto",
-          "description": "L'identificatore del progetto, così come appare nell'indirizzo del pannello."
+          "name": "Gruppo",
+          "description": "L'identificatore del gruppo, così come appare nell'indirizzo del pannello."
         },
         "title": {
           "name": "Titolo",
@@ -47,7 +47,7 @@
         },
         "currency": {
           "name": "Valuta",
-          "description": "Codice ISO 4217 di ciò che è stato pagato. Se omessa, quella del progetto. Il tasso del giorno viene recuperato e congelato sulla spesa."
+          "description": "Codice ISO 4217 di ciò che è stato pagato. Se omessa, quella del gruppo. Il tasso del giorno viene recuperato e congelato sulla spesa."
         },
         "category_id": {
           "name": "Categoria",
@@ -64,8 +64,8 @@
       "description": "Registra che un membro ne ha rimborsato un altro.",
       "fields": {
         "group_id": {
-          "name": "Progetto",
-          "description": "L'identificatore del progetto, così come appare nell'indirizzo del pannello."
+          "name": "Gruppo",
+          "description": "L'identificatore del gruppo, così come appare nell'indirizzo del pannello."
         },
         "from_member_id": {
           "name": "Da",
@@ -85,7 +85,7 @@
         },
         "currency": {
           "name": "Valuta",
-          "description": "Codice ISO 4217 di ciò che è stato pagato. Se omessa, quella del progetto."
+          "description": "Codice ISO 4217 di ciò che è stato pagato. Se omessa, quella del gruppo."
         },
         "description": {
           "name": "Descrizione",

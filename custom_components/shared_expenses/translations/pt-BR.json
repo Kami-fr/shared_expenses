@@ -23,11 +23,11 @@
   "services": {
     "add_expense": {
       "name": "Adicionar despesa",
-      "description": "Adiciona uma despesa a um projeto. Chamada pela interface, ela obedece às regras do projeto, como o painel; chamada por uma automação, não há nenhuma conta por trás, então ela passa e o histórico registra \"Alguém\".",
+      "description": "Adiciona uma despesa a um grupo. Chamada pela interface, ela obedece às regras do grupo, como o painel; chamada por uma automação, não há nenhuma conta por trás, então ela passa e o histórico registra \"Alguém\".",
       "fields": {
         "group_id": {
-          "name": "Projeto",
-          "description": "O id do projeto, como aparece no endereço do painel."
+          "name": "Grupo",
+          "description": "O id do grupo, como aparece no endereço do painel."
         },
         "title": {
           "name": "Título",
@@ -47,7 +47,7 @@
         },
         "currency": {
           "name": "Moeda",
-          "description": "Código ISO 4217 do que foi pago. Se omitida, a do próprio projeto. A taxa do dia é obtida e congelada na despesa."
+          "description": "Código ISO 4217 do que foi pago. Se omitida, a do próprio grupo. A taxa do dia é obtida e congelada na despesa."
         },
         "category_id": {
           "name": "Categoria",
@@ -64,8 +64,8 @@
       "description": "Registra que um membro pagou outro de volta.",
       "fields": {
         "group_id": {
-          "name": "Projeto",
-          "description": "O id do projeto, como aparece no endereço do painel."
+          "name": "Grupo",
+          "description": "O id do grupo, como aparece no endereço do painel."
         },
         "from_member_id": {
           "name": "De",
@@ -85,7 +85,7 @@
         },
         "currency": {
           "name": "Moeda",
-          "description": "Código ISO 4217 do que foi pago. Se omitida, a do próprio projeto."
+          "description": "Código ISO 4217 do que foi pago. Se omitida, a do próprio grupo."
         },
         "description": {
           "name": "Descrição",

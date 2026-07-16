@@ -23,11 +23,11 @@
   "services": {
     "add_expense": {
       "name": "Add expense",
-      "description": "Add an expense to a project. Called from the interface it obeys the project's rules, like the panel does; called from an automation there is no account behind it, so it goes through and the history records \"Someone\".",
+      "description": "Add an expense to a group. Called from the interface it obeys the group's rules, like the panel does; called from an automation there is no account behind it, so it goes through and the history records \"Someone\".",
       "fields": {
         "group_id": {
-          "name": "Project",
-          "description": "The id of the project, as it appears in the panel's address."
+          "name": "Group",
+          "description": "The id of the group, as it appears in the panel's address."
         },
         "title": {
           "name": "Title",
@@ -47,7 +47,7 @@
         },
         "currency": {
           "name": "Currency",
-          "description": "ISO 4217 code of what was handed over. Left out, the project's own. The day's rate is fetched and frozen onto the expense."
+          "description": "ISO 4217 code of what was handed over. Left out, the group's own. The day's rate is fetched and frozen onto the expense."
         },
         "category_id": {
           "name": "Category",
@@ -64,8 +64,8 @@
       "description": "Record that one member paid another back.",
       "fields": {
         "group_id": {
-          "name": "Project",
-          "description": "The id of the project, as it appears in the panel's address."
+          "name": "Group",
+          "description": "The id of the group, as it appears in the panel's address."
         },
         "from_member_id": {
           "name": "From",
@@ -85,7 +85,7 @@
         },
         "currency": {
           "name": "Currency",
-          "description": "ISO 4217 code of what was handed over. Left out, the project's own."
+          "description": "ISO 4217 code of what was handed over. Left out, the group's own."
         },
         "description": {
           "name": "Description",

@@ -4,34 +4,34 @@ Shared expenses for Home Assistant: who paid, who owes what, and who reimburses
 whom. No account to create and nothing to sync — the data lives in your own
 instance, next to the rest of it.
 
-Everyone in the house logs in as themselves. Each person sees the projects they
+Everyone in the house logs in as themselves. Each person sees the groups they
 belong to, and nothing else.
 
 ## Features
 
-- **Projects** — a flat, a holiday, a couple. Every Home Assistant account you
-  add can open the project; people without an account can be added too, and
-  still carry expenses. A project counts in one currency, chosen once: it is the
+- **Groups** — a flat, a holiday, a couple. Every Home Assistant account you
+  add can open the group; people without an account can be added too, and
+  still carry expenses. A group counts in one currency, chosen once: it is the
   unit every balance in it is written in, so it does not move afterwards. The
   name does — rename it whenever you like.
-- **Who may do what** — a project starts by letting everybody do everything,
+- **Who may do what** — a group starts by letting everybody do everything,
   which is what a household usually wants. Four switches take that back one at a
-  time: managing members, managing categories, editing the project, and touching
+  time: managing members, managing categories, editing the group, and touching
   what somebody else entered and paid. They are the same for everybody. One
-  person is the project's **admin** and is always above them; they alone delete
+  person is the group's **admin** and is always above them; they alone delete
   it, and they can hand it on — becoming an ordinary member, free to leave.
 - **Expenses** — a title, an amount, who paid, a date, a category, and a split.
 - **Split rules** — beyond splitting equally: fixed amounts or percentages per
   person, an envelope shared between some and the rest to whoever paid. A
   category carries its own rule, so the usual case is filled in for you.
-- **Other currencies** — pay in dollars in a project that counts in euros, and
+- **Other currencies** — pay in dollars in a group that counts in euros, and
   pay each other back in dollars too. The day's rate is fetched and frozen onto
   what it converted: what someone owes was settled the day they were owed it,
   and a rate that moved since is a fact about the market, not about the debt.
 - **Balances** — who owes what, and the shortest set of transfers that clears
   everything.
 - **Reimbursements and debts** — record that money moved, or merely that it is
-  owed, with a note saying what it was about. Someone who left the project can
+  owed, with a note saying what it was about. Someone who left the group can
   still be reimbursed: leaving does not clear a debt.
 - **One list** — expenses and reimbursements together, newest first, and
   searchable by anything on the row: a shop, a person, a category, an amount. A
@@ -40,9 +40,9 @@ belong to, and nothing else.
 - **Written from where you stand** — "you are owed", not "Marc is owed", and
   green when the money is coming your way, red when it is leaving. The same
   figure means the same thing on the balance card and in the list under it.
-- **Statistics** — what the project spent, by category and by month, and what of
+- **Statistics** — what the group spent, by category and by month, and what of
   it was yours.
-- **History** — every change in the project, with who made it and what moved:
+- **History** — every change in the group, with who made it and what moved:
   the expenses and the reimbursements, and the decisions around them too — who
   joined, who left, who runs it, what it allows, what its categories are.
   Deletions included, which is where an expense's own history cannot help — and
@@ -50,7 +50,7 @@ belong to, and nothing else.
   date, same shares, same frozen rate.
 - **On the dashboard** — a card putting who owes what to whom on any view, and
   saying it to whoever is looking: you read what you owe, your flatmate reads
-  what they owe. Alongside it, if a project asks: what it has spent, a balance
+  what they owe. Alongside it, if a group asks: what it has spent, a balance
   per member, when it was last used, and `add_expense` and `settle_up` as
   actions, so a tag on the fridge or a button card can add the shopping.
 - **Mobile first** — a single panel, thumb-reachable, in your own theme, light
@@ -100,7 +100,7 @@ an old expense always resolves back to the same shares.
 
 A split is settled in what the expense was paid in — the editor sits under the
 amount, so "Antonin owes 20" on a New York dinner is twenty dollars. The shares
-are then converted and stored in the project's currency, which is what balances
+are then converted and stored in the group's currency, which is what balances
 can be counted in. The converted total is divided rather than each share
 converted on its own: three shares of a cent at a rate of a third would each
 round to nothing, and the shares would stop adding up to what they are shares
@@ -130,7 +130,7 @@ tells your flatmate what they owe. On a tablet logged in as nobody in
 particular, there is no "you" and it says who owes whom.
 
 Nothing here is an entity, so nothing here needs the switch below, and nobody
-outside the project can read it: the card asks through the same door as the
+outside the group can read it: the card asks through the same door as the
 panel, and that door knows the answer.
 
 The `group_id` is the one thing to fill in, and there is no picker for it — see
@@ -138,21 +138,21 @@ The `group_id` is the one thing to fill in, and there is no picker for it — se
 
 ### The entities
 
-A project keeps its *figures* to its panel until you say otherwise. Open **Edit
-project → On the dashboard**, and it grows a device carrying:
+A group keeps its *figures* to its panel until you say otherwise. Open **Edit
+group → On the dashboard**, and it grows a device carrying:
 
 | Entity | What it says |
 |--------|--------------|
-| Total spent | What the project has spent since it started. Expenses only — paying somebody back moves money, it does not spend any |
+| Total spent | What the group has spent since it started. Expenses only — paying somebody back moves money, it does not spend any |
 | One per member | Their balance. Positive is owed to them, negative is owed by them |
 | Last activity | When something was last entered |
 
 **It is off by default, and that is the whole design.** Home Assistant does not
 wall entities off — every account in the house reads every entity's state,
-whatever this integration thinks about who is in which project. So a sensor
+whatever this integration thinks about who is in which group. So a sensor
 carrying a balance is a balance the flatmate can read, and the switch is the
 only thing standing between the two. Throwing it takes a wall down; that has to
-be a decision, so it is written into the project's history like any other.
+be a decision, so it is written into the group's history like any other.
 
 There is no "you" out there, either. An entity's state is the same for everybody
 reading it, so nothing here says "you are owed" — a balance is named for whose
@@ -181,10 +181,10 @@ tap_action:
 One tap and it is in, dated today, at today's rate, with your name on it in the
 history — and the tile it sits on goes up by 1,30 €, which is how you know.
 
-**Where the ids come from.** A project and a member are this integration's own,
+**Where the ids come from.** A group and a member are this integration's own,
 not Home Assistant entities, so no selector lists them. They are under
-**Developer tools → States**: every entity of a project carries its `group_id`,
-and somebody's `member_id` is on their own balance sensor. The project's id is
+**Developer tools → States**: every entity of a group carries its `group_id`,
+and somebody's `member_id` is on their own balance sensor. The group's id is
 also in the panel's address, which is the only way to find it with the switch
 shut — and all the card needs.
 
@@ -210,7 +210,7 @@ tap_action:
 
 `from` is whoever is out of pocket, `to` whoever is paid back — the ids are the
 `member_id`s carried on the balance sensors. A reimbursement moves money between
-members, not out of the project, so the total stays put; the balance on the tile
+members, not out of the group, so the total stays put; the balance on the tile
 is what shifts, which is how you know it landed.
 
 ### A tile for everything else
@@ -228,7 +228,7 @@ tap_action:
   navigation_path: /shared_expenses/group/01KXHEB4VFFWMAN5CG4BDNNBF9
 ```
 
-One tap to the project, one to the plus.
+One tap to the group, one to the plus.
 
 ### A month on a gauge
 
@@ -268,7 +268,7 @@ the helper only reads it.
 NFC tag by the door.
 
 Called from the interface they carry the account that pressed, and every rule
-the project has applies exactly as it does in the panel. An automation carries
+the group has applies exactly as it does in the panel. An automation carries
 no account — Home Assistant builds its trigger context without one, even when a
 person set the trigger off — so there is nobody to ask and nothing is asked. The
 history records it as "Someone", which is the truth.
@@ -279,7 +279,7 @@ history records it as "Someone", which is the truth.
 - No account, no API key
 
 One request ever leaves your instance, and only if you ask for it: an expense or
-a reimbursement in a currency the project does not count in fetches that day's rate
+a reimbursement in a currency the group does not count in fetches that day's rate
 from [Frankfurter](https://frankfurter.dev), a free open-source service sourcing
 from central banks and needing no key. Nothing about the expense is sent — only
 the pair of currencies and the date.
@@ -314,13 +314,12 @@ each define `se-balance-card`, the second throwing and taking the panel with it.
 See ADR-015.
 
 The entities go the other way and are a separate surface. They belong to the
-instance rather than to an account, which is why a project has to ask for them —
+instance rather than to an account, which is why a group has to ask for them —
 see ADR-014.
 
-A project is a `group` everywhere but on screen: the tables, the commands, the
-URL and the translation keys all keep the word. Home Assistant has groups of its
-own, so the one the reader sees had to give way; the ones in the code answer to
-the schema, and renaming those would buy nothing.
+A group is a `group` on screen as well as in the code: the tables, the commands,
+the URL and the translation keys all keep the word, and the panel no longer
+stands apart from them.
 
 Some logic exists twice, in Python for the backend and in TypeScript so the
 panel can show what an expense comes to before you save it — the split resolver,

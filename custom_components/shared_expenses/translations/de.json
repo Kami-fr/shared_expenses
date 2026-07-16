@@ -23,11 +23,11 @@
   "services": {
     "add_expense": {
       "name": "Ausgabe hinzufügen",
-      "description": "Fügt einem Projekt eine Ausgabe hinzu. Über die Oberfläche befolgt sie die Regeln des Projekts, wie das Panel; aus einer Automatisierung steht kein Konto dahinter, also geht sie durch und der Verlauf trägt „Jemand“ ein.",
+      "description": "Fügt einer Gruppe eine Ausgabe hinzu. Über die Oberfläche befolgt sie die Regeln der Gruppe, wie das Panel; aus einer Automatisierung steht kein Konto dahinter, also geht sie durch und der Verlauf trägt „Jemand“ ein.",
       "fields": {
         "group_id": {
-          "name": "Projekt",
-          "description": "Die ID des Projekts, so wie sie in der Adresse des Panels erscheint."
+          "name": "Gruppe",
+          "description": "Die ID der Gruppe, so wie sie in der Adresse des Panels erscheint."
         },
         "title": {
           "name": "Titel",
@@ -47,7 +47,7 @@
         },
         "currency": {
           "name": "Währung",
-          "description": "ISO-4217-Code dessen, was beglichen wurde. Weggelassen: die des Projekts. Der Tageskurs wird abgerufen und auf der Ausgabe festgehalten."
+          "description": "ISO-4217-Code dessen, was beglichen wurde. Weggelassen: die der Gruppe. Der Tageskurs wird abgerufen und auf der Ausgabe festgehalten."
         },
         "category_id": {
           "name": "Kategorie",
@@ -64,8 +64,8 @@
       "description": "Hält fest, dass ein Mitglied einem anderen etwas zurückgezahlt hat.",
       "fields": {
         "group_id": {
-          "name": "Projekt",
-          "description": "Die ID des Projekts, so wie sie in der Adresse des Panels erscheint."
+          "name": "Gruppe",
+          "description": "Die ID der Gruppe, so wie sie in der Adresse des Panels erscheint."
         },
         "from_member_id": {
           "name": "Von",
@@ -85,7 +85,7 @@
         },
         "currency": {
           "name": "Währung",
-          "description": "ISO-4217-Code dessen, was beglichen wurde. Weggelassen: die des Projekts."
+          "description": "ISO-4217-Code dessen, was beglichen wurde. Weggelassen: die der Gruppe."
         },
         "description": {
           "name": "Beschreibung",

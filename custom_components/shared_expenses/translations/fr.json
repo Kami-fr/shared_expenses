@@ -23,11 +23,11 @@
   "services": {
     "add_expense": {
       "name": "Ajouter une dépense",
-      "description": "Ajoute une dépense à un projet. Depuis l'interface, elle respecte les règles du projet, comme le panneau ; depuis une automatisation, aucun compte n'est derrière, alors elle passe et l'historique inscrit « Quelqu'un ».",
+      "description": "Ajoute une dépense à un groupe. Depuis l'interface, elle respecte les règles du groupe, comme le panneau ; depuis une automatisation, aucun compte n'est derrière, alors elle passe et l'historique inscrit « Quelqu'un ».",
       "fields": {
         "group_id": {
-          "name": "Projet",
-          "description": "L'identifiant du projet, tel qu'il apparaît dans l'adresse du panneau."
+          "name": "Groupe",
+          "description": "L'identifiant du groupe, tel qu'il apparaît dans l'adresse du panneau."
         },
         "title": {
           "name": "Titre",
@@ -47,7 +47,7 @@
         },
         "currency": {
           "name": "Devise",
-          "description": "Code ISO 4217 de ce qui a été réglé. Omis, celle du projet. Le taux du jour est récupéré et figé sur la dépense."
+          "description": "Code ISO 4217 de ce qui a été réglé. Omis, celle du groupe. Le taux du jour est récupéré et figé sur la dépense."
         },
         "category_id": {
           "name": "Catégorie",
@@ -64,8 +64,8 @@
       "description": "Enregistre qu'un membre en a remboursé un autre.",
       "fields": {
         "group_id": {
-          "name": "Projet",
-          "description": "L'identifiant du projet, tel qu'il apparaît dans l'adresse du panneau."
+          "name": "Groupe",
+          "description": "L'identifiant du groupe, tel qu'il apparaît dans l'adresse du panneau."
         },
         "from_member_id": {
           "name": "De",
@@ -85,7 +85,7 @@
         },
         "currency": {
           "name": "Devise",
-          "description": "Code ISO 4217 de ce qui a été réglé. Omis, celle du projet."
+          "description": "Code ISO 4217 de ce qui a été réglé. Omis, celle du groupe."
         },
         "description": {
           "name": "Description",

@@ -3,7 +3,7 @@
  * Copyright 2019 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const We = globalThis, nt = We.ShadowRoot && (We.ShadyCSS === void 0 || We.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype, lt = Symbol(), yt = /* @__PURE__ */ new WeakMap();
+const We = globalThis, nt = We.ShadowRoot && (We.ShadyCSS === void 0 || We.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype, lt = Symbol(), bt = /* @__PURE__ */ new WeakMap();
 let qt = class {
   constructor(t, r, i) {
     if (this._$cssResult$ = !0, i !== lt) throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");
@@ -14,7 +14,7 @@ let qt = class {
     const r = this.t;
     if (nt && t === void 0) {
       const i = r !== void 0 && r.length === 1;
-      i && (t = yt.get(r)), t === void 0 && ((this.o = t = new CSSStyleSheet()).replaceSync(this.cssText), i && yt.set(r, t));
+      i && (t = bt.get(r)), t === void 0 && ((this.o = t = new CSSStyleSheet()).replaceSync(this.cssText), i && bt.set(r, t));
     }
     return t;
   }
@@ -35,7 +35,7 @@ const rr = (e) => new qt(typeof e == "string" ? e : e + "", void 0, lt), x = (e,
     const i = document.createElement("style"), a = We.litNonce;
     a !== void 0 && i.setAttribute("nonce", a), i.textContent = r.cssText, e.appendChild(i);
   }
-}, bt = nt ? (e) => e : (e) => e instanceof CSSStyleSheet ? ((t) => {
+}, yt = nt ? (e) => e : (e) => e instanceof CSSStyleSheet ? ((t) => {
   let r = "";
   for (const i of t.cssRules) r += i.cssText;
   return rr(r);
@@ -75,7 +75,7 @@ const { is: ar, defineProperty: sr, getOwnPropertyDescriptor: or, getOwnProperty
   return r;
 } }, dt = (e, t) => !ar(e, t), vt = { attribute: !0, type: String, converter: Ke, reflect: !1, useDefault: !1, hasChanged: dt };
 Symbol.metadata ??= Symbol("metadata"), Ze.litPropertyMetadata ??= /* @__PURE__ */ new WeakMap();
-let Ae = class extends HTMLElement {
+let Se = class extends HTMLElement {
   static addInitializer(t) {
     this._$Ei(), (this.l ??= []).push(t);
   }
@@ -129,8 +129,8 @@ let Ae = class extends HTMLElement {
     const r = [];
     if (Array.isArray(t)) {
       const i = new Set(t.flat(1 / 0).reverse());
-      for (const a of i) r.unshift(bt(a));
-    } else t !== void 0 && r.push(bt(t));
+      for (const a of i) r.unshift(yt(a));
+    } else t !== void 0 && r.push(yt(t));
     return r;
   }
   static _$Eu(t, r) {
@@ -256,59 +256,59 @@ let Ae = class extends HTMLElement {
   firstUpdated(t) {
   }
 };
-Ae.elementStyles = [], Ae.shadowRootOptions = { mode: "open" }, Ae[Te("elementProperties")] = /* @__PURE__ */ new Map(), Ae[Te("finalized")] = /* @__PURE__ */ new Map(), pr?.({ ReactiveElement: Ae }), (Ze.reactiveElementVersions ??= []).push("2.1.2");
+Se.elementStyles = [], Se.shadowRootOptions = { mode: "open" }, Se[Te("elementProperties")] = /* @__PURE__ */ new Map(), Se[Te("finalized")] = /* @__PURE__ */ new Map(), pr?.({ ReactiveElement: Se }), (Ze.reactiveElementVersions ??= []).push("2.1.2");
 /**
  * @license
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const ct = globalThis, wt = (e) => e, Fe = ct.trustedTypes, $t = Fe ? Fe.createPolicy("lit-html", { createHTML: (e) => e }) : void 0, Ut = "$lit$", ge = `lit$${Math.random().toFixed(9).slice(2)}$`, Bt = "?" + ge, hr = `<${Bt}>`, $e = document, Oe = () => $e.createComment(""), Ie = (e) => e === null || typeof e != "object" && typeof e != "function", pt = Array.isArray, ur = (e) => pt(e) || typeof e?.[Symbol.iterator] == "function", Xe = `[ 	
-\f\r]`, De = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, xt = /-->/g, kt = />/g, ve = RegExp(`>|${Xe}(?:([^\\s"'>=/]+)(${Xe}*=${Xe}*(?:[^ 	
-\f\r"'\`<>=]|("|')|))|$)`, "g"), zt = /'/g, jt = /"/g, Ht = /^(?:script|style|textarea|title)$/i, mr = (e) => (t, ...r) => ({ _$litType$: e, strings: t, values: r }), o = mr(1), ne = Symbol.for("lit-noChange"), c = Symbol.for("lit-nothing"), At = /* @__PURE__ */ new WeakMap(), we = $e.createTreeWalker($e, 129);
-function Lt(e, t) {
+const ct = globalThis, wt = (e) => e, Fe = ct.trustedTypes, $t = Fe ? Fe.createPolicy("lit-html", { createHTML: (e) => e }) : void 0, Gt = "$lit$", ge = `lit$${Math.random().toFixed(9).slice(2)}$`, Ut = "?" + ge, ur = `<${Ut}>`, $e = document, Oe = () => $e.createComment(""), Ie = (e) => e === null || typeof e != "object" && typeof e != "function", pt = Array.isArray, hr = (e) => pt(e) || typeof e?.[Symbol.iterator] == "function", Xe = `[ 	
+\f\r]`, je = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, xt = /-->/g, zt = />/g, ve = RegExp(`>|${Xe}(?:([^\\s"'>=/]+)(${Xe}*=${Xe}*(?:[^ 	
+\f\r"'\`<>=]|("|')|))|$)`, "g"), kt = /'/g, At = /"/g, Bt = /^(?:script|style|textarea|title)$/i, mr = (e) => (t, ...r) => ({ _$litType$: e, strings: t, values: r }), o = mr(1), ne = Symbol.for("lit-noChange"), c = Symbol.for("lit-nothing"), St = /* @__PURE__ */ new WeakMap(), we = $e.createTreeWalker($e, 129);
+function Ht(e, t) {
   if (!pt(e) || !e.hasOwnProperty("raw")) throw Error("invalid template strings array");
   return $t !== void 0 ? $t.createHTML(t) : t;
 }
 const gr = (e, t) => {
   const r = e.length - 1, i = [];
-  let a, s = t === 2 ? "<svg>" : t === 3 ? "<math>" : "", n = De;
+  let a, s = t === 2 ? "<svg>" : t === 3 ? "<math>" : "", n = je;
   for (let p = 0; p < r; p++) {
-    const h = e[p];
-    let y, z, u = -1, te = 0;
-    for (; te < h.length && (n.lastIndex = te, z = n.exec(h), z !== null); ) te = n.lastIndex, n === De ? z[1] === "!--" ? n = xt : z[1] !== void 0 ? n = kt : z[2] !== void 0 ? (Ht.test(z[2]) && (a = RegExp("</" + z[2], "g")), n = ve) : z[3] !== void 0 && (n = ve) : n === ve ? z[0] === ">" ? (n = a ?? De, u = -1) : z[1] === void 0 ? u = -2 : (u = n.lastIndex - z[2].length, y = z[1], n = z[3] === void 0 ? ve : z[3] === '"' ? jt : zt) : n === jt || n === zt ? n = ve : n === xt || n === kt ? n = De : (n = ve, a = void 0);
-    const S = n === ve && e[p + 1].startsWith("/>") ? " " : "";
-    s += n === De ? h + hr : u >= 0 ? (i.push(y), h.slice(0, u) + Ut + h.slice(u) + ge + S) : h + ge + (u === -2 ? p : S);
+    const u = e[p];
+    let b, k, h = -1, te = 0;
+    for (; te < u.length && (n.lastIndex = te, k = n.exec(u), k !== null); ) te = n.lastIndex, n === je ? k[1] === "!--" ? n = xt : k[1] !== void 0 ? n = zt : k[2] !== void 0 ? (Bt.test(k[2]) && (a = RegExp("</" + k[2], "g")), n = ve) : k[3] !== void 0 && (n = ve) : n === ve ? k[0] === ">" ? (n = a ?? je, h = -1) : k[1] === void 0 ? h = -2 : (h = n.lastIndex - k[2].length, b = k[1], n = k[3] === void 0 ? ve : k[3] === '"' ? At : kt) : n === At || n === kt ? n = ve : n === xt || n === zt ? n = je : (n = ve, a = void 0);
+    const C = n === ve && e[p + 1].startsWith("/>") ? " " : "";
+    s += n === je ? u + ur : h >= 0 ? (i.push(b), u.slice(0, h) + Gt + u.slice(h) + ge + C) : u + ge + (h === -2 ? p : C);
   }
-  return [Lt(e, s + (e[r] || "<?>") + (t === 2 ? "</svg>" : t === 3 ? "</math>" : "")), i];
+  return [Ht(e, s + (e[r] || "<?>") + (t === 2 ? "</svg>" : t === 3 ? "</math>" : "")), i];
 };
 class Ne {
   constructor({ strings: t, _$litType$: r }, i) {
     let a;
     this.parts = [];
     let s = 0, n = 0;
-    const p = t.length - 1, h = this.parts, [y, z] = gr(t, r);
-    if (this.el = Ne.createElement(y, i), we.currentNode = this.el.content, r === 2 || r === 3) {
-      const u = this.el.content.firstChild;
-      u.replaceWith(...u.childNodes);
+    const p = t.length - 1, u = this.parts, [b, k] = gr(t, r);
+    if (this.el = Ne.createElement(b, i), we.currentNode = this.el.content, r === 2 || r === 3) {
+      const h = this.el.content.firstChild;
+      h.replaceWith(...h.childNodes);
     }
-    for (; (a = we.nextNode()) !== null && h.length < p; ) {
+    for (; (a = we.nextNode()) !== null && u.length < p; ) {
       if (a.nodeType === 1) {
-        if (a.hasAttributes()) for (const u of a.getAttributeNames()) if (u.endsWith(Ut)) {
-          const te = z[n++], S = a.getAttribute(u).split(ge), C = /([.?@])?(.*)/.exec(te);
-          h.push({ type: 1, index: s, name: C[2], strings: S, ctor: C[1] === "." ? yr : C[1] === "?" ? br : C[1] === "@" ? fr : Je }), a.removeAttribute(u);
-        } else u.startsWith(ge) && (h.push({ type: 6, index: s }), a.removeAttribute(u));
-        if (Ht.test(a.tagName)) {
-          const u = a.textContent.split(ge), te = u.length - 1;
+        if (a.hasAttributes()) for (const h of a.getAttributeNames()) if (h.endsWith(Gt)) {
+          const te = k[n++], C = a.getAttribute(h).split(ge), E = /([.?@])?(.*)/.exec(te);
+          u.push({ type: 1, index: s, name: E[2], strings: C, ctor: E[1] === "." ? br : E[1] === "?" ? yr : E[1] === "@" ? fr : Je }), a.removeAttribute(h);
+        } else h.startsWith(ge) && (u.push({ type: 6, index: s }), a.removeAttribute(h));
+        if (Bt.test(a.tagName)) {
+          const h = a.textContent.split(ge), te = h.length - 1;
           if (te > 0) {
             a.textContent = Fe ? Fe.emptyScript : "";
-            for (let S = 0; S < te; S++) a.append(u[S], Oe()), we.nextNode(), h.push({ type: 2, index: ++s });
-            a.append(u[te], Oe());
+            for (let C = 0; C < te; C++) a.append(h[C], Oe()), we.nextNode(), u.push({ type: 2, index: ++s });
+            a.append(h[te], Oe());
           }
         }
-      } else if (a.nodeType === 8) if (a.data === Bt) h.push({ type: 2, index: s });
+      } else if (a.nodeType === 8) if (a.data === Ut) u.push({ type: 2, index: s });
       else {
-        let u = -1;
-        for (; (u = a.data.indexOf(ge, u + 1)) !== -1; ) h.push({ type: 7, index: s }), u += ge.length - 1;
+        let h = -1;
+        for (; (h = a.data.indexOf(ge, h + 1)) !== -1; ) u.push({ type: 7, index: s }), h += ge.length - 1;
       }
       s++;
     }
@@ -318,11 +318,11 @@ class Ne {
     return i.innerHTML = t, i;
   }
 }
-function Se(e, t, r = e, i) {
+function Ce(e, t, r = e, i) {
   if (t === ne) return t;
   let a = i !== void 0 ? r._$Co?.[i] : r._$Cl;
   const s = Ie(t) ? void 0 : t._$litDirective$;
-  return a?.constructor !== s && (a?._$AO?.(!1), s === void 0 ? a = void 0 : (a = new s(e), a._$AT(e, r, i)), i !== void 0 ? (r._$Co ??= [])[i] = a : r._$Cl = a), a !== void 0 && (t = Se(e, a._$AS(e, t.values), a, i)), t;
+  return a?.constructor !== s && (a?._$AO?.(!1), s === void 0 ? a = void 0 : (a = new s(e), a._$AT(e, r, i)), i !== void 0 ? (r._$Co ??= [])[i] = a : r._$Cl = a), a !== void 0 && (t = Ce(e, a._$AS(e, t.values), a, i)), t;
 }
 class _r {
   constructor(t, r) {
@@ -337,13 +337,13 @@ class _r {
   u(t) {
     const { el: { content: r }, parts: i } = this._$AD, a = (t?.creationScope ?? $e).importNode(r, !0);
     we.currentNode = a;
-    let s = we.nextNode(), n = 0, p = 0, h = i[0];
-    for (; h !== void 0; ) {
-      if (n === h.index) {
-        let y;
-        h.type === 2 ? y = new qe(s, s.nextSibling, this, t) : h.type === 1 ? y = new h.ctor(s, h.name, h.strings, this, t) : h.type === 6 && (y = new vr(s, this, t)), this._$AV.push(y), h = i[++p];
+    let s = we.nextNode(), n = 0, p = 0, u = i[0];
+    for (; u !== void 0; ) {
+      if (n === u.index) {
+        let b;
+        u.type === 2 ? b = new qe(s, s.nextSibling, this, t) : u.type === 1 ? b = new u.ctor(s, u.name, u.strings, this, t) : u.type === 6 && (b = new vr(s, this, t)), this._$AV.push(b), u = i[++p];
       }
-      n !== h?.index && (s = we.nextNode(), n++);
+      n !== u?.index && (s = we.nextNode(), n++);
     }
     return we.currentNode = $e, a;
   }
@@ -371,7 +371,7 @@ class qe {
     return this._$AB;
   }
   _$AI(t, r = this) {
-    t = Se(this, t, r), Ie(t) ? t === c || t == null || t === "" ? (this._$AH !== c && this._$AR(), this._$AH = c) : t !== this._$AH && t !== ne && this._(t) : t._$litType$ !== void 0 ? this.$(t) : t.nodeType !== void 0 ? this.T(t) : ur(t) ? this.k(t) : this._(t);
+    t = Ce(this, t, r), Ie(t) ? t === c || t == null || t === "" ? (this._$AH !== c && this._$AR(), this._$AH = c) : t !== this._$AH && t !== ne && this._(t) : t._$litType$ !== void 0 ? this.$(t) : t.nodeType !== void 0 ? this.T(t) : hr(t) ? this.k(t) : this._(t);
   }
   O(t) {
     return this._$AA.parentNode.insertBefore(t, this._$AB);
@@ -383,7 +383,7 @@ class qe {
     this._$AH !== c && Ie(this._$AH) ? this._$AA.nextSibling.data = t : this.T($e.createTextNode(t)), this._$AH = t;
   }
   $(t) {
-    const { values: r, _$litType$: i } = t, a = typeof i == "number" ? this._$AC(t) : (i.el === void 0 && (i.el = Ne.createElement(Lt(i.h, i.h[0]), this.options)), i);
+    const { values: r, _$litType$: i } = t, a = typeof i == "number" ? this._$AC(t) : (i.el === void 0 && (i.el = Ne.createElement(Ht(i.h, i.h[0]), this.options)), i);
     if (this._$AH?._$AD === a) this._$AH.p(r);
     else {
       const s = new _r(a, this), n = s.u(this.options);
@@ -391,8 +391,8 @@ class qe {
     }
   }
   _$AC(t) {
-    let r = At.get(t.strings);
-    return r === void 0 && At.set(t.strings, r = new Ne(t)), r;
+    let r = St.get(t.strings);
+    return r === void 0 && St.set(t.strings, r = new Ne(t)), r;
   }
   k(t) {
     pt(this._$AH) || (this._$AH = [], this._$AR());
@@ -424,11 +424,11 @@ class Je {
   _$AI(t, r = this, i, a) {
     const s = this.strings;
     let n = !1;
-    if (s === void 0) t = Se(this, t, r, 0), n = !Ie(t) || t !== this._$AH && t !== ne, n && (this._$AH = t);
+    if (s === void 0) t = Ce(this, t, r, 0), n = !Ie(t) || t !== this._$AH && t !== ne, n && (this._$AH = t);
     else {
       const p = t;
-      let h, y;
-      for (t = s[0], h = 0; h < s.length - 1; h++) y = Se(this, p[i + h], r, h), y === ne && (y = this._$AH[h]), n ||= !Ie(y) || y !== this._$AH[h], y === c ? t = c : t !== c && (t += (y ?? "") + s[h + 1]), this._$AH[h] = y;
+      let u, b;
+      for (t = s[0], u = 0; u < s.length - 1; u++) b = Ce(this, p[i + u], r, u), b === ne && (b = this._$AH[u]), n ||= !Ie(b) || b !== this._$AH[u], b === c ? t = c : t !== c && (t += (b ?? "") + s[u + 1]), this._$AH[u] = b;
     }
     n && !a && this.j(t);
   }
@@ -436,7 +436,7 @@ class Je {
     t === c ? this.element.removeAttribute(this.name) : this.element.setAttribute(this.name, t ?? "");
   }
 }
-class yr extends Je {
+class br extends Je {
   constructor() {
     super(...arguments), this.type = 3;
   }
@@ -444,7 +444,7 @@ class yr extends Je {
     this.element[this.name] = t === c ? void 0 : t;
   }
 }
-class br extends Je {
+class yr extends Je {
   constructor() {
     super(...arguments), this.type = 4;
   }
@@ -457,7 +457,7 @@ class fr extends Je {
     super(t, r, i, a, s), this.type = 5;
   }
   _$AI(t, r = this) {
-    if ((t = Se(this, t, r, 0) ?? c) === ne) return;
+    if ((t = Ce(this, t, r, 0) ?? c) === ne) return;
     const i = this._$AH, a = t === c && i !== c || t.capture !== i.capture || t.once !== i.once || t.passive !== i.passive, s = t !== c && (i === c || a);
     a && this.element.removeEventListener(this.name, this, i), s && this.element.addEventListener(this.name, this, t), this._$AH = t;
   }
@@ -473,7 +473,7 @@ class vr {
     return this._$AM._$AU;
   }
   _$AI(t) {
-    Se(this, t);
+    Ce(this, t);
   }
 }
 const wr = ct.litHtmlPolyfillSupport;
@@ -492,8 +492,8 @@ const $r = (e, t, r) => {
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const ht = globalThis;
-let g = class extends Ae {
+const ut = globalThis;
+let g = class extends Se {
   constructor() {
     super(...arguments), this.renderOptions = { host: this }, this._$Do = void 0;
   }
@@ -515,10 +515,10 @@ let g = class extends Ae {
     return ne;
   }
 };
-g._$litElement$ = !0, g.finalized = !0, ht.litElementHydrateSupport?.({ LitElement: g });
-const xr = ht.litElementPolyfillSupport;
+g._$litElement$ = !0, g.finalized = !0, ut.litElementHydrateSupport?.({ LitElement: g });
+const xr = ut.litElementPolyfillSupport;
 xr?.({ LitElement: g });
-(ht.litElementVersions ??= []).push("4.2.2");
+(ut.litElementVersions ??= []).push("4.2.2");
 /**
  * @license
  * Copyright 2017 Google LLC
@@ -534,14 +534,14 @@ const f = (e) => (t, r) => {
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const kr = { attribute: !0, type: String, converter: Ke, reflect: !1, hasChanged: dt }, zr = (e = kr, t, r) => {
+const zr = { attribute: !0, type: String, converter: Ke, reflect: !1, hasChanged: dt }, kr = (e = zr, t, r) => {
   const { kind: i, metadata: a } = r;
   let s = globalThis.litPropertyMetadata.get(a);
   if (s === void 0 && globalThis.litPropertyMetadata.set(a, s = /* @__PURE__ */ new Map()), i === "setter" && ((e = Object.create(e)).wrapped = !0), s.set(r.name, e), i === "accessor") {
     const { name: n } = r;
     return { set(p) {
-      const h = t.get.call(this);
-      t.set.call(this, p), this.requestUpdate(n, h, e, !0, p);
+      const u = t.get.call(this);
+      t.set.call(this, p), this.requestUpdate(n, u, e, !0, p);
     }, init(p) {
       return p !== void 0 && this.C(n, void 0, e, p), p;
     } };
@@ -549,14 +549,14 @@ const kr = { attribute: !0, type: String, converter: Ke, reflect: !1, hasChanged
   if (i === "setter") {
     const { name: n } = r;
     return function(p) {
-      const h = this[n];
-      t.call(this, p), this.requestUpdate(n, h, e, !0, p);
+      const u = this[n];
+      t.call(this, p), this.requestUpdate(n, u, e, !0, p);
     };
   }
   throw Error("Unsupported decorator location: " + i);
 };
 function l(e) {
-  return (t, r) => typeof r == "object" ? zr(e, t, r) : ((i, a, s) => {
+  return (t, r) => typeof r == "object" ? kr(e, t, r) : ((i, a, s) => {
     const n = a.hasOwnProperty(s);
     return a.constructor.createProperty(s, i), n ? Object.getOwnPropertyDescriptor(a, s) : void 0;
   })(e, t, r);
@@ -569,12 +569,12 @@ function l(e) {
 function d(e) {
   return l({ ...e, state: !0, attribute: !1 });
 }
-var jr = Object.defineProperty, Ar = Object.getOwnPropertyDescriptor, Qe = (e, t, r, i) => {
-  for (var a = i > 1 ? void 0 : i ? Ar(t, r) : t, s = e.length - 1, n; s >= 0; s--)
+var Ar = Object.defineProperty, Sr = Object.getOwnPropertyDescriptor, Qe = (e, t, r, i) => {
+  for (var a = i > 1 ? void 0 : i ? Sr(t, r) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (a = (i ? n(t, r, a) : n(a)) || a);
-  return i && a && jr(t, r, a), a;
+  return i && a && Ar(t, r, a), a;
 };
-let Ce = class extends g {
+let Ee = class extends g {
   constructor() {
     super(...arguments), this.variant = "filled", this.disabled = !1;
   }
@@ -590,7 +590,7 @@ let Ce = class extends g {
     this.disabled && e.stopPropagation();
   }
 };
-Ce.styles = x`
+Ee.styles = x`
     :host {
       display: inline-flex;
     }
@@ -637,22 +637,22 @@ Ce.styles = x`
   `;
 Qe([
   l({ type: String })
-], Ce.prototype, "variant", 2);
+], Ee.prototype, "variant", 2);
 Qe([
   l({ type: Boolean })
-], Ce.prototype, "disabled", 2);
+], Ee.prototype, "disabled", 2);
 Qe([
   l({ type: String })
-], Ce.prototype, "icon", 2);
-Ce = Qe([
+], Ee.prototype, "icon", 2);
+Ee = Qe([
   f("se-button")
-], Ce);
+], Ee);
 /**
  * @license
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const je = { ATTRIBUTE: 1, PROPERTY: 3, BOOLEAN_ATTRIBUTE: 4 }, Gt = (e) => (...t) => ({ _$litDirective$: e, values: t });
+const Ae = { ATTRIBUTE: 1, PROPERTY: 3, BOOLEAN_ATTRIBUTE: 4 }, Lt = (e) => (...t) => ({ _$litDirective$: e, values: t });
 let Wt = class {
   constructor(t) {
   }
@@ -674,16 +674,16 @@ let Wt = class {
  * Copyright 2020 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const Sr = (e) => e.strings === void 0, Cr = {}, Kt = (e, t = Cr) => e._$AH = t;
+const Cr = (e) => e.strings === void 0, Er = {}, Kt = (e, t = Er) => e._$AH = t;
 /**
  * @license
  * Copyright 2020 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const Ft = Gt(class extends Wt {
+const Ft = Lt(class extends Wt {
   constructor(e) {
-    if (super(e), e.type !== je.PROPERTY && e.type !== je.ATTRIBUTE && e.type !== je.BOOLEAN_ATTRIBUTE) throw Error("The `live` directive is not allowed on child or event bindings");
-    if (!Sr(e)) throw Error("`live` bindings can only contain a single expression");
+    if (super(e), e.type !== Ae.PROPERTY && e.type !== Ae.ATTRIBUTE && e.type !== Ae.BOOLEAN_ATTRIBUTE) throw Error("The `live` directive is not allowed on child or event bindings");
+    if (!Cr(e)) throw Error("`live` bindings can only contain a single expression");
   }
   render(e) {
     return e;
@@ -691,20 +691,20 @@ const Ft = Gt(class extends Wt {
   update(e, [t]) {
     if (t === ne || t === c) return t;
     const r = e.element, i = e.name;
-    if (e.type === je.PROPERTY) {
+    if (e.type === Ae.PROPERTY) {
       if (t === r[i]) return ne;
-    } else if (e.type === je.BOOLEAN_ATTRIBUTE) {
+    } else if (e.type === Ae.BOOLEAN_ATTRIBUTE) {
       if (!!t === r.hasAttribute(i)) return ne;
-    } else if (e.type === je.ATTRIBUTE && r.getAttribute(i) === t + "") return ne;
+    } else if (e.type === Ae.ATTRIBUTE && r.getAttribute(i) === t + "") return ne;
     return Kt(e), t;
   }
 });
-var Er = Object.defineProperty, Pr = Object.getOwnPropertyDescriptor, ut = (e, t, r, i) => {
+var Dr = Object.defineProperty, Pr = Object.getOwnPropertyDescriptor, ht = (e, t, r, i) => {
   for (var a = i > 1 ? void 0 : i ? Pr(t, r) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (a = (i ? n(t, r, a) : n(a)) || a);
-  return i && a && Er(t, r, a), a;
+  return i && a && Dr(t, r, a), a;
 };
-const Dr = 300;
+const jr = 300;
 let Me = class extends g {
   constructor() {
     super(...arguments), this.heading = "", this.open = !1, this.keepInView = (e) => {
@@ -714,7 +714,7 @@ let Me = class extends g {
       const r = e.target;
       r?.scrollIntoView && window.setTimeout(() => {
         r.scrollIntoView({ block: "center", behavior: "smooth" });
-      }, Dr);
+      }, jr);
     }, this.close = () => {
       this.open = !1, this.dispatchEvent(new CustomEvent("dialog-closed", { bubbles: !0, composed: !0 }));
     }, this.handleKeydown = (e) => {
@@ -873,13 +873,13 @@ Me.styles = x`
       }
     }
   `;
-ut([
+ht([
   l({ type: String })
 ], Me.prototype, "heading", 2);
-ut([
+ht([
   l({ type: Boolean, reflect: !0 })
 ], Me.prototype, "open", 2);
-Me = ut([
+Me = ht([
   f("se-dialog")
 ], Me);
 var Tr = Object.defineProperty, Or = Object.getOwnPropertyDescriptor, ce = (e, t, r, i) => {
@@ -1002,7 +1002,7 @@ ce([
 Q = ce([
   f("se-field")
 ], Q);
-var Ir = Object.defineProperty, Nr = Object.getOwnPropertyDescriptor, Ee = (e, t, r, i) => {
+var Ir = Object.defineProperty, Nr = Object.getOwnPropertyDescriptor, De = (e, t, r, i) => {
   for (var a = i > 1 ? void 0 : i ? Nr(t, r) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (a = (i ? n(t, r, a) : n(a)) || a);
   return i && a && Ir(t, r, a), a;
@@ -1081,22 +1081,22 @@ _e.styles = x`
       color: var(--primary-text-color);
     }
   `;
-Ee([
+De([
   l({ type: String })
 ], _e.prototype, "label", 2);
-Ee([
+De([
   l({ type: String })
 ], _e.prototype, "value", 2);
-Ee([
+De([
   l({ attribute: !1 })
 ], _e.prototype, "options", 2);
-Ee([
+De([
   l({ type: String })
 ], _e.prototype, "placeholder", 2);
-Ee([
+De([
   l({ type: Boolean })
 ], _e.prototype, "disabled", 2);
-_e = Ee([
+_e = De([
   f("se-select")
 ], _e);
 const J = 1e6, Mr = J * 1e4, mt = [
@@ -1151,21 +1151,21 @@ function qr(e) {
   const s = Number(i || "0") * J + Number(a.padEnd(6, "0") || "0");
   return Vt(s) ? s : null;
 }
-function St(e) {
+function Ct(e) {
   const t = Math.floor(e / J), r = e % J;
   return r === 0 ? String(t) : `${t}.${String(r).padStart(6, "0")}`.replace(/0+$/, "");
 }
 const Ve = {
   app_title: "Shared Expenses",
-  groups: "Projects",
-  no_groups: "No project yet. Create one to get started.",
-  new_group: "New project",
-  edit_group: "Edit project",
-  all_groups: "All projects",
+  groups: "Groups",
+  no_groups: "No group yet. Create one to get started.",
+  new_group: "New group",
+  edit_group: "Edit group",
+  all_groups: "All groups",
   more: "More",
-  delete_group: "Delete this project",
-  create_group: "Create project",
-  group_name: "Project name",
+  delete_group: "Delete this group",
+  create_group: "Create group",
+  group_name: "Group name",
   description: "Description",
   currency: "Currency",
   archived: "Archived",
@@ -1211,7 +1211,7 @@ const Ve = {
   no_categories: "No category yet. A category carries a default split rule.",
   new_category: "New category",
   default_category: "Default category",
-  default_category_hint: "A new expense opens on this one. One category per project.",
+  default_category_hint: "A new expense opens on this one. One category per group.",
   default_category_tag: "Default",
   edit_category: "Edit category",
   category_name: "Name",
@@ -1236,8 +1236,8 @@ const Ve = {
   split_percent_example: "e.g. 60 / 40 — on 100 that is 60 and 40, on 30 it is 18 and 12.",
   split_partial_example: "e.g. 10 shared on an 85 shop: 5 each, and the other 75 for whoever paid.",
   split_custom_example: "e.g. 10 shared, then 8 for one and 4 for the other.",
-  default_from_category: "Whatever the category says, or the project when it says nothing.",
-  default_from_group: "Whatever the project says for expenses with no category.",
+  default_from_category: "Whatever the category says, or the group when it says nothing.",
+  default_from_group: "Whatever the group says for expenses with no category.",
   split_equal: "Equal shares",
   split_exact: "Exact amounts",
   split_shared_lower: "shared",
@@ -1299,40 +1299,40 @@ const Ve = {
   description_placeholder: "Optional",
   split_total: "Split total",
   apply_rule: "Apply the rule of",
-  group_rule: "the project",
+  group_rule: "the group",
   shares_mismatch: "The shares must add up to the amount.",
   participants: "Participants",
   members: "Members",
   member_name: "Name",
-  remove_member: "Remove from project",
+  remove_member: "Remove from group",
   restore_member: "Bring back",
   confirm_remove: "Confirm?",
   add: "Add",
   close: "Close",
   ha_accounts: "Home Assistant accounts",
-  ha_accounts_hint: "Ticked accounts take part in this project and can open it.",
+  ha_accounts_hint: "Ticked accounts take part in this group and can open it.",
   no_ha_accounts: "No account found.",
-  admin_locked: "The admin cannot leave. Hand the project on first, or archive it.",
-  cannot_remove_admin: "The admin cannot leave. Hand the project on first, or archive it.",
-  make_admin: "Hand the project over",
-  confirm_make_admin: "Hand the project to this person? You become an ordinary member, and only they will be able to hand it on or delete it.",
-  admin_needs_account: "Only somebody with a Home Assistant account can run a project.",
+  admin_locked: "The admin cannot leave. Hand the group on first, or archive it.",
+  cannot_remove_admin: "The admin cannot leave. Hand the group on first, or archive it.",
+  make_admin: "Hand the group over",
+  confirm_make_admin: "Hand the group to this person? You become an ordinary member, and only they will be able to hand it on or delete it.",
+  admin_needs_account: "Only somebody with a Home Assistant account can run a group.",
   dashboard: "On the dashboard",
-  dashboard_hint: "Off. Home Assistant does not wall entities off: every account in the house would read this project's balances, member or not.",
-  dashboard_on: "Put this project on the dashboard",
-  dashboard_on_hint: "A sensor per member, and one saying whether anything is still owed. Readable by every account in the house — not only by the people in this project.",
+  dashboard_hint: "Off. Home Assistant does not wall entities off: every account in the house would read this group's balances, member or not.",
+  dashboard_on: "Put this group on the dashboard",
+  dashboard_on_hint: "A sensor per member, and one saying whether anything is still owed. Readable by every account in the house — not only by the people in this group.",
   permissions: "What members may do",
-  permissions_hint: "The same for everybody in the project. You and the admins are above these, always.",
+  permissions_hint: "The same for everybody in the group. You and the admins are above these, always.",
   perm_manage_members: "Manage members",
   perm_manage_members_hint: "Add, remove and rename people. Never who is an admin.",
   perm_manage_categories: "Manage categories",
   perm_manage_categories_hint: "Create and change the categories and their rules.",
-  perm_manage_group: "Edit the project",
+  perm_manage_group: "Edit the group",
   perm_manage_group_hint: "Rename it, change its default rule, archive it.",
   perm_edit_others: "Edit what is not theirs",
   perm_edit_others_hint: "Change or delete an expense somebody else entered and paid.",
-  not_allowed: "The project does not allow you to do this.",
-  archived_hint: "This project is archived: nothing new can be added to it.",
+  not_allowed: "The group does not allow you to do this.",
+  archived_hint: "This group is archived: nothing new can be added to it.",
   guests: "Without an account",
   guests_hint: "They carry expenses but never log in.",
   no_account: "No account",
@@ -1354,7 +1354,7 @@ const Ve = {
   from_member: "From",
   to_member: "To",
   history: "History",
-  group_history: "Project history",
+  group_history: "Group history",
   no_history: "Nothing recorded yet.",
   history_created: "added",
   history_updated: "changed",
@@ -1363,7 +1363,7 @@ const Ve = {
   restore_entry: "Bring it back",
   the_expense: "the expense",
   the_payment: "the reimbursement",
-  the_group: "the project",
+  the_group: "the group",
   the_category: "the category",
   the_member: "the member",
   field_name: "Name",
@@ -1374,10 +1374,10 @@ const Ve = {
   someone: "Someone",
   loading: "Loading…",
   error_generic: "Something went wrong.",
-  group_not_found: "This project no longer exists.",
-  group_archived: "This project is archived.",
+  group_not_found: "This group no longer exists.",
+  group_archived: "This group is archived.",
   member_not_found: "This member no longer exists.",
-  member_already_in_group: "This member is already in the project.",
+  member_already_in_group: "This member is already in the group.",
   category_not_found: "This category no longer exists.",
   expense_not_found: "This expense no longer exists.",
   invalid_expense: "This expense is invalid.",
@@ -1385,20 +1385,20 @@ const Ve = {
   invalid_split_rule: "This split rule is invalid.",
   payment_not_found: "This reimbursement no longer exists.",
   invalid_payment: "This reimbursement is invalid.",
-  currency_locked: "This project already has expenses, so its currency can no longer change.",
+  currency_locked: "This group already has expenses, so its currency can no longer change.",
   not_loaded: "The integration is not loaded.",
   unknown_error: "Something went wrong."
-}, Ur = {
+}, Gr = {
   app_title: "Dépenses partagées",
-  groups: "Projets",
-  no_groups: "Aucun projet pour l'instant. Créez-en un pour commencer.",
-  new_group: "Nouveau projet",
-  edit_group: "Modifier le projet",
-  all_groups: "Tous les projets",
+  groups: "Groupes",
+  no_groups: "Aucun groupe pour l'instant. Créez-en un pour commencer.",
+  new_group: "Nouveau groupe",
+  edit_group: "Modifier le groupe",
+  all_groups: "Tous les groupes",
   more: "Plus",
-  delete_group: "Supprimer ce projet",
-  create_group: "Créer le projet",
-  group_name: "Nom du projet",
+  delete_group: "Supprimer ce groupe",
+  create_group: "Créer le groupe",
+  group_name: "Nom du groupe",
   description: "Description",
   currency: "Devise",
   archived: "Archivé",
@@ -1444,7 +1444,7 @@ const Ve = {
   no_categories: "Aucune catégorie. Une catégorie porte une règle de répartition par défaut.",
   new_category: "Nouvelle catégorie",
   default_category: "Catégorie par défaut",
-  default_category_hint: "Une nouvelle dépense s'ouvrira sur celle-ci. Une seule par projet.",
+  default_category_hint: "Une nouvelle dépense s'ouvrira sur celle-ci. Une seule par groupe.",
   default_category_tag: "Par défaut",
   edit_category: "Modifier la catégorie",
   category_name: "Nom",
@@ -1469,8 +1469,8 @@ const Ve = {
   split_percent_example: "ex. 60 / 40 — sur 100 € c'est 60 et 40, sur 30 € c'est 18 et 12.",
   split_partial_example: "ex. 10 € partagés sur 85 € de courses : 5 € chacun, et les 75 € restants pour qui a payé.",
   split_custom_example: "ex. 10 € partagés, puis 8 € pour l'un et 4 € pour l'autre.",
-  default_from_category: "Ce que dit la catégorie, ou le projet si elle ne dit rien.",
-  default_from_group: "Ce que dit le projet pour les dépenses sans catégorie.",
+  default_from_category: "Ce que dit la catégorie, ou le groupe si elle ne dit rien.",
+  default_from_group: "Ce que dit le groupe pour les dépenses sans catégorie.",
   split_equal: "Parts égales",
   split_exact: "Montants exacts",
   split_shared_lower: "partagés",
@@ -1532,40 +1532,40 @@ const Ve = {
   description_placeholder: "Facultatif",
   split_total: "Total réparti",
   apply_rule: "Appliquer la règle de",
-  group_rule: "du projet",
+  group_rule: "du groupe",
   shares_mismatch: "Le total des parts doit égaler le montant.",
   participants: "Participants",
   members: "Membres",
   member_name: "Nom",
-  remove_member: "Retirer du projet",
+  remove_member: "Retirer du groupe",
   restore_member: "Réactiver",
   confirm_remove: "Confirmer ?",
   add: "Ajouter",
   close: "Fermer",
   ha_accounts: "Comptes Home Assistant",
-  ha_accounts_hint: "Les comptes cochés participent au projet et peuvent l'ouvrir.",
+  ha_accounts_hint: "Les comptes cochés participent au groupe et peuvent l'ouvrir.",
   no_ha_accounts: "Aucun compte trouvé.",
-  admin_locked: "L'administrateur ne peut pas partir. Cédez le projet, ou archivez-le.",
-  cannot_remove_admin: "L'administrateur ne peut pas partir. Cédez le projet, ou archivez-le.",
-  make_admin: "Céder le projet",
-  confirm_make_admin: "Céder le projet à cette personne ? Vous redevenez un membre ordinaire, et elle seule pourra le céder ou le supprimer.",
-  admin_needs_account: "Seule une personne ayant un compte Home Assistant peut administrer un projet.",
+  admin_locked: "L'administrateur ne peut pas partir. Cédez le groupe, ou archivez-le.",
+  cannot_remove_admin: "L'administrateur ne peut pas partir. Cédez le groupe, ou archivez-le.",
+  make_admin: "Céder le groupe",
+  confirm_make_admin: "Céder le groupe à cette personne ? Vous redevenez un membre ordinaire, et elle seule pourra le céder ou le supprimer.",
+  admin_needs_account: "Seule une personne ayant un compte Home Assistant peut administrer un groupe.",
   dashboard: "Sur le tableau de bord",
-  dashboard_hint: "Non. Home Assistant ne cloisonne pas les entités : tous les comptes de la maison liraient les soldes de ce projet, membres ou non.",
-  dashboard_on: "Mettre ce projet sur le tableau de bord",
-  dashboard_on_hint: "Un capteur par membre, et un qui dit s'il reste quelque chose dû. Lisibles par tous les comptes de la maison — pas seulement par les gens de ce projet.",
+  dashboard_hint: "Non. Home Assistant ne cloisonne pas les entités : tous les comptes de la maison liraient les soldes de ce groupe, membres ou non.",
+  dashboard_on: "Mettre ce groupe sur le tableau de bord",
+  dashboard_on_hint: "Un capteur par membre, et un qui dit s'il reste quelque chose dû. Lisibles par tous les comptes de la maison — pas seulement par les gens de ce groupe.",
   permissions: "Ce que les membres peuvent faire",
-  permissions_hint: "Identique pour tout le monde dans le projet. Vous et les administrateurs passez toujours au-dessus.",
+  permissions_hint: "Identique pour tout le monde dans le groupe. Vous et les administrateurs passez toujours au-dessus.",
   perm_manage_members: "Gérer les membres",
   perm_manage_members_hint: "Ajouter, retirer et renommer. Jamais qui est administrateur.",
   perm_manage_categories: "Gérer les catégories",
   perm_manage_categories_hint: "Créer et modifier les catégories et leurs règles.",
-  perm_manage_group: "Modifier le projet",
+  perm_manage_group: "Modifier le groupe",
   perm_manage_group_hint: "Le renommer, changer sa règle par défaut, l'archiver.",
   perm_edit_others: "Modifier ce qui n'est pas à eux",
   perm_edit_others_hint: "Changer ou supprimer une dépense qu'un autre a saisie et payée.",
-  not_allowed: "Le projet ne vous autorise pas à faire ça.",
-  archived_hint: "Ce projet est archivé : plus rien ne peut y être ajouté.",
+  not_allowed: "Le groupe ne vous autorise pas à faire ça.",
+  archived_hint: "Ce groupe est archivé : plus rien ne peut y être ajouté.",
   guests: "Sans compte",
   guests_hint: "Ils portent des dépenses mais ne se connectent jamais.",
   no_account: "Sans compte",
@@ -1586,7 +1586,7 @@ const Ve = {
   from_member: "De",
   to_member: "Vers",
   history: "Historique",
-  group_history: "Historique du projet",
+  group_history: "Historique du groupe",
   no_history: "Rien d'enregistré pour l'instant.",
   history_created: "a ajouté",
   history_updated: "a modifié",
@@ -1595,7 +1595,7 @@ const Ve = {
   restore_entry: "Restaurer",
   the_expense: "la dépense",
   the_payment: "le remboursement",
-  the_group: "le projet",
+  the_group: "le groupe",
   the_category: "la catégorie",
   the_member: "le membre",
   field_name: "Nom",
@@ -1606,10 +1606,10 @@ const Ve = {
   someone: "Quelqu'un",
   loading: "Chargement…",
   error_generic: "Une erreur est survenue.",
-  group_not_found: "Ce projet n'existe plus.",
-  group_archived: "Ce projet est archivé.",
+  group_not_found: "Ce groupe n'existe plus.",
+  group_archived: "Ce groupe est archivé.",
   member_not_found: "Ce membre n'existe plus.",
-  member_already_in_group: "Ce membre fait déjà partie du projet.",
+  member_already_in_group: "Ce membre fait déjà partie du groupe.",
   category_not_found: "Cette catégorie n'existe plus.",
   expense_not_found: "Cette dépense n'existe plus.",
   invalid_expense: "Cette dépense est invalide.",
@@ -1617,20 +1617,20 @@ const Ve = {
   invalid_split_rule: "Cette règle de répartition est invalide.",
   payment_not_found: "Ce remboursement n'existe plus.",
   invalid_payment: "Ce remboursement est invalide.",
-  currency_locked: "Ce projet a déjà des dépenses : sa devise ne peut plus changer.",
+  currency_locked: "Ce groupe a déjà des dépenses : sa devise ne peut plus changer.",
   not_loaded: "L'intégration n'est pas chargée.",
   unknown_error: "Une erreur est survenue."
-}, Br = {
+}, Ur = {
   app_title: "Geteilte Ausgaben",
-  groups: "Projekte",
-  no_groups: "Noch kein Projekt. Erstelle eines, um zu beginnen.",
-  new_group: "Neues Projekt",
-  edit_group: "Projekt bearbeiten",
-  all_groups: "Alle Projekte",
+  groups: "Gruppen",
+  no_groups: "Noch keine Gruppe. Erstelle eine, um zu beginnen.",
+  new_group: "Neue Gruppe",
+  edit_group: "Gruppe bearbeiten",
+  all_groups: "Alle Gruppen",
   more: "Mehr",
-  delete_group: "Dieses Projekt löschen",
-  create_group: "Projekt erstellen",
-  group_name: "Projektname",
+  delete_group: "Diese Gruppe löschen",
+  create_group: "Gruppe erstellen",
+  group_name: "Gruppenname",
   description: "Beschreibung",
   currency: "Währung",
   archived: "Archiviert",
@@ -1676,7 +1676,7 @@ const Ve = {
   no_categories: "Noch keine Kategorie. Eine Kategorie trägt eine Standard-Aufteilungsregel.",
   new_category: "Neue Kategorie",
   default_category: "Standardkategorie",
-  default_category_hint: "Eine neue Ausgabe öffnet sich mit dieser. Nur eine pro Projekt.",
+  default_category_hint: "Eine neue Ausgabe öffnet sich mit dieser. Nur eine pro Gruppe.",
   default_category_tag: "Standard",
   edit_category: "Kategorie bearbeiten",
   category_name: "Name",
@@ -1701,8 +1701,8 @@ const Ve = {
   split_percent_example: "z. B. 60 / 40 — bei 100 € sind das 60 und 40, bei 30 € sind es 18 und 12.",
   split_partial_example: "z. B. 10 € geteilt bei 85 € Einkauf: 5 € pro Person, und die restlichen 75 € für den, der bezahlt hat.",
   split_custom_example: "z. B. 10 € geteilt, dann 8 € für den einen und 4 € für den anderen.",
-  default_from_category: "Was die Kategorie sagt, oder das Projekt, wenn sie nichts sagt.",
-  default_from_group: "Was das Projekt für Ausgaben ohne Kategorie sagt.",
+  default_from_category: "Was die Kategorie sagt, oder die Gruppe, wenn sie nichts sagt.",
+  default_from_group: "Was die Gruppe für Ausgaben ohne Kategorie sagt.",
   split_equal: "Gleiche Anteile",
   split_exact: "Genaue Beträge",
   split_shared_lower: "geteilt",
@@ -1764,40 +1764,40 @@ const Ve = {
   description_placeholder: "Optional",
   split_total: "Aufgeteilt gesamt",
   apply_rule: "Regel anwenden von",
-  group_rule: "des Projekts",
+  group_rule: "der Gruppe",
   shares_mismatch: "Die Summe der Anteile muss dem Betrag entsprechen.",
   participants: "Teilnehmer",
   members: "Mitglieder",
   member_name: "Name",
-  remove_member: "Aus dem Projekt entfernen",
+  remove_member: "Aus der Gruppe entfernen",
   restore_member: "Wieder aktivieren",
   confirm_remove: "Bestätigen?",
   add: "Hinzufügen",
   close: "Schließen",
   ha_accounts: "Home-Assistant-Konten",
-  ha_accounts_hint: "Die angekreuzten Konten nehmen am Projekt teil und können es öffnen.",
+  ha_accounts_hint: "Die angekreuzten Konten nehmen an der Gruppe teil und können sie öffnen.",
   no_ha_accounts: "Kein Konto gefunden.",
-  admin_locked: "Der Administrator kann nicht gehen. Gib das Projekt zuerst ab oder archiviere es.",
-  cannot_remove_admin: "Der Administrator kann nicht gehen. Gib das Projekt zuerst ab oder archiviere es.",
-  make_admin: "Projekt abgeben",
-  confirm_make_admin: "Das Projekt an diese Person abgeben? Du wirst wieder ein gewöhnliches Mitglied, und nur sie kann es abgeben oder löschen.",
-  admin_needs_account: "Nur eine Person mit einem Home-Assistant-Konto kann ein Projekt verwalten.",
+  admin_locked: "Der Administrator kann nicht gehen. Gib die Gruppe zuerst ab oder archiviere sie.",
+  cannot_remove_admin: "Der Administrator kann nicht gehen. Gib die Gruppe zuerst ab oder archiviere sie.",
+  make_admin: "Gruppe abgeben",
+  confirm_make_admin: "Die Gruppe an diese Person abgeben? Du wirst wieder ein gewöhnliches Mitglied, und nur sie kann diese abgeben oder löschen.",
+  admin_needs_account: "Nur eine Person mit einem Home-Assistant-Konto kann eine Gruppe verwalten.",
   dashboard: "Auf dem Dashboard",
-  dashboard_hint: "Nein. Home Assistant schottet Entitäten nicht ab: alle Konten im Haus würden die Salden dieses Projekts lesen, Mitglied oder nicht.",
-  dashboard_on: "Dieses Projekt aufs Dashboard bringen",
-  dashboard_on_hint: "Ein Sensor pro Mitglied und einer, der sagt, ob noch etwas geschuldet wird. Lesbar für alle Konten im Haus — nicht nur für die Leute in diesem Projekt.",
+  dashboard_hint: "Nein. Home Assistant schottet Entitäten nicht ab: alle Konten im Haus würden die Salden dieser Gruppe lesen, Mitglied oder nicht.",
+  dashboard_on: "Diese Gruppe aufs Dashboard bringen",
+  dashboard_on_hint: "Ein Sensor pro Mitglied und einer, der sagt, ob noch etwas geschuldet wird. Lesbar für alle Konten im Haus — nicht nur für die Leute in dieser Gruppe.",
   permissions: "Was Mitglieder dürfen",
-  permissions_hint: "Für alle im Projekt gleich. Du und die Administratoren stehen immer darüber.",
+  permissions_hint: "Für alle in der Gruppe gleich. Du und die Administratoren stehen immer darüber.",
   perm_manage_members: "Mitglieder verwalten",
   perm_manage_members_hint: "Personen hinzufügen, entfernen und umbenennen. Nie, wer Administrator ist.",
   perm_manage_categories: "Kategorien verwalten",
   perm_manage_categories_hint: "Die Kategorien und ihre Regeln erstellen und ändern.",
-  perm_manage_group: "Projekt bearbeiten",
+  perm_manage_group: "Gruppe bearbeiten",
   perm_manage_group_hint: "Es umbenennen, seine Standardregel ändern, es archivieren.",
   perm_edit_others: "Ändern, was nicht ihnen gehört",
   perm_edit_others_hint: "Eine Ausgabe ändern oder löschen, die jemand anderes erfasst und bezahlt hat.",
-  not_allowed: "Das Projekt erlaubt dir das nicht.",
-  archived_hint: "Dieses Projekt ist archiviert: es kann nichts mehr hinzugefügt werden.",
+  not_allowed: "Die Gruppe erlaubt dir das nicht.",
+  archived_hint: "Diese Gruppe ist archiviert: es kann nichts mehr hinzugefügt werden.",
   guests: "Ohne Konto",
   guests_hint: "Sie tragen Ausgaben, melden sich aber nie an.",
   no_account: "Ohne Konto",
@@ -1818,7 +1818,7 @@ const Ve = {
   from_member: "Von",
   to_member: "An",
   history: "Verlauf",
-  group_history: "Projektverlauf",
+  group_history: "Gruppenverlauf",
   no_history: "Noch nichts aufgezeichnet.",
   history_created: "hat hinzugefügt",
   history_updated: "hat geändert",
@@ -1827,7 +1827,7 @@ const Ve = {
   restore_entry: "Wiederherstellen",
   the_expense: "die Ausgabe",
   the_payment: "die Rückzahlung",
-  the_group: "das Projekt",
+  the_group: "die Gruppe",
   the_category: "die Kategorie",
   the_member: "das Mitglied",
   field_name: "Name",
@@ -1838,10 +1838,10 @@ const Ve = {
   someone: "Jemand",
   loading: "Wird geladen…",
   error_generic: "Etwas ist schiefgelaufen.",
-  group_not_found: "Dieses Projekt existiert nicht mehr.",
-  group_archived: "Dieses Projekt ist archiviert.",
+  group_not_found: "Diese Gruppe existiert nicht mehr.",
+  group_archived: "Diese Gruppe ist archiviert.",
   member_not_found: "Dieses Mitglied existiert nicht mehr.",
-  member_already_in_group: "Dieses Mitglied gehört bereits zum Projekt.",
+  member_already_in_group: "Dieses Mitglied gehört bereits zur Gruppe.",
   category_not_found: "Diese Kategorie existiert nicht mehr.",
   expense_not_found: "Diese Ausgabe existiert nicht mehr.",
   invalid_expense: "Diese Ausgabe ist ungültig.",
@@ -1849,20 +1849,20 @@ const Ve = {
   invalid_split_rule: "Diese Aufteilungsregel ist ungültig.",
   payment_not_found: "Diese Rückzahlung existiert nicht mehr.",
   invalid_payment: "Diese Rückzahlung ist ungültig.",
-  currency_locked: "Dieses Projekt hat bereits Ausgaben: seine Währung kann sich nicht mehr ändern.",
+  currency_locked: "Diese Gruppe hat bereits Ausgaben: ihre Währung kann sich nicht mehr ändern.",
   not_loaded: "Die Integration ist nicht geladen.",
   unknown_error: "Etwas ist schiefgelaufen."
-}, Hr = {
+}, Br = {
   app_title: "Gedeelde uitgaven",
-  groups: "Projecten",
-  no_groups: "Nog geen project. Maak er een om te beginnen.",
-  new_group: "Nieuw project",
-  edit_group: "Project bewerken",
-  all_groups: "Alle projecten",
+  groups: "Groepen",
+  no_groups: "Nog geen groep. Maak er een om te beginnen.",
+  new_group: "Nieuwe groep",
+  edit_group: "Groep bewerken",
+  all_groups: "Alle groepen",
   more: "Meer",
-  delete_group: "Dit project verwijderen",
-  create_group: "Project aanmaken",
-  group_name: "Projectnaam",
+  delete_group: "Deze groep verwijderen",
+  create_group: "Groep aanmaken",
+  group_name: "Groepsnaam",
   description: "Beschrijving",
   currency: "Valuta",
   archived: "Gearchiveerd",
@@ -1908,7 +1908,7 @@ const Ve = {
   no_categories: "Geen categorie. Een categorie draagt een standaard verdeelregel.",
   new_category: "Nieuwe categorie",
   default_category: "Standaardcategorie",
-  default_category_hint: "Een nieuwe uitgave opent op deze. Eén per project.",
+  default_category_hint: "Een nieuwe uitgave opent op deze. Eén per groep.",
   default_category_tag: "Standaard",
   edit_category: "Categorie bewerken",
   category_name: "Naam",
@@ -1933,8 +1933,8 @@ const Ve = {
   split_percent_example: "bijv. 60 / 40 — op 100 € is dat 60 en 40, op 30 € is het 18 en 12.",
   split_partial_example: "bijv. 10 € gedeeld op 85 € boodschappen: 5 € elk, en de overige 75 € voor wie betaald heeft.",
   split_custom_example: "bijv. 10 € gedeeld, dan 8 € voor de een en 4 € voor de ander.",
-  default_from_category: "Wat de categorie zegt, of het project als zij niets zegt.",
-  default_from_group: "Wat het project zegt voor uitgaven zonder categorie.",
+  default_from_category: "Wat de categorie zegt, of de groep als zij niets zegt.",
+  default_from_group: "Wat de groep zegt voor uitgaven zonder categorie.",
   split_equal: "Gelijke delen",
   split_exact: "Exacte bedragen",
   split_shared_lower: "gedeeld",
@@ -1996,40 +1996,40 @@ const Ve = {
   description_placeholder: "Optioneel",
   split_total: "Totaal verdeeld",
   apply_rule: "Pas de regel toe van",
-  group_rule: "het project",
+  group_rule: "de groep",
   shares_mismatch: "Het totaal van de delen moet gelijk zijn aan het bedrag.",
   participants: "Deelnemers",
   members: "Leden",
   member_name: "Naam",
-  remove_member: "Uit het project verwijderen",
+  remove_member: "Uit de groep verwijderen",
   restore_member: "Terughalen",
   confirm_remove: "Bevestigen?",
   add: "Toevoegen",
   close: "Sluiten",
   ha_accounts: "Home Assistant-accounts",
-  ha_accounts_hint: "Aangevinkte accounts nemen deel aan dit project en kunnen het openen.",
+  ha_accounts_hint: "Aangevinkte accounts nemen deel aan deze groep en kunnen deze openen.",
   no_ha_accounts: "Geen account gevonden.",
-  admin_locked: "De beheerder kan niet vertrekken. Draag het project eerst over, of archiveer het.",
-  cannot_remove_admin: "De beheerder kan niet vertrekken. Draag het project eerst over, of archiveer het.",
-  make_admin: "Project overdragen",
-  confirm_make_admin: "Het project aan deze persoon overdragen? Je wordt een gewoon lid, en alleen zij kan het overdragen of verwijderen.",
-  admin_needs_account: "Alleen iemand met een Home Assistant-account kan een project beheren.",
+  admin_locked: "De beheerder kan niet vertrekken. Draag de groep eerst over, of archiveer deze.",
+  cannot_remove_admin: "De beheerder kan niet vertrekken. Draag de groep eerst over, of archiveer deze.",
+  make_admin: "Groep overdragen",
+  confirm_make_admin: "De groep aan deze persoon overdragen? Je wordt een gewoon lid, en alleen zij kan deze overdragen of verwijderen.",
+  admin_needs_account: "Alleen iemand met een Home Assistant-account kan een groep beheren.",
   dashboard: "Op het dashboard",
-  dashboard_hint: "Nee. Home Assistant schermt entiteiten niet af: alle accounts in huis zouden de saldi van dit project lezen, lid of niet.",
-  dashboard_on: "Dit project op het dashboard zetten",
-  dashboard_on_hint: "Een sensor per lid, en een die zegt of er nog iets openstaat. Leesbaar voor alle accounts in huis — niet alleen voor de mensen in dit project.",
+  dashboard_hint: "Nee. Home Assistant schermt entiteiten niet af: alle accounts in huis zouden de saldi van deze groep lezen, lid of niet.",
+  dashboard_on: "Deze groep op het dashboard zetten",
+  dashboard_on_hint: "Een sensor per lid, en een die zegt of er nog iets openstaat. Leesbaar voor alle accounts in huis — niet alleen voor de mensen in deze groep.",
   permissions: "Wat leden mogen doen",
-  permissions_hint: "Hetzelfde voor iedereen in het project. Jij en de beheerders staan hier altijd boven.",
+  permissions_hint: "Hetzelfde voor iedereen in de groep. Jij en de beheerders staan hier altijd boven.",
   perm_manage_members: "Leden beheren",
   perm_manage_members_hint: "Personen toevoegen, verwijderen en hernoemen. Nooit wie beheerder is.",
   perm_manage_categories: "Categorieën beheren",
   perm_manage_categories_hint: "De categorieën en hun regels aanmaken en wijzigen.",
-  perm_manage_group: "Het project bewerken",
+  perm_manage_group: "De groep bewerken",
   perm_manage_group_hint: "Het hernoemen, zijn standaardregel wijzigen, het archiveren.",
   perm_edit_others: "Wijzigen wat niet van hen is",
   perm_edit_others_hint: "Een uitgave die iemand anders heeft ingevoerd en betaald wijzigen of verwijderen.",
-  not_allowed: "Het project staat je dit niet toe.",
-  archived_hint: "Dit project is gearchiveerd: er kan niets nieuws meer aan worden toegevoegd.",
+  not_allowed: "De groep staat je dit niet toe.",
+  archived_hint: "Deze groep is gearchiveerd: er kan niets nieuws meer aan worden toegevoegd.",
   guests: "Zonder account",
   guests_hint: "Zij dragen uitgaven maar loggen nooit in.",
   no_account: "Zonder account",
@@ -2050,7 +2050,7 @@ const Ve = {
   from_member: "Van",
   to_member: "Naar",
   history: "Geschiedenis",
-  group_history: "Projectgeschiedenis",
+  group_history: "Groepsgeschiedenis",
   no_history: "Nog niets vastgelegd.",
   history_created: "heeft toegevoegd",
   history_updated: "heeft gewijzigd",
@@ -2059,7 +2059,7 @@ const Ve = {
   restore_entry: "Herstellen",
   the_expense: "de uitgave",
   the_payment: "de terugbetaling",
-  the_group: "het project",
+  the_group: "de groep",
   the_category: "de categorie",
   the_member: "het lid",
   field_name: "Naam",
@@ -2070,10 +2070,10 @@ const Ve = {
   someone: "Iemand",
   loading: "Laden…",
   error_generic: "Er is iets misgegaan.",
-  group_not_found: "Dit project bestaat niet meer.",
-  group_archived: "Dit project is gearchiveerd.",
+  group_not_found: "Deze groep bestaat niet meer.",
+  group_archived: "Deze groep is gearchiveerd.",
   member_not_found: "Dit lid bestaat niet meer.",
-  member_already_in_group: "Dit lid maakt al deel uit van het project.",
+  member_already_in_group: "Dit lid maakt al deel uit van de groep.",
   category_not_found: "Deze categorie bestaat niet meer.",
   expense_not_found: "Deze uitgave bestaat niet meer.",
   invalid_expense: "Deze uitgave is ongeldig.",
@@ -2081,20 +2081,20 @@ const Ve = {
   invalid_split_rule: "Deze verdeelregel is ongeldig.",
   payment_not_found: "Deze terugbetaling bestaat niet meer.",
   invalid_payment: "Deze terugbetaling is ongeldig.",
-  currency_locked: "Dit project heeft al uitgaven: de valuta kan niet meer worden gewijzigd.",
+  currency_locked: "Deze groep heeft al uitgaven: de valuta kan niet meer worden gewijzigd.",
   not_loaded: "De integratie is niet geladen.",
   unknown_error: "Er is iets misgegaan."
-}, Lr = {
+}, Hr = {
   app_title: "Gastos compartidos",
-  groups: "Proyectos",
-  no_groups: "Aún no hay ningún proyecto. Crea uno para empezar.",
-  new_group: "Nuevo proyecto",
-  edit_group: "Editar el proyecto",
-  all_groups: "Todos los proyectos",
+  groups: "Grupos",
+  no_groups: "Aún no hay ningún grupo. Crea uno para empezar.",
+  new_group: "Nuevo grupo",
+  edit_group: "Editar el grupo",
+  all_groups: "Todos los grupos",
   more: "Más",
-  delete_group: "Eliminar este proyecto",
-  create_group: "Crear el proyecto",
-  group_name: "Nombre del proyecto",
+  delete_group: "Eliminar este grupo",
+  create_group: "Crear el grupo",
+  group_name: "Nombre del grupo",
   description: "Descripción",
   currency: "Moneda",
   archived: "Archivado",
@@ -2140,7 +2140,7 @@ const Ve = {
   no_categories: "Ninguna categoría. Una categoría lleva una regla de reparto por defecto.",
   new_category: "Nueva categoría",
   default_category: "Categoría por defecto",
-  default_category_hint: "Un nuevo gasto se abrirá en esta. Una sola por proyecto.",
+  default_category_hint: "Un nuevo gasto se abrirá en esta. Una sola por grupo.",
   default_category_tag: "Por defecto",
   edit_category: "Editar la categoría",
   category_name: "Nombre",
@@ -2165,8 +2165,8 @@ const Ve = {
   split_percent_example: "ej. 60 / 40 — sobre 100 € son 60 y 40, sobre 30 € son 18 y 12.",
   split_partial_example: "ej. 10 € compartidos en una compra de 85 €: 5 € cada uno, y los 75 € restantes para quien pagó.",
   split_custom_example: "ej. 10 € compartidos, luego 8 € para uno y 4 € para el otro.",
-  default_from_category: "Lo que diga la categoría, o el proyecto si ella no dice nada.",
-  default_from_group: "Lo que diga el proyecto para los gastos sin categoría.",
+  default_from_category: "Lo que diga la categoría, o el grupo si ella no dice nada.",
+  default_from_group: "Lo que diga el grupo para los gastos sin categoría.",
   split_equal: "Partes iguales",
   split_exact: "Importes exactos",
   split_shared_lower: "compartidos",
@@ -2228,40 +2228,40 @@ const Ve = {
   description_placeholder: "Opcional",
   split_total: "Total repartido",
   apply_rule: "Aplicar la regla de",
-  group_rule: "del proyecto",
+  group_rule: "del grupo",
   shares_mismatch: "El total de las partes debe igualar el importe.",
   participants: "Participantes",
   members: "Miembros",
   member_name: "Nombre",
-  remove_member: "Quitar del proyecto",
+  remove_member: "Quitar del grupo",
   restore_member: "Reactivar",
   confirm_remove: "¿Confirmar?",
   add: "Añadir",
   close: "Cerrar",
   ha_accounts: "Cuentas de Home Assistant",
-  ha_accounts_hint: "Las cuentas marcadas participan en el proyecto y pueden abrirlo.",
+  ha_accounts_hint: "Las cuentas marcadas participan en el grupo y pueden abrirlo.",
   no_ha_accounts: "No se encontró ninguna cuenta.",
-  admin_locked: "El administrador no puede irse. Cede el proyecto, o archívalo.",
-  cannot_remove_admin: "El administrador no puede irse. Cede el proyecto, o archívalo.",
-  make_admin: "Ceder el proyecto",
-  confirm_make_admin: "¿Ceder el proyecto a esta persona? Vuelves a ser un miembro ordinario, y solo ella podrá cederlo o eliminarlo.",
-  admin_needs_account: "Solo una persona con una cuenta de Home Assistant puede administrar un proyecto.",
+  admin_locked: "El administrador no puede irse. Cede el grupo, o archívalo.",
+  cannot_remove_admin: "El administrador no puede irse. Cede el grupo, o archívalo.",
+  make_admin: "Ceder el grupo",
+  confirm_make_admin: "¿Ceder el grupo a esta persona? Vuelves a ser un miembro ordinario, y solo ella podrá cederlo o eliminarlo.",
+  admin_needs_account: "Solo una persona con una cuenta de Home Assistant puede administrar un grupo.",
   dashboard: "En el panel de control",
-  dashboard_hint: "No. Home Assistant no aísla las entidades: todas las cuentas de la casa leerían los saldos de este proyecto, sean miembros o no.",
-  dashboard_on: "Poner este proyecto en el panel de control",
-  dashboard_on_hint: "Un sensor por miembro, y uno que dice si queda algo por saldar. Legibles por todas las cuentas de la casa — no solo por la gente de este proyecto.",
+  dashboard_hint: "No. Home Assistant no aísla las entidades: todas las cuentas de la casa leerían los saldos de este grupo, sean miembros o no.",
+  dashboard_on: "Poner este grupo en el panel de control",
+  dashboard_on_hint: "Un sensor por miembro, y uno que dice si queda algo por saldar. Legibles por todas las cuentas de la casa — no solo por la gente de este grupo.",
   permissions: "Lo que los miembros pueden hacer",
-  permissions_hint: "Igual para todos en el proyecto. Tú y los administradores siempre estáis por encima.",
+  permissions_hint: "Igual para todos en el grupo. Tú y los administradores siempre estáis por encima.",
   perm_manage_members: "Gestionar los miembros",
   perm_manage_members_hint: "Añadir, quitar y renombrar personas. Nunca quién es administrador.",
   perm_manage_categories: "Gestionar las categorías",
   perm_manage_categories_hint: "Crear y modificar las categorías y sus reglas.",
-  perm_manage_group: "Editar el proyecto",
+  perm_manage_group: "Editar el grupo",
   perm_manage_group_hint: "Renombrarlo, cambiar su regla por defecto, archivarlo.",
   perm_edit_others: "Modificar lo que no es suyo",
   perm_edit_others_hint: "Cambiar o eliminar un gasto que otra persona introdujo y pagó.",
-  not_allowed: "El proyecto no te permite hacer esto.",
-  archived_hint: "Este proyecto está archivado: ya no se le puede añadir nada.",
+  not_allowed: "El grupo no te permite hacer esto.",
+  archived_hint: "Este grupo está archivado: ya no se le puede añadir nada.",
   guests: "Sin cuenta",
   guests_hint: "Cargan con gastos pero nunca inician sesión.",
   no_account: "Sin cuenta",
@@ -2282,7 +2282,7 @@ const Ve = {
   from_member: "De",
   to_member: "A",
   history: "Historial",
-  group_history: "Historial del proyecto",
+  group_history: "Historial del grupo",
   no_history: "Nada registrado por ahora.",
   history_created: "añadió",
   history_updated: "modificó",
@@ -2291,7 +2291,7 @@ const Ve = {
   restore_entry: "Restaurar",
   the_expense: "el gasto",
   the_payment: "el reembolso",
-  the_group: "el proyecto",
+  the_group: "el grupo",
   the_category: "la categoría",
   the_member: "el miembro",
   field_name: "Nombre",
@@ -2302,10 +2302,10 @@ const Ve = {
   someone: "Alguien",
   loading: "Cargando…",
   error_generic: "Se produjo un error.",
-  group_not_found: "Este proyecto ya no existe.",
-  group_archived: "Este proyecto está archivado.",
+  group_not_found: "Este grupo ya no existe.",
+  group_archived: "Este grupo está archivado.",
   member_not_found: "Este miembro ya no existe.",
-  member_already_in_group: "Este miembro ya forma parte del proyecto.",
+  member_already_in_group: "Este miembro ya forma parte del grupo.",
   category_not_found: "Esta categoría ya no existe.",
   expense_not_found: "Este gasto ya no existe.",
   invalid_expense: "Este gasto no es válido.",
@@ -2313,20 +2313,20 @@ const Ve = {
   invalid_split_rule: "Esta regla de reparto no es válida.",
   payment_not_found: "Este reembolso ya no existe.",
   invalid_payment: "Este reembolso no es válido.",
-  currency_locked: "Este proyecto ya tiene gastos: su moneda ya no puede cambiar.",
+  currency_locked: "Este grupo ya tiene gastos: su moneda ya no puede cambiar.",
   not_loaded: "La integración no está cargada.",
   unknown_error: "Se produjo un error."
-}, Gr = {
+}, Lr = {
   app_title: "Spese condivise",
-  groups: "Progetti",
-  no_groups: "Nessun progetto per ora. Creane uno per iniziare.",
-  new_group: "Nuovo progetto",
-  edit_group: "Modifica progetto",
-  all_groups: "Tutti i progetti",
+  groups: "Gruppi",
+  no_groups: "Nessun gruppo per ora. Creane uno per iniziare.",
+  new_group: "Nuovo gruppo",
+  edit_group: "Modifica gruppo",
+  all_groups: "Tutti i gruppi",
   more: "Altro",
-  delete_group: "Elimina questo progetto",
-  create_group: "Crea il progetto",
-  group_name: "Nome del progetto",
+  delete_group: "Elimina questo gruppo",
+  create_group: "Crea il gruppo",
+  group_name: "Nome del gruppo",
   description: "Descrizione",
   currency: "Valuta",
   archived: "Archiviato",
@@ -2372,7 +2372,7 @@ const Ve = {
   no_categories: "Nessuna categoria. Una categoria porta una regola di ripartizione predefinita.",
   new_category: "Nuova categoria",
   default_category: "Categoria predefinita",
-  default_category_hint: "Una nuova spesa si aprirà su questa. Una sola per progetto.",
+  default_category_hint: "Una nuova spesa si aprirà su questa. Una sola per gruppo.",
   default_category_tag: "Predefinita",
   edit_category: "Modifica categoria",
   category_name: "Nome",
@@ -2397,8 +2397,8 @@ const Ve = {
   split_percent_example: "es. 60 / 40 — su 100 € è 60 e 40, su 30 € è 18 e 12.",
   split_partial_example: "es. 10 € divisi su 85 € di spesa: 5 € ciascuno, e i 75 € restanti a chi ha pagato.",
   split_custom_example: "es. 10 € divisi, poi 8 € per uno e 4 € per l'altro.",
-  default_from_category: "Ciò che dice la categoria, o il progetto se non dice nulla.",
-  default_from_group: "Ciò che dice il progetto per le spese senza categoria.",
+  default_from_category: "Ciò che dice la categoria, o il gruppo se non dice nulla.",
+  default_from_group: "Ciò che dice il gruppo per le spese senza categoria.",
   split_equal: "Parti uguali",
   split_exact: "Importi esatti",
   split_shared_lower: "divisi",
@@ -2460,40 +2460,40 @@ const Ve = {
   description_placeholder: "Facoltativo",
   split_total: "Totale ripartito",
   apply_rule: "Applica la regola di",
-  group_rule: "del progetto",
+  group_rule: "del gruppo",
   shares_mismatch: "Il totale delle parti deve corrispondere all'importo.",
   participants: "Partecipanti",
   members: "Membri",
   member_name: "Nome",
-  remove_member: "Rimuovi dal progetto",
+  remove_member: "Rimuovi dal gruppo",
   restore_member: "Riattiva",
   confirm_remove: "Confermare?",
   add: "Aggiungi",
   close: "Chiudi",
   ha_accounts: "Account Home Assistant",
-  ha_accounts_hint: "Gli account spuntati partecipano al progetto e possono aprirlo.",
+  ha_accounts_hint: "Gli account spuntati partecipano al gruppo e possono aprirlo.",
   no_ha_accounts: "Nessun account trovato.",
-  admin_locked: "L'amministratore non può andarsene. Cedi il progetto, o archivialo.",
-  cannot_remove_admin: "L'amministratore non può andarsene. Cedi il progetto, o archivialo.",
-  make_admin: "Cedi il progetto",
-  confirm_make_admin: "Cedere il progetto a questa persona? Tornerai a essere un membro ordinario, e solo lei potrà cederlo o eliminarlo.",
-  admin_needs_account: "Solo una persona con un account Home Assistant può amministrare un progetto.",
+  admin_locked: "L'amministratore non può andarsene. Cedi il gruppo, o archivialo.",
+  cannot_remove_admin: "L'amministratore non può andarsene. Cedi il gruppo, o archivialo.",
+  make_admin: "Cedi il gruppo",
+  confirm_make_admin: "Cedere il gruppo a questa persona? Tornerai a essere un membro ordinario, e solo lei potrà cederlo o eliminarlo.",
+  admin_needs_account: "Solo una persona con un account Home Assistant può amministrare un gruppo.",
   dashboard: "Sulla dashboard",
-  dashboard_hint: "No. Home Assistant non isola le entità: tutti gli account della casa leggerebbero i saldi di questo progetto, membri o no.",
-  dashboard_on: "Metti questo progetto sulla dashboard",
-  dashboard_on_hint: "Un sensore per membro, e uno che dice se resta ancora qualcosa da saldare. Leggibili da tutti gli account della casa — non solo dalle persone di questo progetto.",
+  dashboard_hint: "No. Home Assistant non isola le entità: tutti gli account della casa leggerebbero i saldi di questo gruppo, membri o no.",
+  dashboard_on: "Metti questo gruppo sulla dashboard",
+  dashboard_on_hint: "Un sensore per membro, e uno che dice se resta ancora qualcosa da saldare. Leggibili da tutti gli account della casa — non solo dalle persone di questo gruppo.",
   permissions: "Ciò che i membri possono fare",
-  permissions_hint: "Uguale per tutti nel progetto. Tu e gli amministratori siete sempre al di sopra.",
+  permissions_hint: "Uguale per tutti nel gruppo. Tu e gli amministratori siete sempre al di sopra.",
   perm_manage_members: "Gestire i membri",
   perm_manage_members_hint: "Aggiungere, rimuovere e rinominare. Mai chi è amministratore.",
   perm_manage_categories: "Gestire le categorie",
   perm_manage_categories_hint: "Creare e modificare le categorie e le loro regole.",
-  perm_manage_group: "Modificare il progetto",
+  perm_manage_group: "Modificare il gruppo",
   perm_manage_group_hint: "Rinominarlo, cambiare la sua regola predefinita, archiviarlo.",
   perm_edit_others: "Modificare ciò che non è loro",
   perm_edit_others_hint: "Cambiare o eliminare una spesa che un altro ha inserito e pagato.",
-  not_allowed: "Il progetto non ti autorizza a farlo.",
-  archived_hint: "Questo progetto è archiviato: non si può più aggiungere nulla.",
+  not_allowed: "Il gruppo non ti autorizza a farlo.",
+  archived_hint: "Questo gruppo è archiviato: non si può più aggiungere nulla.",
   guests: "Senza account",
   guests_hint: "Portano spese ma non accedono mai.",
   no_account: "Senza account",
@@ -2514,7 +2514,7 @@ const Ve = {
   from_member: "Da",
   to_member: "A",
   history: "Cronologia",
-  group_history: "Cronologia del progetto",
+  group_history: "Cronologia del gruppo",
   no_history: "Niente registrato per ora.",
   history_created: "ha aggiunto",
   history_updated: "ha modificato",
@@ -2523,7 +2523,7 @@ const Ve = {
   restore_entry: "Ripristina",
   the_expense: "la spesa",
   the_payment: "il rimborso",
-  the_group: "il progetto",
+  the_group: "il gruppo",
   the_category: "la categoria",
   the_member: "il membro",
   field_name: "Nome",
@@ -2534,10 +2534,10 @@ const Ve = {
   someone: "Qualcuno",
   loading: "Caricamento…",
   error_generic: "Si è verificato un errore.",
-  group_not_found: "Questo progetto non esiste più.",
-  group_archived: "Questo progetto è archiviato.",
+  group_not_found: "Questo gruppo non esiste più.",
+  group_archived: "Questo gruppo è archiviato.",
   member_not_found: "Questo membro non esiste più.",
-  member_already_in_group: "Questo membro fa già parte del progetto.",
+  member_already_in_group: "Questo membro fa già parte del gruppo.",
   category_not_found: "Questa categoria non esiste più.",
   expense_not_found: "Questa spesa non esiste più.",
   invalid_expense: "Questa spesa non è valida.",
@@ -2545,20 +2545,20 @@ const Ve = {
   invalid_split_rule: "Questa regola di ripartizione non è valida.",
   payment_not_found: "Questo rimborso non esiste più.",
   invalid_payment: "Questo rimborso non è valido.",
-  currency_locked: "Questo progetto ha già delle spese: la sua valuta non può più cambiare.",
+  currency_locked: "Questo gruppo ha già delle spese: la sua valuta non può più cambiare.",
   not_loaded: "L'integrazione non è caricata.",
   unknown_error: "Si è verificato un errore."
 }, Wr = {
   app_title: "Wspólne wydatki",
-  groups: "Projekty",
-  no_groups: "Jeszcze żadnego projektu. Utwórz jeden, aby zacząć.",
-  new_group: "Nowy projekt",
-  edit_group: "Edytuj projekt",
-  all_groups: "Wszystkie projekty",
+  groups: "Grupy",
+  no_groups: "Jeszcze żadnej grupy. Utwórz jedną, aby zacząć.",
+  new_group: "Nowa grupa",
+  edit_group: "Edytuj grupę",
+  all_groups: "Wszystkie grupy",
   more: "Więcej",
-  delete_group: "Usuń ten projekt",
-  create_group: "Utwórz projekt",
-  group_name: "Nazwa projektu",
+  delete_group: "Usuń tę grupę",
+  create_group: "Utwórz grupę",
+  group_name: "Nazwa grupy",
   description: "Opis",
   currency: "Waluta",
   archived: "Zarchiwizowany",
@@ -2604,7 +2604,7 @@ const Ve = {
   no_categories: "Jeszcze żadnej kategorii. Kategoria niesie domyślną regułę podziału.",
   new_category: "Nowa kategoria",
   default_category: "Domyślna kategoria",
-  default_category_hint: "Nowy wydatek otworzy się na tej. Jedna na projekt.",
+  default_category_hint: "Nowy wydatek otworzy się na tej. Jedna na grupę.",
   default_category_tag: "Domyślna",
   edit_category: "Edytuj kategorię",
   category_name: "Nazwa",
@@ -2629,8 +2629,8 @@ const Ve = {
   split_percent_example: "np. 60 / 40 — na 100 to 60 i 40, na 30 to 18 i 12.",
   split_partial_example: "np. 10 dzielone na zakupach za 85: po 5, a pozostałe 75 dla tego, kto zapłacił.",
   split_custom_example: "np. 10 dzielone, potem 8 dla jednego i 4 dla drugiego.",
-  default_from_category: "To, co mówi kategoria, albo projekt, gdy ona nic nie mówi.",
-  default_from_group: "To, co mówi projekt dla wydatków bez kategorii.",
+  default_from_category: "To, co mówi kategoria, albo grupa, gdy ona nic nie mówi.",
+  default_from_group: "To, co mówi grupa dla wydatków bez kategorii.",
   split_equal: "Równe części",
   split_exact: "Dokładne kwoty",
   split_shared_lower: "dzielone",
@@ -2692,12 +2692,12 @@ const Ve = {
   description_placeholder: "Opcjonalnie",
   split_total: "Suma podziału",
   apply_rule: "Zastosuj regułę",
-  group_rule: "projektu",
+  group_rule: "grupy",
   shares_mismatch: "Suma części musi równać się kwocie.",
   participants: "Uczestnicy",
   members: "Członkowie",
   member_name: "Imię",
-  remove_member: "Usuń z projektu",
+  remove_member: "Usuń z grupy",
   restore_member: "Przywróć",
   confirm_remove: "Potwierdzić?",
   add: "Dodaj",
@@ -2705,27 +2705,27 @@ const Ve = {
   ha_accounts: "Konta Home Assistant",
   ha_accounts_hint: "Zaznaczone konta biorą udział w tym projekcie i mogą go otworzyć.",
   no_ha_accounts: "Nie znaleziono konta.",
-  admin_locked: "Administrator nie może odejść. Najpierw przekaż projekt albo go zarchiwizuj.",
-  cannot_remove_admin: "Administrator nie może odejść. Najpierw przekaż projekt albo go zarchiwizuj.",
-  make_admin: "Przekaż projekt",
-  confirm_make_admin: "Przekazać projekt tej osobie? Stajesz się zwykłym członkiem, a tylko ona będzie mogła go przekazać lub usunąć.",
-  admin_needs_account: "Tylko osoba z kontem Home Assistant może zarządzać projektem.",
+  admin_locked: "Administrator nie może odejść. Najpierw przekaż grupę albo ją zarchiwizuj.",
+  cannot_remove_admin: "Administrator nie może odejść. Najpierw przekaż grupę albo ją zarchiwizuj.",
+  make_admin: "Przekaż grupę",
+  confirm_make_admin: "Przekazać grupę tej osobie? Stajesz się zwykłym członkiem, a tylko ona będzie mogła ją przekazać lub usunąć.",
+  admin_needs_account: "Tylko osoba z kontem Home Assistant może zarządzać grupą.",
   dashboard: "Na pulpicie",
-  dashboard_hint: "Wyłączone. Home Assistant nie oddziela encji: każde konto w domu odczytałoby salda tego projektu, członek czy nie.",
-  dashboard_on: "Umieść ten projekt na pulpicie",
-  dashboard_on_hint: "Jeden czujnik na członka i jeden mówiący, czy coś jest jeszcze do oddania. Widoczne dla każdego konta w domu — nie tylko dla osób z tego projektu.",
+  dashboard_hint: "Wyłączone. Home Assistant nie oddziela encji: każde konto w domu odczytałoby salda tej grupy, członek czy nie.",
+  dashboard_on: "Umieść tę grupę na pulpicie",
+  dashboard_on_hint: "Jeden czujnik na członka i jeden mówiący, czy coś jest jeszcze do oddania. Widoczne dla każdego konta w domu — nie tylko dla osób z tej grupy.",
   permissions: "Co członkowie mogą robić",
   permissions_hint: "Takie same dla wszystkich w projekcie. Ty i administratorzy jesteście zawsze ponad nimi.",
   perm_manage_members: "Zarządzaj członkami",
   perm_manage_members_hint: "Dodawaj, usuwaj i zmieniaj nazwy osób. Nigdy tego, kto jest administratorem.",
   perm_manage_categories: "Zarządzaj kategoriami",
   perm_manage_categories_hint: "Twórz i zmieniaj kategorie oraz ich reguły.",
-  perm_manage_group: "Edytuj projekt",
+  perm_manage_group: "Edytuj grupę",
   perm_manage_group_hint: "Zmień jego nazwę, zmień domyślną regułę, zarchiwizuj go.",
   perm_edit_others: "Edytuj to, co nie jest ich",
   perm_edit_others_hint: "Zmieniaj lub usuwaj wydatek, który ktoś inny wprowadził i zapłacił.",
-  not_allowed: "Projekt nie pozwala ci tego zrobić.",
-  archived_hint: "Ten projekt jest zarchiwizowany: nie można nic do niego dodać.",
+  not_allowed: "Grupa nie pozwala ci tego zrobić.",
+  archived_hint: "Ta grupa jest zarchiwizowana: nie można nic do niej dodać.",
   guests: "Bez konta",
   guests_hint: "Noszą wydatki, ale nigdy się nie logują.",
   no_account: "Bez konta",
@@ -2746,7 +2746,7 @@ const Ve = {
   from_member: "Od",
   to_member: "Do",
   history: "Historia",
-  group_history: "Historia projektu",
+  group_history: "Historia grupy",
   no_history: "Jeszcze nic nie zapisano.",
   history_created: "dodał",
   history_updated: "zmienił",
@@ -2755,7 +2755,7 @@ const Ve = {
   restore_entry: "Przywróć",
   the_expense: "wydatek",
   the_payment: "zwrot",
-  the_group: "projekt",
+  the_group: "grupę",
   the_category: "kategorię",
   the_member: "członka",
   field_name: "Nazwa",
@@ -2766,8 +2766,8 @@ const Ve = {
   someone: "Ktoś",
   loading: "Ładowanie…",
   error_generic: "Coś poszło nie tak.",
-  group_not_found: "Ten projekt już nie istnieje.",
-  group_archived: "Ten projekt jest zarchiwizowany.",
+  group_not_found: "Ta grupa już nie istnieje.",
+  group_archived: "Ta grupa jest zarchiwizowana.",
   member_not_found: "Ten członek już nie istnieje.",
   member_already_in_group: "Ten członek już jest w projekcie.",
   category_not_found: "Ta kategoria już nie istnieje.",
@@ -2777,20 +2777,20 @@ const Ve = {
   invalid_split_rule: "Ta reguła podziału jest nieprawidłowa.",
   payment_not_found: "Ten zwrot już nie istnieje.",
   invalid_payment: "Ten zwrot jest nieprawidłowy.",
-  currency_locked: "Ten projekt ma już wydatki, więc jego waluty nie można już zmienić.",
+  currency_locked: "Ta grupa ma już wydatki, więc jej waluty nie można już zmienić.",
   not_loaded: "Integracja nie jest wczytana.",
   unknown_error: "Coś poszło nie tak."
 }, Kr = {
   app_title: "Despesas compartilhadas",
-  groups: "Projetos",
-  no_groups: "Nenhum projeto ainda. Crie um para começar.",
-  new_group: "Novo projeto",
-  edit_group: "Editar projeto",
-  all_groups: "Todos os projetos",
+  groups: "Grupos",
+  no_groups: "Nenhum grupo ainda. Crie um para começar.",
+  new_group: "Novo grupo",
+  edit_group: "Editar grupo",
+  all_groups: "Todos os grupos",
   more: "Mais",
-  delete_group: "Excluir este projeto",
-  create_group: "Criar projeto",
-  group_name: "Nome do projeto",
+  delete_group: "Excluir este grupo",
+  create_group: "Criar grupo",
+  group_name: "Nome do grupo",
   description: "Descrição",
   currency: "Moeda",
   archived: "Arquivado",
@@ -2836,7 +2836,7 @@ const Ve = {
   no_categories: "Nenhuma categoria ainda. Uma categoria carrega uma regra de divisão padrão.",
   new_category: "Nova categoria",
   default_category: "Categoria padrão",
-  default_category_hint: "Uma nova despesa abre nesta. Uma por projeto.",
+  default_category_hint: "Uma nova despesa abre nesta. Uma por grupo.",
   default_category_tag: "Padrão",
   edit_category: "Editar categoria",
   category_name: "Nome",
@@ -2861,8 +2861,8 @@ const Ve = {
   split_percent_example: "ex. 60 / 40 — sobre 100 é 60 e 40, sobre 30 é 18 e 12.",
   split_partial_example: "ex. 10 divididos numa compra de 85: 5 cada, e os outros 75 para quem pagou.",
   split_custom_example: "ex. 10 divididos, depois 8 para um e 4 para o outro.",
-  default_from_category: "O que a categoria diz, ou o projeto quando ela não diz nada.",
-  default_from_group: "O que o projeto diz para despesas sem categoria.",
+  default_from_category: "O que a categoria diz, ou o grupo quando ela não diz nada.",
+  default_from_group: "O que o grupo diz para despesas sem categoria.",
   split_equal: "Partes iguais",
   split_exact: "Valores exatos",
   split_shared_lower: "divididos",
@@ -2924,40 +2924,40 @@ const Ve = {
   description_placeholder: "Opcional",
   split_total: "Total dividido",
   apply_rule: "Aplicar a regra de",
-  group_rule: "do projeto",
+  group_rule: "do grupo",
   shares_mismatch: "O total das partes deve ser igual ao valor.",
   participants: "Participantes",
   members: "Membros",
   member_name: "Nome",
-  remove_member: "Remover do projeto",
+  remove_member: "Remover do grupo",
   restore_member: "Trazer de volta",
   confirm_remove: "Confirmar?",
   add: "Adicionar",
   close: "Fechar",
   ha_accounts: "Contas Home Assistant",
-  ha_accounts_hint: "As contas marcadas participam deste projeto e podem abri-lo.",
+  ha_accounts_hint: "As contas marcadas participam deste grupo e podem abri-lo.",
   no_ha_accounts: "Nenhuma conta encontrada.",
-  admin_locked: "O administrador não pode sair. Passe o projeto adiante primeiro, ou arquive-o.",
-  cannot_remove_admin: "O administrador não pode sair. Passe o projeto adiante primeiro, ou arquive-o.",
-  make_admin: "Passar o projeto adiante",
-  confirm_make_admin: "Passar o projeto para esta pessoa? Você se torna um membro comum, e só ela poderá passá-lo adiante ou excluí-lo.",
-  admin_needs_account: "Só alguém com uma conta Home Assistant pode administrar um projeto.",
+  admin_locked: "O administrador não pode sair. Passe o grupo adiante primeiro, ou arquive-o.",
+  cannot_remove_admin: "O administrador não pode sair. Passe o grupo adiante primeiro, ou arquive-o.",
+  make_admin: "Passar o grupo adiante",
+  confirm_make_admin: "Passar o grupo para esta pessoa? Você se torna um membro comum, e só ela poderá passá-lo adiante ou excluí-lo.",
+  admin_needs_account: "Só alguém com uma conta Home Assistant pode administrar um grupo.",
   dashboard: "No painel de controle",
-  dashboard_hint: "Não. O Home Assistant não isola as entidades: toda conta da casa leria os saldos deste projeto, sendo membro ou não.",
-  dashboard_on: "Colocar este projeto no painel de controle",
-  dashboard_on_hint: "Um sensor por membro, e um que diz se ainda há algo devido. Legível por toda conta da casa — não só pelas pessoas deste projeto.",
+  dashboard_hint: "Não. O Home Assistant não isola as entidades: toda conta da casa leria os saldos deste grupo, sendo membro ou não.",
+  dashboard_on: "Colocar este grupo no painel de controle",
+  dashboard_on_hint: "Um sensor por membro, e um que diz se ainda há algo devido. Legível por toda conta da casa — não só pelas pessoas deste grupo.",
   permissions: "O que os membros podem fazer",
-  permissions_hint: "O mesmo para todo mundo no projeto. Você e os administradores estão sempre acima disso.",
+  permissions_hint: "O mesmo para todo mundo no grupo. Você e os administradores estão sempre acima disso.",
   perm_manage_members: "Gerenciar membros",
   perm_manage_members_hint: "Adicionar, remover e renomear pessoas. Nunca quem é administrador.",
   perm_manage_categories: "Gerenciar categorias",
   perm_manage_categories_hint: "Criar e alterar as categorias e suas regras.",
-  perm_manage_group: "Editar o projeto",
+  perm_manage_group: "Editar o grupo",
   perm_manage_group_hint: "Renomeá-lo, mudar sua regra padrão, arquivá-lo.",
   perm_edit_others: "Editar o que não é seu",
   perm_edit_others_hint: "Alterar ou excluir uma despesa que outra pessoa lançou e pagou.",
-  not_allowed: "O projeto não permite que você faça isso.",
-  archived_hint: "Este projeto está arquivado: nada novo pode ser adicionado a ele.",
+  not_allowed: "O grupo não permite que você faça isso.",
+  archived_hint: "Este grupo está arquivado: nada novo pode ser adicionado a ele.",
   guests: "Sem conta",
   guests_hint: "Carregam despesas mas nunca fazem login.",
   no_account: "Sem conta",
@@ -2978,7 +2978,7 @@ const Ve = {
   from_member: "De",
   to_member: "Para",
   history: "Histórico",
-  group_history: "Histórico do projeto",
+  group_history: "Histórico do grupo",
   no_history: "Nada registrado ainda.",
   history_created: "adicionou",
   history_updated: "alterou",
@@ -2987,7 +2987,7 @@ const Ve = {
   restore_entry: "Restaurar",
   the_expense: "a despesa",
   the_payment: "o reembolso",
-  the_group: "o projeto",
+  the_group: "o grupo",
   the_category: "a categoria",
   the_member: "o membro",
   field_name: "Nome",
@@ -2998,10 +2998,10 @@ const Ve = {
   someone: "Alguém",
   loading: "Carregando…",
   error_generic: "Algo deu errado.",
-  group_not_found: "Este projeto não existe mais.",
-  group_archived: "Este projeto está arquivado.",
+  group_not_found: "Este grupo não existe mais.",
+  group_archived: "Este grupo está arquivado.",
   member_not_found: "Este membro não existe mais.",
-  member_already_in_group: "Este membro já faz parte do projeto.",
+  member_already_in_group: "Este membro já faz parte do grupo.",
   category_not_found: "Esta categoria não existe mais.",
   expense_not_found: "Esta despesa não existe mais.",
   invalid_expense: "Esta despesa é inválida.",
@@ -3009,16 +3009,16 @@ const Ve = {
   invalid_split_rule: "Esta regra de divisão é inválida.",
   payment_not_found: "Este reembolso não existe mais.",
   invalid_payment: "Este reembolso é inválido.",
-  currency_locked: "Este projeto já tem despesas: sua moeda não pode mais mudar.",
+  currency_locked: "Este grupo já tem despesas: sua moeda não pode mais mudar.",
   not_loaded: "A integração não está carregada.",
   unknown_error: "Algo deu errado."
 }, Fr = {
   en: Ve,
-  fr: Ur,
-  de: Br,
-  nl: Hr,
-  es: Lr,
-  it: Gr,
+  fr: Gr,
+  de: Ur,
+  nl: Br,
+  es: Hr,
+  it: Lr,
   pl: Wr,
   // Registered under "pt": the localizer strips the region, so pt-BR and
   // pt-PT both land here. Brazilian, the larger Home Assistant community.
@@ -3032,7 +3032,7 @@ function v(e, t) {
   const r = e?.code;
   return r && r in Ve ? t(r) : e?.message || t("error_generic");
 }
-const E = x`
+const D = x`
   :host {
     --se-gap: 16px;
     --se-radius: 12px;
@@ -3229,7 +3229,7 @@ var Zr = Object.defineProperty, Jr = Object.getOwnPropertyDescriptor, X = (e, t,
     (n = e[s]) && (a = (i ? n(t, r, a) : n(a)) || a);
   return i && a && Zr(t, r, a), a;
 };
-let B = class extends g {
+let U = class extends g {
   constructor() {
     super(...arguments), this.role = null, this.name = "", this.description = "", this.currency = "EUR", this.permissions = /* @__PURE__ */ new Set(), this.exposed = !1, this.busy = !1, this.cancel = () => {
       this.dispatchEvent(new CustomEvent("dialog-cancelled", { bubbles: !0, composed: !0 }));
@@ -3398,8 +3398,8 @@ let B = class extends g {
     t.target.checked ? r.add(e) : r.delete(e), this.permissions = r;
   }
 };
-B.styles = [
-  E,
+U.styles = [
+  D,
   x`
       .switch {
         display: flex;
@@ -3434,41 +3434,41 @@ B.styles = [
 ];
 X([
   l({ attribute: !1 })
-], B.prototype, "api", 2);
+], U.prototype, "api", 2);
 X([
   l({ attribute: !1 })
-], B.prototype, "localize", 2);
+], U.prototype, "localize", 2);
 X([
   l({ attribute: !1 })
-], B.prototype, "group", 2);
+], U.prototype, "group", 2);
 X([
   l({ attribute: !1 })
-], B.prototype, "role", 2);
+], U.prototype, "role", 2);
 X([
   d()
-], B.prototype, "name", 2);
+], U.prototype, "name", 2);
 X([
   d()
-], B.prototype, "description", 2);
+], U.prototype, "description", 2);
 X([
   d()
-], B.prototype, "currency", 2);
+], U.prototype, "currency", 2);
 X([
   d()
-], B.prototype, "permissions", 2);
+], U.prototype, "permissions", 2);
 X([
   d()
-], B.prototype, "exposed", 2);
+], U.prototype, "exposed", 2);
 X([
   d()
-], B.prototype, "busy", 2);
+], U.prototype, "busy", 2);
 X([
   d()
-], B.prototype, "error", 2);
-B = X([
+], U.prototype, "error", 2);
+U = X([
   f("se-group-dialog")
-], B);
-var Qr = Object.defineProperty, Yr = Object.getOwnPropertyDescriptor, he = (e, t, r, i) => {
+], U);
+var Qr = Object.defineProperty, Yr = Object.getOwnPropertyDescriptor, ue = (e, t, r, i) => {
   for (var a = i > 1 ? void 0 : i ? Yr(t, r) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (a = (i ? n(t, r, a) : n(a)) || a);
   return i && a && Qr(t, r, a), a;
@@ -3557,7 +3557,7 @@ let re = class extends g {
   }
 };
 re.styles = [
-  E,
+  D,
   x`
       :host {
         display: block;
@@ -3663,31 +3663,31 @@ re.styles = [
       }
     `
 ];
-he([
+ue([
   l({ attribute: !1 })
 ], re.prototype, "api", 2);
-he([
+ue([
   l({ attribute: !1 })
 ], re.prototype, "hass", 2);
-he([
+ue([
   l({ type: Boolean })
 ], re.prototype, "narrow", 2);
-he([
+ue([
   l({ attribute: !1 })
 ], re.prototype, "localize", 2);
-he([
+ue([
   d()
 ], re.prototype, "groups", 2);
-he([
+ue([
   d()
 ], re.prototype, "loading", 2);
-he([
+ue([
   d()
 ], re.prototype, "error", 2);
-he([
+ue([
   d()
 ], re.prototype, "dialogOpen", 2);
-re = he([
+re = ue([
   f("se-dashboard-page")
 ], re);
 function T(e, t, r) {
@@ -3696,7 +3696,7 @@ function T(e, t, r) {
     currency: t
   }).format(e / 100);
 }
-function Ct(e, t, r) {
+function Et(e, t, r) {
   const i = T(e, t, r), a = (e / 100).toFixed(2);
   return [
     i,
@@ -3722,7 +3722,7 @@ function Re(e, t) {
   }).format(new Date(e));
   return r.charAt(0).toUpperCase() + r.slice(1);
 }
-function Et(e, t) {
+function Dt(e, t) {
   const [r, i] = e.split("-").map(Number), a = new Intl.DateTimeFormat(t, {
     month: "short",
     year: "numeric"
@@ -3770,7 +3770,7 @@ function I(e) {
     t = t * 31 + e.charCodeAt(r) >>> 0;
   return it[t % it.length];
 }
-var ei = Object.defineProperty, ti = Object.getOwnPropertyDescriptor, be = (e, t, r, i) => {
+var ei = Object.defineProperty, ti = Object.getOwnPropertyDescriptor, ye = (e, t, r, i) => {
   for (var a = i > 1 ? void 0 : i ? ti(t, r) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (a = (i ? n(t, r, a) : n(a)) || a);
   return i && a && ei(t, r, a), a;
@@ -3961,7 +3961,7 @@ let le = class extends g {
   }
 };
 le.styles = [
-  E,
+  D,
   x`
       :host {
         display: block;
@@ -4192,28 +4192,28 @@ le.styles = [
       }
     `
 ];
-be([
+ye([
   l({ attribute: !1 })
 ], le.prototype, "localize", 2);
-be([
+ye([
   l({ attribute: !1 })
 ], le.prototype, "balances", 2);
-be([
+ye([
   l({ attribute: !1 })
 ], le.prototype, "settlements", 2);
-be([
+ye([
   l({ attribute: !1 })
 ], le.prototype, "members", 2);
-be([
+ye([
   l({ type: String })
 ], le.prototype, "meId", 2);
-be([
+ye([
   l({ type: String })
 ], le.prototype, "currency", 2);
-be([
+ye([
   l({ type: String })
 ], le.prototype, "language", 2);
-le = be([
+le = ye([
   f("se-balance-card")
 ], le);
 var ri = Object.defineProperty, ii = Object.getOwnPropertyDescriptor, Pe = (e, t, r, i) => {
@@ -4221,7 +4221,7 @@ var ri = Object.defineProperty, ii = Object.getOwnPropertyDescriptor, Pe = (e, t
     (n = e[s]) && (a = (i ? n(t, r, a) : n(a)) || a);
   return i && a && ri(t, r, a), a;
 };
-let ye = class extends g {
+let be = class extends g {
   constructor() {
     super(...arguments), this.fallback = "?", this.color = "#5c6b8a", this.size = 40, this.plain = !1;
   }
@@ -4254,7 +4254,7 @@ let ye = class extends g {
     return customElements.get("ha-icon") !== void 0;
   }
 };
-ye.styles = x`
+be.styles = x`
     :host {
       display: block;
       flex: 0 0 auto;
@@ -4285,28 +4285,28 @@ ye.styles = x`
   `;
 Pe([
   l({ type: String })
-], ye.prototype, "icon", 2);
+], be.prototype, "icon", 2);
 Pe([
   l({ type: String })
-], ye.prototype, "fallback", 2);
+], be.prototype, "fallback", 2);
 Pe([
   l({ type: String })
-], ye.prototype, "color", 2);
+], be.prototype, "color", 2);
 Pe([
   l({ type: Number })
-], ye.prototype, "size", 2);
+], be.prototype, "size", 2);
 Pe([
   l({ type: Boolean })
-], ye.prototype, "plain", 2);
-ye = Pe([
+], be.prototype, "plain", 2);
+be = Pe([
   f("se-icon")
-], ye);
-var ai = Object.defineProperty, si = Object.getOwnPropertyDescriptor, Ue = (e, t, r, i) => {
+], be);
+var ai = Object.defineProperty, si = Object.getOwnPropertyDescriptor, Ge = (e, t, r, i) => {
   for (var a = i > 1 ? void 0 : i ? si(t, r) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (a = (i ? n(t, r, a) : n(a)) || a);
   return i && a && ai(t, r, a), a;
 };
-let ke = class extends g {
+let ze = class extends g {
   constructor() {
     super(...arguments), this.label = "", this.value = null, this.fallback = "#5c6b8a";
   }
@@ -4351,8 +4351,8 @@ let ke = class extends g {
     );
   }
 };
-ke.styles = [
-  E,
+ze.styles = [
+  D,
   x`
       :host {
         display: block;
@@ -4398,36 +4398,36 @@ ke.styles = [
       }
     `
 ];
-Ue([
+Ge([
   l({ attribute: !1 })
-], ke.prototype, "localize", 2);
-Ue([
+], ze.prototype, "localize", 2);
+Ge([
   l({ type: String })
-], ke.prototype, "label", 2);
-Ue([
+], ze.prototype, "label", 2);
+Ge([
   l({ type: String })
-], ke.prototype, "value", 2);
-Ue([
+], ze.prototype, "value", 2);
+Ge([
   l({ type: String })
-], ke.prototype, "fallback", 2);
-ke = Ue([
+], ze.prototype, "fallback", 2);
+ze = Ge([
   f("se-color-picker")
-], ke);
-var oi = Object.defineProperty, ni = Object.getOwnPropertyDescriptor, ue = (e, t, r, i) => {
+], ze);
+var oi = Object.defineProperty, ni = Object.getOwnPropertyDescriptor, he = (e, t, r, i) => {
   for (var a = i > 1 ? void 0 : i ? ni(t, r) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (a = (i ? n(t, r, a) : n(a)) || a);
   return i && a && oi(t, r, a), a;
 };
 const Pt = "/static/mdi/iconList.json", et = 48;
-let Le = null;
+let He = null;
 function li() {
-  return Le === null && (Le = fetch(Pt).then((e) => {
+  return He === null && (He = fetch(Pt).then((e) => {
     if (!e.ok)
       throw new Error(`${e.status} on ${Pt}`);
     return e.json();
   }).catch((e) => {
-    throw Le = null, e;
-  })), Le;
+    throw He = null, e;
+  })), He;
 }
 let ie = class extends g {
   constructor() {
@@ -4530,7 +4530,7 @@ let ie = class extends g {
   }
 };
 ie.styles = [
-  E,
+  D,
   x`
       :host {
         display: block;
@@ -4632,31 +4632,31 @@ ie.styles = [
       }
     `
 ];
-ue([
+he([
   l({ attribute: !1 })
 ], ie.prototype, "localize", 2);
-ue([
+he([
   l({ type: String })
 ], ie.prototype, "label", 2);
-ue([
+he([
   l({ type: String })
 ], ie.prototype, "value", 2);
-ue([
+he([
   l({ type: String })
 ], ie.prototype, "color", 2);
-ue([
+he([
   d()
 ], ie.prototype, "icons", 2);
-ue([
+he([
   d()
 ], ie.prototype, "suggestions", 2);
-ue([
+he([
   d()
 ], ie.prototype, "open", 2);
-ue([
+he([
   d()
 ], ie.prototype, "failed", 2);
-ie = ue([
+ie = he([
   f("se-icon-picker")
 ], ie);
 function Xt(e) {
@@ -4670,20 +4670,20 @@ function Xt(e) {
   if (n === null)
     return null;
   const p = s.participants == null ? a : [...new Set(s.participants)];
-  if (p.some((S) => !a.includes(S)))
+  if (p.some((C) => !a.includes(C)))
     return null;
-  const h = p.length === 0 ? 0 : n, y = at(h, p), z = t - h;
-  if (z > 0) {
-    const S = ci(s.remainder, z, r, a);
-    if (S === null)
+  const u = p.length === 0 ? 0 : n, b = at(u, p), k = t - u;
+  if (k > 0) {
+    const C = ci(s.remainder, k, r, a);
+    if (C === null)
       return null;
-    for (const [C, He] of Object.entries(S))
-      y[C] = (y[C] ?? 0) + He;
+    for (const [E, Be] of Object.entries(C))
+      b[E] = (b[E] ?? 0) + Be;
   }
-  const u = {};
-  for (const [S, C] of Object.entries(y))
-    C !== 0 && (u[S] = C);
-  return Object.values(u).reduce((S, C) => S + C, 0) === t ? u : null;
+  const h = {};
+  for (const [C, E] of Object.entries(b))
+    E !== 0 && (h[C] = E);
+  return Object.values(h).reduce((C, E) => C + E, 0) === t ? h : null;
 }
 function di(e, t) {
   return e.envelope == null ? t : e.envelope < 0 ? null : Math.min(e.envelope, t);
@@ -4700,36 +4700,36 @@ function ci(e, t, r, i) {
   const p = a.members == null ? [r] : [...new Set(a.members)];
   if (p.length === 0 || p.some((m) => !i.includes(m)))
     return null;
-  const h = {}, y = {};
+  const u = {}, b = {};
   for (const m of p)
-    m in s && (h[m] = s[m]), m in n && (y[m] = n[m]);
-  if (Object.keys(h).some((m) => m in y))
+    m in s && (u[m] = s[m]), m in n && (b[m] = n[m]);
+  if (Object.keys(u).some((m) => m in b))
     return null;
-  const z = Object.values(y).reduce((m, M) => m + M, 0);
-  if (z > tt)
+  const k = Object.values(b).reduce((m, M) => m + M, 0);
+  if (k > tt)
     return null;
-  const u = {};
-  for (const [m, M] of Object.entries(y))
-    u[m] = Math.floor(t * M / tt);
-  const S = Object.values(h).reduce((m, M) => m + M, 0) + Object.values(u).reduce((m, M) => m + M, 0);
-  if (S > t)
+  const h = {};
+  for (const [m, M] of Object.entries(b))
+    h[m] = Math.floor(t * M / tt);
+  const C = Object.values(u).reduce((m, M) => m + M, 0) + Object.values(h).reduce((m, M) => m + M, 0);
+  if (C > t)
     return null;
-  const C = { ...h, ...u }, He = p.filter(
-    (m) => !(m in h) && !(m in y)
-  ), Ye = t - S;
-  if (He.length > 0) {
-    for (const [m, M] of Object.entries(at(Ye, He)))
-      C[m] = (C[m] ?? 0) + M;
-    return C;
+  const E = { ...u, ...h }, Be = p.filter(
+    (m) => !(m in u) && !(m in b)
+  ), Ye = t - C;
+  if (Be.length > 0) {
+    for (const [m, M] of Object.entries(at(Ye, Be)))
+      E[m] = (E[m] ?? 0) + M;
+    return E;
   }
   if (Ye === 0)
-    return C;
-  if (z === tt && Object.keys(y).length > 0) {
+    return E;
+  if (k === tt && Object.keys(b).length > 0) {
     for (const [m, M] of Object.entries(
-      at(Ye, Object.keys(u))
+      at(Ye, Object.keys(h))
     ))
-      C[m] = (C[m] ?? 0) + M;
-    return C;
+      E[m] = (E[m] ?? 0) + M;
+    return E;
   }
   return null;
 }
@@ -4741,7 +4741,7 @@ function at(e, t) {
     a[s] = r + (n < i ? 1 : 0);
   }), a;
 }
-const Dt = 1e4;
+const jt = 1e4;
 function gt(e) {
   if (e === null)
     return "default";
@@ -4790,7 +4790,7 @@ function pi(e, t) {
     remainder: { members: t.restTo ? [t.restTo] : null, fixed: {} }
   };
 }
-function hi(e, t, r) {
+function ui(e, t, r) {
   const i = gt(e), a = e?.remainder?.members ?? (r ? [r] : []);
   return {
     participants: i === "exact" ? new Set(a) : new Set(e?.participants ?? t),
@@ -4805,7 +4805,7 @@ function hi(e, t, r) {
     percents: Object.fromEntries(
       Object.entries(e?.remainder?.percent ?? {}).map(([n, p]) => [
         n,
-        ui(p)
+        hi(p)
       ])
     ),
     // One taker is a person to name. Several is a shape this editor has no room
@@ -4844,7 +4844,7 @@ function er(e) {
   const r = Number(t);
   return Number.isFinite(r) ? Math.round(r * 100) : null;
 }
-function ui(e) {
+function hi(e) {
   return e % 100 === 0 ? String(e / 100) : (e / 100).toFixed(2);
 }
 function It(e) {
@@ -4862,7 +4862,7 @@ let P = class extends g {
   }
   connectedCallback() {
     super.connectedCallback(), this.mode = gt(this.rule);
-    const e = hi(
+    const e = ui(
       this.rule,
       this.members.map((t) => t.id),
       this.payerId
@@ -5023,11 +5023,11 @@ let P = class extends g {
         ${r ? o`
               <div class="total">
                 <span class="muted">${t("split_percent_total")}</span>
-                <strong class=${i > Dt ? "negative" : ""}>
+                <strong class=${i > jt ? "negative" : ""}>
                   ${(i / 100).toFixed(i % 100 === 0 ? 0 : 2)} %
                 </strong>
               </div>
-              ${i > Dt ? o`<div class="warn">${t("split_percent_over")}</div>` : c}
+              ${i > jt ? o`<div class="warn">${t("split_percent_over")}</div>` : c}
             ` : c}
       </div>
     `;
@@ -5285,7 +5285,7 @@ let P = class extends g {
   }
 };
 P.styles = [
-  E,
+  D,
   x`
       .toggle {
         display: flex;
@@ -5461,10 +5461,10 @@ O([
 P = O([
   f("se-split-rule-editor")
 ], P);
-var yi = Object.defineProperty, bi = Object.getOwnPropertyDescriptor, L = (e, t, r, i) => {
-  for (var a = i > 1 ? void 0 : i ? bi(t, r) : t, s = e.length - 1, n; s >= 0; s--)
+var bi = Object.defineProperty, yi = Object.getOwnPropertyDescriptor, H = (e, t, r, i) => {
+  for (var a = i > 1 ? void 0 : i ? yi(t, r) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (a = (i ? n(t, r, a) : n(a)) || a);
-  return i && a && yi(t, r, a), a;
+  return i && a && bi(t, r, a), a;
 };
 let N = class extends g {
   constructor() {
@@ -5594,47 +5594,47 @@ let N = class extends g {
     });
   }
 };
-N.styles = E;
-L([
+N.styles = D;
+H([
   l({ attribute: !1 })
 ], N.prototype, "api", 2);
-L([
+H([
   l({ attribute: !1 })
 ], N.prototype, "localize", 2);
-L([
+H([
   l({ attribute: !1 })
 ], N.prototype, "group", 2);
-L([
+H([
   l({ attribute: !1 })
 ], N.prototype, "members", 2);
-L([
+H([
   l({ attribute: !1 })
 ], N.prototype, "category", 2);
-L([
+H([
   l({ type: String })
 ], N.prototype, "language", 2);
-L([
+H([
   d()
 ], N.prototype, "name", 2);
-L([
+H([
   d()
 ], N.prototype, "icon", 2);
-L([
+H([
   d()
 ], N.prototype, "color", 2);
-L([
+H([
   d()
 ], N.prototype, "rule", 2);
-L([
+H([
   d()
 ], N.prototype, "isDefault", 2);
-L([
+H([
   d()
 ], N.prototype, "busy", 2);
-L([
+H([
   d()
 ], N.prototype, "error", 2);
-N = L([
+N = H([
   f("se-category-dialog")
 ], N);
 var fi = Object.defineProperty, vi = Object.getOwnPropertyDescriptor, pe = (e, t, r, i) => {
@@ -5712,7 +5712,7 @@ let Y = class extends g {
   }
 };
 Y.styles = [
-  E,
+  D,
   x`
       .switch {
         display: flex;
@@ -5933,7 +5933,7 @@ let R = class extends g {
   }
 };
 R.styles = [
-  E,
+  D,
   x`
       .row {
         display: flex;
@@ -6012,7 +6012,7 @@ R = K([
  * Copyright 2021 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const ki = Gt(class extends Wt {
+const zi = Lt(class extends Wt {
   constructor() {
     super(...arguments), this.key = c;
   }
@@ -6023,10 +6023,10 @@ const ki = Gt(class extends Wt {
     return t !== this.key && (Kt(e), this.key = t), r;
   }
 });
-var zi = Object.defineProperty, ji = Object.getOwnPropertyDescriptor, F = (e, t, r, i) => {
-  for (var a = i > 1 ? void 0 : i ? ji(t, r) : t, s = e.length - 1, n; s >= 0; s--)
+var ki = Object.defineProperty, Ai = Object.getOwnPropertyDescriptor, F = (e, t, r, i) => {
+  for (var a = i > 1 ? void 0 : i ? Ai(t, r) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (a = (i ? n(t, r, a) : n(a)) || a);
-  return i && a && zi(t, r, a), a;
+  return i && a && ki(t, r, a), a;
 };
 let q = class extends g {
   constructor() {
@@ -6059,7 +6059,7 @@ let q = class extends g {
           <div class="says">${this.renderSays(t)}</div>
           <se-field
             .label=${e("rate_label")}
-            .value=${this.typed || (t === null ? "" : St(t))}
+            .value=${this.typed || (t === null ? "" : Ct(t))}
             decimal
             placeholder="0,87681"
             @value-changed=${(r) => this.type(r.detail.value)}
@@ -6080,7 +6080,7 @@ let q = class extends g {
             ${Re(this.fetched.as_of, this.language)}
           </div>` : c}
       <div>
-        1 ${this.currency} = ${St(e)} ${this.groupCurrency}
+        1 ${this.currency} = ${Ct(e)} ${this.groupCurrency}
         ${r === null ? c : o`<br />${t("converts_to")}
               <strong>
                 ${T(r, this.groupCurrency, this.language)}
@@ -6136,7 +6136,7 @@ let q = class extends g {
   }
 };
 q.styles = [
-  E,
+  D,
   x`
       /*
        * No box of our own. Nearly every expense is in the group's own currency
@@ -6220,7 +6220,7 @@ F([
 q = F([
   f("se-currency-field")
 ], q);
-const Ai = {
+const Si = {
   title: "expense_title",
   description: "description",
   amount: "amount",
@@ -6244,8 +6244,8 @@ const Ai = {
   permissions: "permissions",
   role: "field_role"
 };
-function Si(e, t) {
-  const r = Ai[e.field];
+function Ci(e, t) {
+  const r = Si[e.field];
   return r ? {
     label: t.localize(r),
     before: Mt(e.field, e.before, t),
@@ -6253,7 +6253,7 @@ function Si(e, t) {
   } : null;
 }
 function Mt(e, t, r) {
-  return t == null ? null : e === "amount" && typeof t == "number" ? T(t, r.currency, r.language) : e === "expense_date" || e === "payment_date" ? Re(String(t), r.language) : e === "category_id" ? r.categories.find((i) => i.id === t)?.name ?? r.localize("no_category") : e === "paid_by_member_id" || e === "from_member_id" || e === "to_member_id" ? tr(String(t), r) : e === "shares" && Ei(t) ? Ci(t, r) : e === "kind" ? r.localize(
+  return t == null ? null : e === "amount" && typeof t == "number" ? T(t, r.currency, r.language) : e === "expense_date" || e === "payment_date" ? Re(String(t), r.language) : e === "category_id" ? r.categories.find((i) => i.id === t)?.name ?? r.localize("no_category") : e === "paid_by_member_id" || e === "from_member_id" || e === "to_member_id" ? tr(String(t), r) : e === "shares" && Di(t) ? Ei(t, r) : e === "kind" ? r.localize(
     t === "debt" ? "kind_debt" : "kind_reimbursement"
   ) : e === "role" ? r.localize(t === "admin" ? "role_admin" : "role_member") : e === "archived" || e === "exposed" ? r.localize(t ? "yes" : "no") : e === "split_rule" ? st(
     t,
@@ -6262,7 +6262,7 @@ function Mt(e, t, r) {
     r.language
   ) : e === "permissions" && Array.isArray(t) ? t.length === 0 ? r.localize("permissions_none") : t.map((i) => r.localize(`perm_${i}`)).join(" · ") : String(t);
 }
-function Ci(e, t) {
+function Ei(e, t) {
   const r = Object.entries(e).filter(([, i]) => i !== 0);
   return r.length === 0 ? "—" : r.map(
     ([i, a]) => `${tr(i, t)} ${T(a, t.currency, t.language)}`
@@ -6271,11 +6271,11 @@ function Ci(e, t) {
 function tr(e, t) {
   return t.members.find((r) => r.id === e)?.name ?? "?";
 }
-function Ei(e) {
+function Di(e) {
   return typeof e == "object" && e !== null && !Array.isArray(e) && Object.values(e).every((t) => typeof t == "number");
 }
-var Pi = Object.defineProperty, Di = Object.getOwnPropertyDescriptor, se = (e, t, r, i) => {
-  for (var a = i > 1 ? void 0 : i ? Di(t, r) : t, s = e.length - 1, n; s >= 0; s--)
+var Pi = Object.defineProperty, ji = Object.getOwnPropertyDescriptor, se = (e, t, r, i) => {
+  for (var a = i > 1 ? void 0 : i ? ji(t, r) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (a = (i ? n(t, r, a) : n(a)) || a);
   return i && a && Pi(t, r, a), a;
 };
@@ -6286,7 +6286,7 @@ const Ti = {
   category: "the_category",
   member: "the_member"
 };
-let G = class extends g {
+let L = class extends g {
   constructor() {
     super(...arguments), this.revisions = [], this.members = [], this.categories = [], this.currency = "EUR", this.language = "en", this.withSubject = !1, this.expenses = [], this.payments = [], this.restorable = !1;
   }
@@ -6455,7 +6455,7 @@ let G = class extends g {
       categories: this.categories,
       currency: this.currency,
       language: this.language
-    }, r = e.changes.map((i) => Si(i, t)).filter((i) => i !== null);
+    }, r = e.changes.map((i) => Ci(i, t)).filter((i) => i !== null);
     return o`
       ${r.map(
       (i) => o`
@@ -6475,8 +6475,8 @@ let G = class extends g {
       return this.members.find((t) => t.user_id === e.actor_user_id);
   }
 };
-G.styles = [
-  E,
+L.styles = [
+  D,
   x`
       :host {
         display: block;
@@ -6603,43 +6603,43 @@ G.styles = [
 ];
 se([
   l({ attribute: !1 })
-], G.prototype, "localize", 2);
+], L.prototype, "localize", 2);
 se([
   l({ attribute: !1 })
-], G.prototype, "revisions", 2);
+], L.prototype, "revisions", 2);
 se([
   l({ attribute: !1 })
-], G.prototype, "members", 2);
+], L.prototype, "members", 2);
 se([
   l({ attribute: !1 })
-], G.prototype, "categories", 2);
+], L.prototype, "categories", 2);
 se([
   l({ type: String })
-], G.prototype, "currency", 2);
+], L.prototype, "currency", 2);
 se([
   l({ type: String })
-], G.prototype, "language", 2);
+], L.prototype, "language", 2);
 se([
   l({ type: Boolean })
-], G.prototype, "withSubject", 2);
+], L.prototype, "withSubject", 2);
 se([
   l({ attribute: !1 })
-], G.prototype, "expenses", 2);
+], L.prototype, "expenses", 2);
 se([
   l({ attribute: !1 })
-], G.prototype, "payments", 2);
+], L.prototype, "payments", 2);
 se([
   l({ type: Boolean })
-], G.prototype, "restorable", 2);
-G = se([
+], L.prototype, "restorable", 2);
+L = se([
   f("se-history")
-], G);
+], L);
 var Oi = Object.defineProperty, Ii = Object.getOwnPropertyDescriptor, V = (e, t, r, i) => {
   for (var a = i > 1 ? void 0 : i ? Ii(t, r) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (a = (i ? n(t, r, a) : n(a)) || a);
   return i && a && Oi(t, r, a), a;
 };
-let U = class extends g {
+let G = class extends g {
   constructor() {
     super(...arguments), this.members = [], this.categories = [], this.currency = "EUR", this.language = "en", this.open = !1, this.busy = !1, this.toggle = async () => {
       if (this.open = !this.open, !(!this.open || this.revisions || this.busy)) {
@@ -6682,8 +6682,8 @@ let U = class extends g {
     `;
   }
 };
-U.styles = [
-  E,
+G.styles = [
+  D,
   x`
       .head {
         display: flex;
@@ -6696,44 +6696,44 @@ U.styles = [
 ];
 V([
   l({ attribute: !1 })
-], U.prototype, "api", 2);
+], G.prototype, "api", 2);
 V([
   l({ attribute: !1 })
-], U.prototype, "localize", 2);
+], G.prototype, "localize", 2);
 V([
   l({ type: String })
-], U.prototype, "groupId", 2);
+], G.prototype, "groupId", 2);
 V([
   l({ type: String })
-], U.prototype, "entityId", 2);
+], G.prototype, "entityId", 2);
 V([
   l({ attribute: !1 })
-], U.prototype, "members", 2);
+], G.prototype, "members", 2);
 V([
   l({ attribute: !1 })
-], U.prototype, "categories", 2);
+], G.prototype, "categories", 2);
 V([
   l({ type: String })
-], U.prototype, "currency", 2);
+], G.prototype, "currency", 2);
 V([
   l({ type: String })
-], U.prototype, "language", 2);
+], G.prototype, "language", 2);
 V([
   d()
-], U.prototype, "open", 2);
+], G.prototype, "open", 2);
 V([
   d()
-], U.prototype, "revisions", 2);
+], G.prototype, "revisions", 2);
 V([
   d()
-], U.prototype, "busy", 2);
+], G.prototype, "busy", 2);
 V([
   d()
-], U.prototype, "error", 2);
-U = V([
+], G.prototype, "error", 2);
+G = V([
   f("se-entity-history")
-], U);
-var Ni = Object.defineProperty, Mi = Object.getOwnPropertyDescriptor, k = (e, t, r, i) => {
+], G);
+var Ni = Object.defineProperty, Mi = Object.getOwnPropertyDescriptor, z = (e, t, r, i) => {
   for (var a = i > 1 ? void 0 : i ? Mi(t, r) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (a = (i ? n(t, r, a) : n(a)) || a);
   return i && a && Ni(t, r, a), a;
@@ -7070,7 +7070,7 @@ let w = class extends g {
    * the category fills the screen in, and it stays yours to overwrite.
    */
   renderEditor(e) {
-    return ki(
+    return zi(
       this.categoryId,
       o`
         <se-split-rule-editor
@@ -7104,7 +7104,7 @@ let w = class extends g {
   }
 };
 w.styles = [
-  E,
+  D,
   x`
       .split-head {
         display: flex;
@@ -7144,73 +7144,73 @@ w.styles = [
       }
     `
 ];
-k([
+z([
   l({ attribute: !1 })
 ], w.prototype, "api", 2);
-k([
+z([
   l({ attribute: !1 })
 ], w.prototype, "localize", 2);
-k([
+z([
   l({ attribute: !1 })
 ], w.prototype, "group", 2);
-k([
+z([
   l({ attribute: !1 })
 ], w.prototype, "members", 2);
-k([
+z([
   l({ attribute: !1 })
 ], w.prototype, "categories", 2);
-k([
+z([
   l({ attribute: !1 })
 ], w.prototype, "expense", 2);
-k([
+z([
   l({ type: String })
 ], w.prototype, "meId", 2);
-k([
+z([
   l({ type: String })
 ], w.prototype, "language", 2);
-k([
+z([
   d()
 ], w.prototype, "expenseTitle", 2);
-k([
+z([
   d()
 ], w.prototype, "description", 2);
-k([
+z([
   d()
 ], w.prototype, "amountInput", 2);
-k([
+z([
   d()
 ], w.prototype, "paidBy", 2);
-k([
+z([
   d()
 ], w.prototype, "date", 2);
-k([
+z([
   d()
 ], w.prototype, "categoryId", 2);
-k([
+z([
   d()
 ], w.prototype, "rule", 2);
-k([
+z([
   d()
 ], w.prototype, "busy", 2);
-k([
+z([
   d()
 ], w.prototype, "error", 2);
-k([
+z([
   d()
 ], w.prototype, "confirmingDelete", 2);
-k([
+z([
   d()
 ], w.prototype, "editingSplit", 2);
-k([
+z([
   d()
 ], w.prototype, "showDescription", 2);
-k([
+z([
   d()
 ], w.prototype, "currency", 2);
-k([
+z([
   d()
 ], w.prototype, "rate", 2);
-w = k([
+w = z([
   f("se-expense-dialog")
 ], w);
 var Ri = Object.defineProperty, qi = Object.getOwnPropertyDescriptor, oe = (e, t, r, i) => {
@@ -7275,7 +7275,7 @@ let W = class extends g {
     }
   }
 };
-W.styles = E;
+W.styles = D;
 oe([
   l({ attribute: !1 })
 ], W.prototype, "api", 2);
@@ -7309,12 +7309,12 @@ oe([
 W = oe([
   f("se-history-dialog")
 ], W);
-var Ui = Object.defineProperty, Bi = Object.getOwnPropertyDescriptor, D = (e, t, r, i) => {
-  for (var a = i > 1 ? void 0 : i ? Bi(t, r) : t, s = e.length - 1, n; s >= 0; s--)
+var Gi = Object.defineProperty, Ui = Object.getOwnPropertyDescriptor, j = (e, t, r, i) => {
+  for (var a = i > 1 ? void 0 : i ? Ui(t, r) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (a = (i ? n(t, r, a) : n(a)) || a);
-  return i && a && Ui(t, r, a), a;
+  return i && a && Gi(t, r, a), a;
 };
-let j = class extends g {
+let A = class extends g {
   constructor() {
     super(...arguments), this.role = null, this.meId = null, this.mayManage = !1, this.haUsers = [], this.members = [], this.memberships = [], this.newName = "", this.loading = !0, this.dirty = !1, this.pastMembers = [], this.addGuest = async () => {
       this.busy = "new", this.error = void 0;
@@ -7663,8 +7663,8 @@ let j = class extends g {
     }
   }
 };
-j.styles = [
-  E,
+A.styles = [
+  D,
   x`
       .section + .section {
         margin-top: 20px;
@@ -7748,67 +7748,67 @@ j.styles = [
       }
     `
 ];
-D([
+j([
   l({ attribute: !1 })
-], j.prototype, "api", 2);
-D([
+], A.prototype, "api", 2);
+j([
   l({ attribute: !1 })
-], j.prototype, "localize", 2);
-D([
+], A.prototype, "localize", 2);
+j([
   l({ type: String })
-], j.prototype, "groupId", 2);
-D([
+], A.prototype, "groupId", 2);
+j([
   l({ attribute: !1 })
-], j.prototype, "role", 2);
-D([
+], A.prototype, "role", 2);
+j([
   l({ type: String })
-], j.prototype, "meId", 2);
-D([
+], A.prototype, "meId", 2);
+j([
   l({ type: Boolean })
-], j.prototype, "mayManage", 2);
-D([
+], A.prototype, "mayManage", 2);
+j([
   d()
-], j.prototype, "haUsers", 2);
-D([
+], A.prototype, "haUsers", 2);
+j([
   d()
-], j.prototype, "members", 2);
-D([
+], A.prototype, "members", 2);
+j([
   d()
-], j.prototype, "memberships", 2);
-D([
+], A.prototype, "memberships", 2);
+j([
   d()
-], j.prototype, "newName", 2);
-D([
+], A.prototype, "newName", 2);
+j([
   d()
-], j.prototype, "loading", 2);
-D([
+], A.prototype, "loading", 2);
+j([
   d()
-], j.prototype, "busy", 2);
-D([
+], A.prototype, "busy", 2);
+j([
   d()
-], j.prototype, "error", 2);
-D([
+], A.prototype, "error", 2);
+j([
   d()
-], j.prototype, "dirty", 2);
-D([
+], A.prototype, "dirty", 2);
+j([
   d()
-], j.prototype, "tinting", 2);
-D([
+], A.prototype, "tinting", 2);
+j([
   d()
-], j.prototype, "confirming", 2);
-D([
+], A.prototype, "confirming", 2);
+j([
   d()
-], j.prototype, "handingTo", 2);
-D([
+], A.prototype, "handingTo", 2);
+j([
   d()
-], j.prototype, "pastMembers", 2);
-j = D([
+], A.prototype, "pastMembers", 2);
+A = j([
   f("se-member-dialog")
-], j);
-var Hi = Object.defineProperty, Li = Object.getOwnPropertyDescriptor, A = (e, t, r, i) => {
-  for (var a = i > 1 ? void 0 : i ? Li(t, r) : t, s = e.length - 1, n; s >= 0; s--)
+], A);
+var Bi = Object.defineProperty, Hi = Object.getOwnPropertyDescriptor, S = (e, t, r, i) => {
+  for (var a = i > 1 ? void 0 : i ? Hi(t, r) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (a = (i ? n(t, r, a) : n(a)) || a);
-  return i && a && Hi(t, r, a), a;
+  return i && a && Bi(t, r, a), a;
 };
 let $ = class extends g {
   constructor() {
@@ -8038,79 +8038,79 @@ let $ = class extends g {
     return [.../* @__PURE__ */ new Set([...mt, this.group.currency, this.currency])].sort();
   }
 };
-$.styles = E;
-A([
+$.styles = D;
+S([
   l({ attribute: !1 })
 ], $.prototype, "api", 2);
-A([
+S([
   l({ attribute: !1 })
 ], $.prototype, "localize", 2);
-A([
+S([
   l({ attribute: !1 })
 ], $.prototype, "group", 2);
-A([
+S([
   l({ attribute: !1 })
 ], $.prototype, "members", 2);
-A([
+S([
   l({ attribute: !1 })
 ], $.prototype, "payment", 2);
-A([
+S([
   l({ attribute: !1 })
 ], $.prototype, "settlement", 2);
-A([
+S([
   l({ type: String })
 ], $.prototype, "initialKind", 2);
-A([
+S([
   l({ type: String })
 ], $.prototype, "language", 2);
-A([
+S([
   d()
 ], $.prototype, "fromMember", 2);
-A([
+S([
   d()
 ], $.prototype, "toMember", 2);
-A([
+S([
   d()
 ], $.prototype, "amountInput", 2);
-A([
+S([
   d()
 ], $.prototype, "description", 2);
-A([
+S([
   d()
 ], $.prototype, "showDescription", 2);
-A([
+S([
   d()
 ], $.prototype, "date", 2);
-A([
+S([
   d()
 ], $.prototype, "busy", 2);
-A([
+S([
   d()
 ], $.prototype, "error", 2);
-A([
+S([
   d()
 ], $.prototype, "confirmingDelete", 2);
-A([
+S([
   d()
 ], $.prototype, "kind", 2);
-A([
+S([
   d()
 ], $.prototype, "currency", 2);
-A([
+S([
   d()
 ], $.prototype, "rate", 2);
-$ = A([
+$ = S([
   f("se-payment-dialog")
 ], $);
-var Gi = Object.defineProperty, Wi = Object.getOwnPropertyDescriptor, ee = (e, t, r, i) => {
+var Li = Object.defineProperty, Wi = Object.getOwnPropertyDescriptor, ee = (e, t, r, i) => {
   for (var a = i > 1 ? void 0 : i ? Wi(t, r) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (a = (i ? n(t, r, a) : n(a)) || a);
-  return i && a && Gi(t, r, a), a;
+  return i && a && Li(t, r, a), a;
 };
-const Ge = "all", Ki = "#8a9099", Rt = "mdi:tag-off-outline";
-let H = class extends g {
+const Le = "all", Ki = "#8a9099", Rt = "mdi:tag-off-outline";
+let B = class extends g {
   constructor() {
-    super(...arguments), this.members = [], this.categories = [], this.meId = null, this.currency = "EUR", this.language = "en", this.period = Ge;
+    super(...arguments), this.members = [], this.categories = [], this.meId = null, this.currency = "EUR", this.language = "en", this.period = Le;
   }
   connectedCallback() {
     super.connectedCallback(), this.load();
@@ -8125,7 +8125,7 @@ let H = class extends g {
   renderPeriod() {
     return o`
       <div class="seg" role="group">
-        <button aria-pressed=${this.period === Ge} @click=${() => this.pick(Ge)}>
+        <button aria-pressed=${this.period === Le} @click=${() => this.pick(Le)}>
           ${this.localize("period_all")}
         </button>
         ${this.result.years.map(
@@ -8187,7 +8187,7 @@ let H = class extends g {
       const s = e.by_month.reduce((n, p) => p.total > n.total ? p : n);
       t.push(
         this.fill("stat_insight_peak", {
-          month: Et(s.month, this.language),
+          month: Dt(s.month, this.language),
           amount: this.money(s.total)
         })
       );
@@ -8259,7 +8259,7 @@ let H = class extends g {
               <div class="mo ${a ? "pk" : ""}">
                 <div class="mv">${this.money(i.total)}</div>
                 <div class="bx" style=${`height:${i.total / r * 100}%`}></div>
-                <div class="ml">${Et(i.month, this.language)}</div>
+                <div class="ml">${Dt(i.month, this.language)}</div>
               </div>
             `;
     })}
@@ -8331,15 +8331,15 @@ let H = class extends g {
     try {
       this.result = await this.api.getStatistics(
         this.groupId,
-        this.period === Ge ? null : Number(this.period)
+        this.period === Le ? null : Number(this.period)
       );
     } catch (e) {
       this.error = v(e, this.localize);
     }
   }
 };
-H.styles = [
-  E,
+B.styles = [
+  D,
   x`
       :host {
         display: flex;
@@ -8667,40 +8667,40 @@ H.styles = [
 ];
 ee([
   l({ attribute: !1 })
-], H.prototype, "api", 2);
+], B.prototype, "api", 2);
 ee([
   l({ attribute: !1 })
-], H.prototype, "localize", 2);
+], B.prototype, "localize", 2);
 ee([
   l({ type: String })
-], H.prototype, "groupId", 2);
+], B.prototype, "groupId", 2);
 ee([
   l({ attribute: !1 })
-], H.prototype, "members", 2);
+], B.prototype, "members", 2);
 ee([
   l({ attribute: !1 })
-], H.prototype, "categories", 2);
+], B.prototype, "categories", 2);
 ee([
   l({ type: String })
-], H.prototype, "meId", 2);
+], B.prototype, "meId", 2);
 ee([
   l({ type: String })
-], H.prototype, "currency", 2);
+], B.prototype, "currency", 2);
 ee([
   l({ type: String })
-], H.prototype, "language", 2);
+], B.prototype, "language", 2);
 ee([
   d()
-], H.prototype, "result", 2);
+], B.prototype, "result", 2);
 ee([
   d()
-], H.prototype, "period", 2);
+], B.prototype, "period", 2);
 ee([
   d()
-], H.prototype, "error", 2);
-H = ee([
+], B.prototype, "error", 2);
+B = ee([
   f("se-statistics")
-], H);
+], B);
 var Fi = Object.defineProperty, Vi = Object.getOwnPropertyDescriptor, fe = (e, t, r, i) => {
   for (var a = i > 1 ? void 0 : i ? Vi(t, r) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (a = (i ? n(t, r, a) : n(a)) || a);
@@ -8734,7 +8734,7 @@ let de = class extends g {
     `;
   }
 };
-de.styles = E;
+de.styles = D;
 fe([
   l({ attribute: !1 })
 ], de.prototype, "api", 2);
@@ -8759,7 +8759,7 @@ fe([
 de = fe([
   f("se-statistics-dialog")
 ], de);
-var Zi = Object.defineProperty, Ji = Object.getOwnPropertyDescriptor, b = (e, t, r, i) => {
+var Zi = Object.defineProperty, Ji = Object.getOwnPropertyDescriptor, y = (e, t, r, i) => {
   for (var a = i > 1 ? void 0 : i ? Ji(t, r) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (a = (i ? n(t, r, a) : n(a)) || a);
   return i && a && Zi(t, r, a), a;
@@ -8837,6 +8837,19 @@ let _ = class extends g {
   }
   disconnectedCallback() {
     super.disconnectedCallback(), window.removeEventListener("popstate", this.handlePop);
+  }
+  /**
+   * Reload when the switcher swaps the group under us.
+   *
+   * The app keeps one page element and only changes `groupId` when you pick
+   * another group from the header — no remount, so `connectedCallback` never
+   * runs again. Without this, choosing a group did nothing: the page went on
+   * showing the one it first loaded, which read as the switcher being broken.
+   * The initial group is already loaded in `connectedCallback`, so this fires
+   * only on a real change, where `changed.get` holds the group left behind.
+   */
+  updated(e) {
+    e.has("groupId") && e.get("groupId") && (this.loading = !0, this.load());
   }
   render() {
     const e = this.localize;
@@ -9450,7 +9463,7 @@ let _ = class extends g {
         s,
         n,
         p,
-        h
+        u
       ] = await Promise.all([
         this.api.getGroup(this.groupId),
         this.api.listGroups(),
@@ -9462,7 +9475,7 @@ let _ = class extends g {
         this.api.listPayments(this.groupId),
         this.api.getBalances(this.groupId)
       ]);
-      this.group = e, this.groups = t, this.members = r, this.pastMembers = i, this.memberships = a, this.categories = s, this.expenses = n, this.payments = p, this.result = h;
+      this.group = e, this.groups = t, this.members = r, this.pastMembers = i, this.memberships = a, this.categories = s, this.expenses = n, this.payments = p, this.result = u;
     } catch (e) {
       this.error = v(e, this.localize), e?.code === "group_not_found" && this.dispatchEvent(
         new CustomEvent("group-unavailable", { bubbles: !0, composed: !0 })
@@ -9523,10 +9536,10 @@ let _ = class extends g {
    * the group.
    */
   amountNeedles(e, t, r) {
-    const i = Ct(e, t, this.language);
+    const i = Et(e, t, this.language);
     return t === this.group.currency ? i : [
       ...i,
-      ...Ct(r, this.group.currency, this.language)
+      ...Et(r, this.group.currency, this.language)
     ];
   }
   /** A suggested settlement to record, or a recorded payment to correct. */
@@ -9557,7 +9570,7 @@ let _ = class extends g {
   }
 };
 _.styles = [
-  E,
+  D,
   x`
       :host {
         display: block;
@@ -9582,7 +9595,14 @@ _.styles = [
       }
 
       .page {
-        padding: 16px;
+        /*
+         * Room at the foot for the last row to clear the add button. The FAB is
+         * fixed 20px up and 56px tall, so anything in the last 76px sits under
+         * it — the final expense, most of all, which is the newest and the one
+         * you just came to see. The extra bottom padding is scrolled into, so it
+         * lifts only that last row above the button, without spacing the list.
+         */
+        padding: 16px 16px calc(56px + 20px + 16px);
         max-width: 720px;
         margin: 0 auto;
       }
@@ -9945,88 +9965,88 @@ _.styles = [
       }
     `
 ];
-b([
+y([
   l({ attribute: !1 })
 ], _.prototype, "api", 2);
-b([
+y([
   l({ attribute: !1 })
 ], _.prototype, "hass", 2);
-b([
+y([
   l({ type: Boolean })
 ], _.prototype, "narrow", 2);
-b([
+y([
   l({ attribute: !1 })
 ], _.prototype, "localize", 2);
-b([
+y([
   l({ type: String })
 ], _.prototype, "groupId", 2);
-b([
+y([
   l({ type: String })
 ], _.prototype, "language", 2);
-b([
+y([
   l({ type: String })
 ], _.prototype, "userId", 2);
-b([
+y([
   d()
 ], _.prototype, "group", 2);
-b([
+y([
   d()
 ], _.prototype, "groups", 2);
-b([
+y([
   d()
 ], _.prototype, "menu", 2);
-b([
+y([
   d()
 ], _.prototype, "members", 2);
-b([
+y([
   d()
 ], _.prototype, "pastMembers", 2);
-b([
+y([
   d()
 ], _.prototype, "memberships", 2);
-b([
+y([
   d()
 ], _.prototype, "categories", 2);
-b([
+y([
   d()
 ], _.prototype, "expenses", 2);
-b([
+y([
   d()
 ], _.prototype, "payments", 2);
-b([
+y([
   d()
 ], _.prototype, "result", 2);
-b([
+y([
   d()
 ], _.prototype, "query", 2);
-b([
+y([
   d()
 ], _.prototype, "loading", 2);
-b([
+y([
   d()
 ], _.prototype, "error", 2);
-b([
+y([
   d()
 ], _.prototype, "dialog", 2);
-b([
+y([
   d()
 ], _.prototype, "prefill", 2);
-b([
+y([
   d()
 ], _.prototype, "editedExpense", 2);
-b([
+y([
   d()
 ], _.prototype, "editedPayment", 2);
-b([
+y([
   d()
 ], _.prototype, "addingPayment", 2);
-b([
+y([
   d()
 ], _.prototype, "busy", 2);
-b([
+y([
   d()
 ], _.prototype, "confirmingDelete", 2);
-_ = b([
+_ = y([
   f("se-group-page")
 ], _);
 class ot {
@@ -10260,12 +10280,12 @@ class ot {
     });
   }
 }
-var Qi = Object.defineProperty, Yi = Object.getOwnPropertyDescriptor, Be = (e, t, r, i) => {
+var Qi = Object.defineProperty, Yi = Object.getOwnPropertyDescriptor, Ue = (e, t, r, i) => {
   for (var a = i > 1 ? void 0 : i ? Yi(t, r) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (a = (i ? n(t, r, a) : n(a)) || a);
   return i && a && Qi(t, r, a), a;
 };
-let ze = class extends g {
+let ke = class extends g {
   constructor() {
     super(...arguments), this.narrow = !1, this.landed = !1, this.syncFromRoute = () => {
       const e = this.route?.path ?? window.location.pathname, t = /\/group\/([^/?#]+)/.exec(e);
@@ -10342,7 +10362,7 @@ let ze = class extends g {
     history.replaceState(null, "", `${r}${e}`);
   }
 };
-ze.styles = x`
+ke.styles = x`
     :host {
       display: block;
       min-height: 100vh;
@@ -10351,21 +10371,21 @@ ze.styles = x`
       font-family: var(--paper-font-body1_-_font-family, Roboto, sans-serif);
     }
   `;
-Be([
+Ue([
   l({ attribute: !1 })
-], ze.prototype, "hass", 2);
-Be([
+], ke.prototype, "hass", 2);
+Ue([
   l({ type: Boolean })
-], ze.prototype, "narrow", 2);
-Be([
+], ke.prototype, "narrow", 2);
+Ue([
   l({ attribute: !1 })
-], ze.prototype, "route", 2);
-Be([
+], ke.prototype, "route", 2);
+Ue([
   d()
-], ze.prototype, "groupId", 2);
-ze = Be([
+], ke.prototype, "groupId", 2);
+ke = Ue([
   f("shared-expenses-panel")
-], ze);
+], ke);
 const _t = "shared_expenses.last_group";
 function Xi() {
   try {
@@ -10518,7 +10538,7 @@ let ae = class extends g {
   }
 };
 ae.styles = [
-  E,
+  D,
   x`
       :host {
         display: block;
@@ -10565,5 +10585,5 @@ aa.push({
 });
 export {
   ae as SharedExpensesCard,
-  ze as SharedExpensesPanel
+  ke as SharedExpensesPanel
 };

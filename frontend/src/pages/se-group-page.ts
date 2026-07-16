@@ -162,7 +162,14 @@ export class SeGroupPage extends LitElement {
       }
 
       .page {
-        padding: 16px;
+        /*
+         * Room at the foot for the last row to clear the add button. The FAB is
+         * fixed 20px up and 56px tall, so anything in the last 76px sits under
+         * it — the final expense, most of all, which is the newest and the one
+         * you just came to see. The extra bottom padding is scrolled into, so it
+         * lifts only that last row above the button, without spacing the list.
+         */
+        padding: 16px 16px calc(56px + 20px + 16px);
         max-width: 720px;
         margin: 0 auto;
       }
@@ -535,6 +542,23 @@ export class SeGroupPage extends LitElement {
   public disconnectedCallback(): void {
     super.disconnectedCallback();
     window.removeEventListener("popstate", this.handlePop);
+  }
+
+  /**
+   * Reload when the switcher swaps the group under us.
+   *
+   * The app keeps one page element and only changes `groupId` when you pick
+   * another group from the header — no remount, so `connectedCallback` never
+   * runs again. Without this, choosing a group did nothing: the page went on
+   * showing the one it first loaded, which read as the switcher being broken.
+   * The initial group is already loaded in `connectedCallback`, so this fires
+   * only on a real change, where `changed.get` holds the group left behind.
+   */
+  protected updated(changed: Map<string, unknown>): void {
+    if (changed.has("groupId") && changed.get("groupId")) {
+      this.loading = true;
+      void this.load();
+    }
   }
 
   protected render() {

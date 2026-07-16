@@ -23,11 +23,11 @@
   "services": {
     "add_expense": {
       "name": "Añadir gasto",
-      "description": "Añade un gasto a un proyecto. Desde la interfaz respeta las reglas del proyecto, igual que el panel; desde una automatización no hay ninguna cuenta detrás, así que pasa y el historial registra «Alguien».",
+      "description": "Añade un gasto a un grupo. Desde la interfaz respeta las reglas del grupo, igual que el panel; desde una automatización no hay ninguna cuenta detrás, así que pasa y el historial registra «Alguien».",
       "fields": {
         "group_id": {
-          "name": "Proyecto",
-          "description": "El identificador del proyecto, tal como aparece en la dirección del panel."
+          "name": "Grupo",
+          "description": "El identificador del grupo, tal como aparece en la dirección del panel."
         },
         "title": {
           "name": "Título",
@@ -47,7 +47,7 @@
         },
         "currency": {
           "name": "Moneda",
-          "description": "Código ISO 4217 de lo que se pagó. Si se omite, la del proyecto. El tipo del día se obtiene y se congela en el gasto."
+          "description": "Código ISO 4217 de lo que se pagó. Si se omite, la del grupo. El tipo del día se obtiene y se congela en el gasto."
         },
         "category_id": {
           "name": "Categoría",
@@ -64,8 +64,8 @@
       "description": "Registra que un miembro le devolvió dinero a otro.",
       "fields": {
         "group_id": {
-          "name": "Proyecto",
-          "description": "El identificador del proyecto, tal como aparece en la dirección del panel."
+          "name": "Grupo",
+          "description": "El identificador del grupo, tal como aparece en la dirección del panel."
         },
         "from_member_id": {
           "name": "De",
@@ -85,7 +85,7 @@
         },
         "currency": {
           "name": "Moneda",
-          "description": "Código ISO 4217 de lo que se pagó. Si se omite, la del proyecto."
+          "description": "Código ISO 4217 de lo que se pagó. Si se omite, la del grupo."
         },
         "description": {
           "name": "Descripción",
