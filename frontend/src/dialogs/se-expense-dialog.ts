@@ -111,9 +111,12 @@ export class SeExpenseDialog extends LitElement {
       }
 
       /*
-       * A hairline between filling the expense in and reading its past. The two
-       * are different errands — one edits, the other only looks — and the column
-       * ran them together. The stack gap gives it air on either side.
+       * A hairline where the column changes errand: the general fields, then
+       * how they are split, then — when editing — the past being read. The
+       * three ran into one another, and the stack gap gives each rule air on
+       * either side. Drawn between general and split for every expense, since a
+       * new one has that boundary too; the one before the history only when
+       * there is a history.
        */
       .rule {
         height: 1px;
@@ -327,6 +330,9 @@ export class SeExpenseDialog extends LitElement {
                   + ${translate("add_description")}
                 </button>
               `}
+
+          <!-- Between filling the expense in and how it is split: always. -->
+          <div class="rule"></div>
 
           ${this.renderSplit(amount)}
 

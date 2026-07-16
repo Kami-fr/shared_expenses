@@ -15,6 +15,14 @@ const ALL = "all";
 const NO_CATEGORY_COLOUR = "#8a9099";
 
 /**
+ * The mark for the uncategorised, the same the categories screen wears for it:
+ * a tag struck through. Without it the chip was a bare coloured square — a hole
+ * where every other row has a glyph — and "no category" is a thing to show, not
+ * a thing missing.
+ */
+const NO_CATEGORY_ICON = "mdi:tag-off-outline";
+
+/**
  * What the group spent, cut three ways.
  *
  * Reimbursements are left out throughout: moving money between members is not
@@ -501,13 +509,17 @@ export class SeStatistics extends LitElement {
     }
 
     const topCategory = top ? this.category(top.category_id) : undefined;
+    // The dominant category can be the uncategorised one: give it the same
+    // struck tag it wears below, not the blank the missing icon would leave.
+    const topIcon =
+      top && !topCategory ? NO_CATEGORY_ICON : topCategory?.icon;
 
     return html`
       <div class="insight">
         <se-icon
           plain
           .size=${20}
-          .icon=${topCategory?.icon}
+          .icon=${topIcon}
           .fallback=${""}
           style=${`color:${topCategory?.color ?? "var(--primary-color)"}`}
         ></se-icon>
@@ -532,13 +544,18 @@ export class SeStatistics extends LitElement {
           const category = this.category(item.category_id);
           const colour = category?.color ?? NO_CATEGORY_COLOUR;
 
+          // A real category shows its icon, or its initial where it has none;
+          // the uncategorised shows the struck tag rather than an empty chip.
+          const icon = category ? category.icon : NO_CATEGORY_ICON;
+          const fallback = category ? category.name.charAt(0).toUpperCase() : "";
+
           return html`
             <div class="cat">
               <div
                 class="chip"
                 style=${`background:color-mix(in srgb, ${colour} 15%, transparent);color:${colour}`}
               >
-                <se-icon plain .size=${20} .icon=${category?.icon} .fallback=${""}></se-icon>
+                <se-icon plain .size=${20} .icon=${icon} .fallback=${fallback}></se-icon>
               </div>
               <div class="cb">
                 <div class="t">
