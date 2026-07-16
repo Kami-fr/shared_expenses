@@ -477,7 +477,7 @@ async def test_opening_the_dashboard_is_written_in_the_journal(
 
 
 def _hass_exposing(*group_ids: str) -> SimpleNamespace:
-    """A hass whose coordinator holds a snapshot for each named group."""
+    """Return a hass whose coordinator holds a snapshot for each named group."""
 
     coordinator = SimpleNamespace(data={gid: a_snapshot() for gid in group_ids})
 
@@ -485,7 +485,7 @@ def _hass_exposing(*group_ids: str) -> SimpleNamespace:
 
 
 def _device(*identifiers: tuple[str, str]) -> SimpleNamespace:
-    """A device carrying the given registry identifiers."""
+    """Return a device carrying the given registry identifiers."""
 
     return SimpleNamespace(identifiers=set(identifiers))
 

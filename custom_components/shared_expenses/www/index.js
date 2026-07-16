@@ -4772,7 +4772,7 @@ function yt(e) {
   if (t.length > 0)
     return "custom";
   const i = e.remainder?.members ?? [], a = Object.keys(e.remainder?.fixed ?? {});
-  return e.envelope == null && i.length === 0 && a.length === 0 ? "equal" : i.length <= 1 && a.length === 0 ? "partial" : "custom";
+  return e.envelope == null && a.length === 0 ? "equal" : i.length <= 1 && a.length === 0 ? "partial" : "custom";
 }
 function hi(e, t) {
   if (e === "default")

@@ -90,12 +90,20 @@ export function modeOf(rule: SplitRule | null): Mode {
   const takers = rule.remainder?.members ?? [];
   const fixed = Object.keys(rule.remainder?.fixed ?? {});
 
-  if (rule.envelope == null && takers.length === 0 && fixed.length === 0) {
+  // Nothing shared up front, so the remainder never comes into play: whoever
+  // it names would take a share of nothing. A null envelope with no exact
+  // figures is a plain equal split, however its inert remainder happens to
+  // read — and it always reads as the payer, because the backend pins them
+  // onto every rule's remainder so "everyone" cannot draw in whoever joins
+  // later. Requiring no takers here read that pinned payer as a "partial",
+  // and reopening any equal split then landed on the wrong mode.
+  if (rule.envelope == null && fixed.length === 0) {
     return "equal";
   }
 
-  // `partial` puts what is left on one person and nothing else. Anything more
-  // belongs to the full editor, or saving would quietly drop it.
+  // From here an envelope is actually set. `partial` puts what is left on one
+  // person and nothing else; anything more belongs to the full editor, or
+  // saving would quietly drop it.
   if (takers.length <= 1 && fixed.length === 0) {
     return "partial";
   }
