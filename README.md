@@ -7,6 +7,26 @@ instance, next to the rest of it.
 Everyone in the house logs in as themselves. Each person sees the groups they
 belong to, and nothing else.
 
+## Screenshots
+
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="docs/screenshots/01-groups.jpg" alt="The groups you belong to" width="230"><br><sub>Your groups, one tap in</sub></td>
+    <td align="center" width="33%"><img src="docs/screenshots/02-balances.jpg" alt="Balances and the expense list" width="230"><br><sub>Who owes what, from where you stand</sub></td>
+    <td align="center" width="33%"><img src="docs/screenshots/03-trip-currency.jpg" alt="A trip settled in another currency" width="230"><br><sub>Two of you, in a currency the group doesn't count in</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/04-split-part.jpg" alt="Sharing part of an expense" width="230"><br><sub>Share part of it, the rest to whoever paid</sub></td>
+    <td align="center"><img src="docs/screenshots/05-edit-currency.jpg" alt="Editing a foreign-currency expense" width="230"><br><sub>The rate, frozen the day it was owed</sub></td>
+    <td align="center"><img src="docs/screenshots/06-statistics.jpg" alt="Statistics" width="230"><br><sub>Where the money went</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/07-reimbursement.jpg" alt="Recording a reimbursement" width="230"><br><sub>Record money paid back</sub></td>
+    <td></td>
+    <td></td>
+  </tr>
+</table>
+
 ## Features
 
 - **Groups** — a flat, a holiday, a couple. Every Home Assistant account you
@@ -139,7 +159,7 @@ The `group_id` is the one thing to fill in, and there is no picker for it — se
 ### The entities
 
 A group keeps its *figures* to its panel until you say otherwise. Open **Edit
-group → On the dashboard**, and it grows a device carrying:
+group → Dashboard sensors**, and it grows a device carrying:
 
 | Entity | What it says |
 |--------|--------------|

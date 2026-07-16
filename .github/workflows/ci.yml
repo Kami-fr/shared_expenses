@@ -97,3 +97,10 @@ jobs:
           # The files are already valid, and hassfest validates the manifest on
           # every push regardless.
           ignore: brands hacsjson integration_manifest
+        env:
+          # Authenticate HACS's own calls to the GitHub API. Unauthenticated,
+          # they draw on the runner IP's shared 60-per-hour allowance, and once
+          # it is spent GitHub answers 503 — which HACS reports as "repository
+          # not loaded properly", though nothing here is wrong. The workflow's
+          # own token lifts the limit and the check reads the repo again.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
