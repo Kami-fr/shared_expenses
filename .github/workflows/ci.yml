@@ -82,8 +82,18 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
-          # An integration cannot pass the brands check until its icon is in
-          # home-assistant/brands, and it cannot be in brands until it exists —
-          # so the check is skipped here and satisfied by the brands pull request
-          # opened as part of publishing to the default store.
-          ignore: brands
+          # Three checks are set aside, all answered by publishing rather than
+          # by building — remove them from this list as each is met.
+          #
+          # brands: an integration cannot pass it until its icon is in
+          # home-assistant/brands, which cannot happen until the integration
+          # exists — so it is satisfied by the brands pull request opened as
+          # part of publishing to the default store.
+          #
+          # hacsjson, integration_manifest: HACS reads these two files over
+          # raw.githubusercontent.com, which serves nothing for a private
+          # repository — so both come back empty and fail while the repo is
+          # private, whatever the files hold. They pass the moment it is public.
+          # The files are already valid, and hassfest validates the manifest on
+          # every push regardless.
+          ignore: brands hacsjson integration_manifest
