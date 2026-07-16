@@ -311,6 +311,7 @@ export class SeExpenseDialog extends LitElement {
             .currency=${this.currency}
             .on=${this.date}
             .amount=${amount}
+            .initialRate=${this.expense?.exchange_rate ?? null}
             .language=${this.language}
             @rate-changed=${this.handleRate}
           ></se-currency-field>

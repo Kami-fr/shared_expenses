@@ -45,8 +45,21 @@ export class SeCurrencyField extends LitElement {
 
   @property({ type: String }) public language = "en";
 
+  /**
+   * The rate the expense was saved with, if it is an existing one. Frozen: it
+   * settled the debt the day it was owed, so reopening the expense shows this,
+   * not a rate fetched afresh today. Null for a new expense — nothing to keep.
+   */
+  @property({ type: Number }) public initialRate: number | null = null;
+
   /** The rate as fetched, if one was. */
   @state() private fetched?: ExchangeRate;
+
+  /** A stored rate, held as authoritative until a fresh one is asked for. */
+  @state() private frozen: number | null = null;
+
+  /** The stored rate has just been taken up: skip the opening fetch once. */
+  private hydrated = false;
 
   /** What is typed in the rate field, which always wins. */
   @state() private typed = "";
@@ -104,15 +117,37 @@ export class SeCurrencyField extends LitElement {
 
   public connectedCallback(): void {
     super.connectedCallback();
+
+    // An existing foreign expense carries a frozen rate. Keep it rather than
+    // refetch: it settled the debt the day the money was owed, and a rate that
+    // has moved since is a fact about the market, not about what is owed.
+    // "Try again", or changing the currency or the day, still asks for a fresh
+    // one — the frozen rate is a default to keep, not a wall.
+    if (this.initialRate !== null && this.currency !== this.groupCurrency) {
+      this.frozen = this.initialRate;
+      this.hydrated = true;
+      return;
+    }
+
     void this.load();
   }
 
   protected updated(changed: Map<string, unknown>): void {
+    // The first update after taking up a stored rate: leave it untouched and
+    // only say what it comes to. Every genuine change below still behaves as
+    // ever — this guard fires once and clears itself.
+    if (this.hydrated) {
+      this.hydrated = false;
+      this.emit();
+      return;
+    }
+
     // A rate typed for dollars means nothing once the picker says francs, so
     // it goes: what is on screen must always be about the currency named.
     if (changed.has("currency")) {
       this.typed = "";
       this.fetched = undefined;
+      this.frozen = null;
       this.error = undefined;
     }
 
@@ -213,6 +248,10 @@ export class SeCurrencyField extends LitElement {
       return 1_000_000;
     }
 
+    if (this.frozen !== null) {
+      return this.frozen;
+    }
+
     return this.fetched?.rate ?? null;
   }
 
@@ -232,6 +271,9 @@ export class SeCurrencyField extends LitElement {
     if (again) {
       this.typed = "";
     }
+
+    // A fetch supersedes any frozen rate: asking for a fresh one is a choice.
+    this.frozen = null;
 
     this.busy = true;
     this.error = undefined;
