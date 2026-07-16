@@ -115,6 +115,17 @@ class InvalidPaymentError(SharedExpensesError):
 #
 
 
+class CurrencyLockedError(SharedExpensesError):
+    """A group's currency cannot change once it holds money.
+
+    Every expense and payment stored its figures already converted into the
+    group's currency, and nothing here converts them back. Change the currency
+    and the same integers would simply be read as another one — 40,00 € becoming
+    40,00 $ with nobody told. It is settled once, while the group is still empty,
+    and from then on it is the unit the whole history is written in.
+    """
+
+
 class InvalidExchangeRateError(SharedExpensesError):
     """Exchange rate is missing, malformed or not plausible."""
 

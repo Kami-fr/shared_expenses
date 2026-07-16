@@ -188,6 +188,31 @@ and somebody's `member_id` is on their own balance sensor. The project's id is
 also in the panel's address, which is the only way to find it with the switch
 shut — and all the card needs.
 
+### A tile that records a reimbursement
+
+The same tap, for money going back rather than out — a share of the rent, a
+standing debt, settled every month without opening anything:
+
+```yaml
+type: tile
+entity: sensor.montigny_antonin
+name: Rent — Antonin's half
+icon: mdi:cash-refund
+tap_action:
+  action: perform-action
+  perform_action: shared_expenses.settle_up
+  data:
+    group_id: 01KXHEB4VFFWMAN5CG4BDNNBF9
+    from_member_id: 01KXHEB4VG7Q2M8XQZ0P3R5T7V
+    to_member_id: 01KXHEB4VH9S4N0YR1Q5T7W9X2
+    amount: 400.00
+```
+
+`from` is whoever is out of pocket, `to` whoever is paid back — the ids are the
+`member_id`s carried on the balance sensors. A reimbursement moves money between
+members, not out of the project, so the total stays put; the balance on the tile
+is what shifts, which is how you know it landed.
+
 ### A tile for everything else
 
 An expense you do not know in advance has an amount to type, and a tile has no
@@ -204,6 +229,38 @@ tap_action:
 ```
 
 One tap to the project, one to the plus.
+
+### A month on a gauge
+
+`Total spent` only ever climbs, so on its own it answers "since when", not "this
+month". But it is a monetary total, so Home Assistant keeps long-term statistics
+on it — and a `utility_meter` helper reading it on a monthly cycle turns it into
+exactly that:
+
+```yaml
+# configuration.yaml
+utility_meter:
+  montigny_this_month:
+    source: sensor.montigny_total_spent
+    cycle: monthly
+```
+
+The helper starts fresh on the first of the month, and a gauge draws the running
+spend against whatever you call a full one:
+
+```yaml
+type: gauge
+entity: sensor.montigny_this_month
+name: This month
+max: 800
+severity:
+  green: 0
+  yellow: 600
+  red: 750
+```
+
+Nothing new is stored for this — the figure was always inside `Total spent`, and
+the helper only reads it.
 
 ### From an automation
 

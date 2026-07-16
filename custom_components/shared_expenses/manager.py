@@ -17,6 +17,7 @@ from .exceptions import (
     AdminNeedsAccountError,
     CannotRemoveAdminError,
     CategoryNotFoundError,
+    CurrencyLockedError,
     ExchangeRateUnavailableError,
     ExpenseNotFoundError,
     GroupArchivedError,
@@ -484,6 +485,15 @@ class SharedExpensesManager:
 
         before = await self.get_group(group.id)
 
+        # The currency is the unit every stored figure is written in. Changing it
+        # converts nothing, so once the group holds any of them the same integers
+        # would silently be read as another currency. The panel offers this only
+        # on an empty group; this is the same rule, said where no panel can be
+        # skipped — an automation or a direct command reaches here too.
+        currency_changed = group.currency.upper() != before.currency.upper()
+        if currency_changed and await self._holds_money(group.id):
+            raise CurrencyLockedError(group.id)
+
         if group.default_category_id is not None:
             # Its own category, never another group's: the id comes from the
             # caller, and a foreign key alone would take any category in the
@@ -510,6 +520,20 @@ class SharedExpensesManager:
                     actor_user_id=actor_user_id,
                     changes=changes,
                 )
+
+    async def _holds_money(self, group_id: str) -> bool:
+        """Return whether a group holds anything counted in its currency.
+
+        An expense or a payment stored figures in the group's currency; a
+        category, a member, a name never touched money. So those two are what
+        freezes the currency, and nothing else does. Read only when the currency
+        is actually being changed, which is rare and always deliberate.
+        """
+
+        if await self._database.expense_repository.list_by_group(group_id):
+            return True
+
+        return bool(await self._database.payment_repository.list_by_group(group_id))
 
     async def archive_group(
         self,

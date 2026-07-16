@@ -244,6 +244,8 @@ export interface MemberTotal {
 /** What a group spent, cut three ways. Reimbursements are not spending. */
 export interface GroupStatistics {
   total: number;
+  /** How many expenses the total is made of. The average expense is total / count. */
+  count: number;
   by_category: CategoryTotal[];
   by_month: MonthTotal[];
   by_member: MemberTotal[];

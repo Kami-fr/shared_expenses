@@ -1,0 +1,97 @@
+{
+  "config": {
+    "abort": {
+      "single_instance_allowed": "Apenas uma configuração do Shared Expenses é permitida."
+    },
+    "step": {
+      "user": {
+        "title": "Shared Expenses",
+        "description": "Configurar o Shared Expenses."
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "total_spent": {
+        "name": "Total gasto"
+      },
+      "last_activity": {
+        "name": "Última atividade"
+      }
+    }
+  },
+  "services": {
+    "add_expense": {
+      "name": "Adicionar despesa",
+      "description": "Adiciona uma despesa a um projeto. Chamada pela interface, ela obedece às regras do projeto, como o painel; chamada por uma automação, não há nenhuma conta por trás, então ela passa e o histórico registra \"Alguém\".",
+      "fields": {
+        "group_id": {
+          "name": "Projeto",
+          "description": "O id do projeto, como aparece no endereço do painel."
+        },
+        "title": {
+          "name": "Título",
+          "description": "A que se refere a despesa."
+        },
+        "amount": {
+          "name": "Valor",
+          "description": "Em unidades inteiras de dinheiro, não em centavos. 85,42 e não 8542."
+        },
+        "paid_by_member_id": {
+          "name": "Pago por",
+          "description": "O id do membro que pagou."
+        },
+        "expense_date": {
+          "name": "Data",
+          "description": "Quando aconteceu. Se omitida, agora."
+        },
+        "currency": {
+          "name": "Moeda",
+          "description": "Código ISO 4217 do que foi pago. Se omitida, a do próprio projeto. A taxa do dia é obtida e congelada na despesa."
+        },
+        "category_id": {
+          "name": "Categoria",
+          "description": "O id da categoria em que classificá-la."
+        },
+        "description": {
+          "name": "Descrição",
+          "description": "Uma nota sobre a despesa."
+        }
+      }
+    },
+    "settle_up": {
+      "name": "Acertar contas",
+      "description": "Registra que um membro pagou outro de volta.",
+      "fields": {
+        "group_id": {
+          "name": "Projeto",
+          "description": "O id do projeto, como aparece no endereço do painel."
+        },
+        "from_member_id": {
+          "name": "De",
+          "description": "Quem ficou no prejuízo, aquele de quem o dinheiro saiu."
+        },
+        "to_member_id": {
+          "name": "Para",
+          "description": "O id do membro que foi reembolsado."
+        },
+        "amount": {
+          "name": "Valor",
+          "description": "Em unidades inteiras de dinheiro, não em centavos."
+        },
+        "payment_date": {
+          "name": "Data",
+          "description": "Quando aconteceu. Se omitida, agora."
+        },
+        "currency": {
+          "name": "Moeda",
+          "description": "Código ISO 4217 do que foi pago. Se omitida, a do próprio projeto."
+        },
+        "description": {
+          "name": "Descrição",
+          "description": "Uma nota dizendo do que se tratava."
+        }
+      }
+    }
+  }
+}

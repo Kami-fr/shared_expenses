@@ -1,0 +1,97 @@
+{
+  "config": {
+    "abort": {
+      "single_instance_allowed": "Er is slechts één configuratie van Shared Expenses toegestaan."
+    },
+    "step": {
+      "user": {
+        "title": "Shared Expenses",
+        "description": "Shared Expenses instellen."
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "total_spent": {
+        "name": "Totaal uitgegeven"
+      },
+      "last_activity": {
+        "name": "Laatste activiteit"
+      }
+    }
+  },
+  "services": {
+    "add_expense": {
+      "name": "Uitgave toevoegen",
+      "description": "Voegt een uitgave toe aan een project. Vanuit de interface volgt ze de regels van het project, net als het paneel; vanuit een automatisering zit er geen account achter, dus ze gaat door en de geschiedenis noteert \"Iemand\".",
+      "fields": {
+        "group_id": {
+          "name": "Project",
+          "description": "De id van het project, zoals die in het adres van het paneel verschijnt."
+        },
+        "title": {
+          "name": "Titel",
+          "description": "Waarvoor de uitgave was."
+        },
+        "amount": {
+          "name": "Bedrag",
+          "description": "In hele munt, niet in centen. 85,42 en niet 8542."
+        },
+        "paid_by_member_id": {
+          "name": "Betaald door",
+          "description": "De id van het lid dat betaald heeft."
+        },
+        "expense_date": {
+          "name": "Datum",
+          "description": "Wanneer het gebeurde. Weggelaten, nu."
+        },
+        "currency": {
+          "name": "Valuta",
+          "description": "ISO 4217-code van wat er betaald is. Weggelaten, die van het project. De koers van de dag wordt opgehaald en op de uitgave vastgezet."
+        },
+        "category_id": {
+          "name": "Categorie",
+          "description": "De id van de categorie om ze onder te plaatsen."
+        },
+        "description": {
+          "name": "Beschrijving",
+          "description": "Een notitie bij de uitgave."
+        }
+      }
+    },
+    "settle_up": {
+      "name": "Afrekenen",
+      "description": "Legt vast dat een lid een ander heeft terugbetaald.",
+      "fields": {
+        "group_id": {
+          "name": "Project",
+          "description": "De id van het project, zoals die in het adres van het paneel verschijnt."
+        },
+        "from_member_id": {
+          "name": "Van",
+          "description": "Wie het geld heeft voorgeschoten, degene wiens geld is weggegaan."
+        },
+        "to_member_id": {
+          "name": "Aan",
+          "description": "De id van het lid dat is terugbetaald."
+        },
+        "amount": {
+          "name": "Bedrag",
+          "description": "In hele munt, niet in centen."
+        },
+        "payment_date": {
+          "name": "Datum",
+          "description": "Wanneer het gebeurde. Weggelaten, nu."
+        },
+        "currency": {
+          "name": "Valuta",
+          "description": "ISO 4217-code van wat er betaald is. Weggelaten, die van het project."
+        },
+        "description": {
+          "name": "Beschrijving",
+          "description": "Een notitie over waar het om ging."
+        }
+      }
+    }
+  }
+}

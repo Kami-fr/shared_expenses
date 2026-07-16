@@ -11,6 +11,7 @@ from custom_components.shared_expenses.const import DATABASE_VERSION
 from custom_components.shared_expenses.exceptions import (
     CannotRemoveAdminError,
     CategoryNotFoundError,
+    CurrencyLockedError,
     GroupArchivedError,
     GroupNotFoundError,
     InvalidExchangeRateError,
@@ -1136,6 +1137,88 @@ async def test_deleting_the_default_category_leaves_the_group(
 
     assert reloaded.name == "Appartement"
     assert reloaded.default_category_id is None
+
+
+async def test_a_group_currency_locks_once_it_has_an_expense(
+    manager: SharedExpensesManager,
+):
+    """Nothing reconverts, so the stored figures would just be reread as USD."""
+
+    group = await make_group(manager, currency="EUR")
+    admin = await admin_of(manager, group.id)
+
+    await manager.create_expense(
+        group_id=group.id,
+        title="Courses",
+        amount=4000,
+        paid_by_member_id=admin.id,
+        expense_date=NOW,
+    )
+
+    with pytest.raises(CurrencyLockedError):
+        await manager.update_group(replace(group, currency="USD"))
+
+    assert (await manager.get_group(group.id)).currency == "EUR"
+
+
+async def test_a_group_currency_locks_once_it_has_a_payment(
+    manager: SharedExpensesManager,
+):
+    """A payment stored its figure in the group's currency too, so it counts."""
+
+    group = await make_group(manager, currency="EUR")
+    antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
+    admin = await admin_of(manager, group.id)
+
+    await manager.create_payment(
+        group_id=group.id,
+        from_member_id=antonin.id,
+        to_member_id=admin.id,
+        amount=500,
+        payment_date=NOW,
+    )
+
+    with pytest.raises(CurrencyLockedError):
+        await manager.update_group(replace(group, currency="USD"))
+
+    assert (await manager.get_group(group.id)).currency == "EUR"
+
+
+async def test_an_empty_group_can_still_change_currency(
+    manager: SharedExpensesManager,
+):
+    """The lock is the money, not the field: with nothing stored, nothing lies."""
+
+    group = await make_group(manager, currency="EUR")
+
+    await manager.update_group(replace(group, currency="USD"))
+
+    assert (await manager.get_group(group.id)).currency == "USD"
+
+
+async def test_a_group_with_expenses_can_still_be_renamed(
+    manager: SharedExpensesManager,
+):
+    """The lock is on the currency alone. A name carries no figures."""
+
+    group = await make_group(manager, currency="EUR")
+    admin = await admin_of(manager, group.id)
+
+    await manager.create_expense(
+        group_id=group.id,
+        title="Courses",
+        amount=4000,
+        paid_by_member_id=admin.id,
+        expense_date=NOW,
+    )
+
+    await manager.update_group(replace(group, name="Vacances"))
+
+    reloaded = await manager.get_group(group.id)
+
+    assert reloaded.name == "Vacances"
+    assert reloaded.currency == "EUR"
+
 
 async def test_an_expense_in_another_currency_converts(manager: SharedExpensesManager):
     """100 USD at 0.87681 is 87,68 EUR, and that is what the group counts."""

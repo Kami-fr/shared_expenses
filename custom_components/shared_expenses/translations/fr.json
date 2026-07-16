@@ -19,5 +19,79 @@
         "name": "Dernière activité"
       }
     }
+  },
+  "services": {
+    "add_expense": {
+      "name": "Ajouter une dépense",
+      "description": "Ajoute une dépense à un projet. Depuis l'interface, elle respecte les règles du projet, comme le panneau ; depuis une automatisation, aucun compte n'est derrière, alors elle passe et l'historique inscrit « Quelqu'un ».",
+      "fields": {
+        "group_id": {
+          "name": "Projet",
+          "description": "L'identifiant du projet, tel qu'il apparaît dans l'adresse du panneau."
+        },
+        "title": {
+          "name": "Titre",
+          "description": "Ce à quoi correspond la dépense."
+        },
+        "amount": {
+          "name": "Montant",
+          "description": "En monnaie entière, pas en centimes. 85,42 et non 8542."
+        },
+        "paid_by_member_id": {
+          "name": "Payé par",
+          "description": "L'identifiant du membre qui a payé."
+        },
+        "expense_date": {
+          "name": "Date",
+          "description": "Quand cela s'est passé. Omis, maintenant."
+        },
+        "currency": {
+          "name": "Devise",
+          "description": "Code ISO 4217 de ce qui a été réglé. Omis, celle du projet. Le taux du jour est récupéré et figé sur la dépense."
+        },
+        "category_id": {
+          "name": "Catégorie",
+          "description": "L'identifiant de la catégorie où la classer."
+        },
+        "description": {
+          "name": "Description",
+          "description": "Une note sur la dépense."
+        }
+      }
+    },
+    "settle_up": {
+      "name": "Rembourser",
+      "description": "Enregistre qu'un membre en a remboursé un autre.",
+      "fields": {
+        "group_id": {
+          "name": "Projet",
+          "description": "L'identifiant du projet, tel qu'il apparaît dans l'adresse du panneau."
+        },
+        "from_member_id": {
+          "name": "De",
+          "description": "Celui qui a avancé l'argent, celui dont l'argent est parti."
+        },
+        "to_member_id": {
+          "name": "À",
+          "description": "L'identifiant du membre remboursé."
+        },
+        "amount": {
+          "name": "Montant",
+          "description": "En monnaie entière, pas en centimes."
+        },
+        "payment_date": {
+          "name": "Date",
+          "description": "Quand cela s'est passé. Omis, maintenant."
+        },
+        "currency": {
+          "name": "Devise",
+          "description": "Code ISO 4217 de ce qui a été réglé. Omis, celle du projet."
+        },
+        "description": {
+          "name": "Description",
+          "description": "Une note disant de quoi il s'agissait."
+        }
+      }
+    }
   }
 }

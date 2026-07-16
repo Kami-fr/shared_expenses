@@ -207,6 +207,40 @@ member could delete the whole group.
       thing that could show the same balances speaking differently to two
       accounts. See ADR-015.
 
+## Sprint 16 — Before it is public
+
+- [x] A group's currency locks the moment it holds money. Nothing reconverts, so
+      changing it later would reread every stored figure as another currency —
+      40,00 € as 40,00 $, in silence. The panel already offered it on an empty
+      group only; this says the same where no panel can be skipped, in the
+      manager, so an automation or a direct command is refused too. The lock is
+      the money and not the field: an empty group still changes freely, and a
+      group full of expenses is still renamed freely.
+- [x] `iot_class` was `cloud_polling`, which was never true: the data is local
+      SQLite and the coordinator refreshes on a signal, not a clock. The one
+      request that ever leaves is a rate, on demand. `local_push` now, which is
+      what the privacy line in the README has always claimed.
+- [x] 4 tests, the lock sabotaged both ways — disabled to prove they catch a
+      currency changed under stored figures, and stripped of its condition to
+      prove they catch a rename refused for no reason.
+- [x] Registering `add_expense` and `settle_up` turned Hassfest red, and rightly:
+      Home Assistant wants an action's names and descriptions in its
+      translations, not loose in `services.yaml`. They moved — every action and
+      every field is named under `services` in `strings.json` and in both
+      translation files, and `services.yaml` keeps only the shape of the fields:
+      what is required, what a selector offers, an example. The manifest keys
+      went back into their canonical order while here.
+- [x] HACS was red on `brands`: an integration cannot pass that check until its
+      icon lives in `home-assistant/brands`, a pull request against another
+      repository and part of publishing, not of building. The check is skipped in
+      CI (`ignore: brands`) until that lands. The icon drawn for it is the
+      integration's own mark — a coin split in two, a person on each half, in the
+      money green — rather than a borrowed glyph.
+- [x] The sidebar dropped `cash-multiple` for `account-cash`. A person and their
+      money says more of what the panel is than a stack of notes, and it echoes
+      the new mark. The balance and activity sensors keep their own icons — a
+      different surface, each already saying its own thing.
+
 ## Later
 
 - [ ] Weighted splits (by shares, rather than by amount or percentage)
@@ -218,7 +252,3 @@ member could delete the whole group.
       at least, is measurable: Chrome headless against the built bundle catches
       what the eye does not — that is how the balance card was found spilling
       its figures on a phone.
-- [ ] Refuse a group's currency changing once it holds anything. Nothing
-      converts, so the same figures would simply be read in another currency —
-      silently. The command allows it; only the panel not offering it stands in
-      the way.

@@ -1,9 +1,6 @@
-# What the actions offer, and what the interface makes of each field.
-#
-# This file described a `create_group` action until today. There was no such
-# action: nothing had ever called `async_register`, so the whole file described
-# something that did not exist, and Home Assistant quietly ignored it. It is
-# gone.
+# The shape of each action's fields. What every field is called, and what it is
+# for, lives in the translations — Home Assistant reads the labels from there,
+# and hassfest refuses an action whose text is written here instead.
 #
 # Ids rather than pickers. A project and a member are this integration's own,
 # not Home Assistant entities, so no selector knows how to list them — the id is
@@ -12,31 +9,20 @@
 # not a reason to hold the actions back.
 
 add_expense:
-  name: Add expense
-  description: >-
-    Add an expense to a project. Called from the interface it obeys the
-    project's rules, like the panel does; called from an automation there is no
-    account behind it, so it goes through and the history records "Someone".
-
   fields:
     group_id:
-      name: Project
-      description: The id of the project, as it appears in the panel's address.
       required: true
       example: 01KXHEB4VFFWMAN5CG4BDNNBF9
       selector:
         text:
 
     title:
-      name: Title
       required: true
       example: Courses
       selector:
         text:
 
     amount:
-      name: Amount
-      description: In whole money, not in cents. 85.42, not 8542.
       required: true
       example: 85.42
       selector:
@@ -46,72 +32,53 @@ add_expense:
           mode: box
 
     paid_by_member_id:
-      name: Paid by
-      description: The id of the member who paid.
       required: true
       example: 01KXHEB4VG7Q2M8XQZ0P3R5T7V
       selector:
         text:
 
     expense_date:
-      name: Date
-      description: When it happened. Left out, now.
       required: false
       selector:
         datetime:
 
     currency:
-      name: Currency
-      description: >-
-        ISO 4217 code of what was handed over. Left out, the project's own. The
-        day's rate is fetched and frozen onto the expense.
       required: false
       example: USD
       selector:
         text:
 
     category_id:
-      name: Category
       required: false
       selector:
         text:
 
     description:
-      name: Description
       required: false
       selector:
         text:
 
 settle_up:
-  name: Settle up
-  description: Record that one member paid another back.
-
   fields:
     group_id:
-      name: Project
       required: true
       example: 01KXHEB4VFFWMAN5CG4BDNNBF9
       selector:
         text:
 
     from_member_id:
-      name: From
-      description: Whoever is out of pocket — the one whose money left.
       required: true
       example: 01KXHEB4VG7Q2M8XQZ0P3R5T7V
       selector:
         text:
 
     to_member_id:
-      name: To
       required: true
       example: 01KXHEB4VH9S4N0YR1Q5T7W9X2
       selector:
         text:
 
     amount:
-      name: Amount
-      description: In whole money, not in cents.
       required: true
       example: 20.00
       selector:
@@ -121,21 +88,17 @@ settle_up:
           mode: box
 
     payment_date:
-      name: Date
-      description: When it happened. Left out, now.
       required: false
       selector:
         datetime:
 
     currency:
-      name: Currency
       required: false
       example: USD
       selector:
         text:
 
     description:
-      name: Description
       required: false
       selector:
         text:

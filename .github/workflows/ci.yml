@@ -82,3 +82,8 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
+          # An integration cannot pass the brands check until its icon is in
+          # home-assistant/brands, and it cannot be in brands until it exists —
+          # so the check is skipped here and satisfied by the brands pull request
+          # opened as part of publishing to the default store.
+          ignore: brands

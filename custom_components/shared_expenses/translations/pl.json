@@ -1,0 +1,97 @@
+{
+  "config": {
+    "abort": {
+      "single_instance_allowed": "Dozwolona jest tylko jedna konfiguracja Shared Expenses."
+    },
+    "step": {
+      "user": {
+        "title": "Shared Expenses",
+        "description": "Skonfiguruj Shared Expenses."
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "total_spent": {
+        "name": "Łącznie wydano"
+      },
+      "last_activity": {
+        "name": "Ostatnia aktywność"
+      }
+    }
+  },
+  "services": {
+    "add_expense": {
+      "name": "Dodaj wydatek",
+      "description": "Dodaje wydatek do projektu. Z poziomu interfejsu przestrzega reguł projektu, tak jak panel; z poziomu automatyzacji nie stoi za nim żadne konto, więc przechodzi, a historia zapisuje „Ktoś”.",
+      "fields": {
+        "group_id": {
+          "name": "Projekt",
+          "description": "Identyfikator projektu, taki jak w adresie panelu."
+        },
+        "title": {
+          "name": "Tytuł",
+          "description": "Czego dotyczył wydatek."
+        },
+        "amount": {
+          "name": "Kwota",
+          "description": "W pełnej walucie, nie w groszach. 85,42, a nie 8542."
+        },
+        "paid_by_member_id": {
+          "name": "Zapłacone przez",
+          "description": "Identyfikator osoby, która zapłaciła."
+        },
+        "expense_date": {
+          "name": "Data",
+          "description": "Kiedy to się wydarzyło. Pominięte — teraz."
+        },
+        "currency": {
+          "name": "Waluta",
+          "description": "Kod ISO 4217 tego, czym zapłacono. Pominięte — waluta projektu. Kurs z danego dnia jest pobierany i zamrażany na wydatku."
+        },
+        "category_id": {
+          "name": "Kategoria",
+          "description": "Identyfikator kategorii, do której go przypisać."
+        },
+        "description": {
+          "name": "Opis",
+          "description": "Notatka o wydatku."
+        }
+      }
+    },
+    "settle_up": {
+      "name": "Rozlicz się",
+      "description": "Zapisuje, że jeden członek oddał pieniądze drugiemu.",
+      "fields": {
+        "group_id": {
+          "name": "Projekt",
+          "description": "Identyfikator projektu, taki jak w adresie panelu."
+        },
+        "from_member_id": {
+          "name": "Od",
+          "description": "Ten, który wyłożył pieniądze, ten, którego pieniądze odeszły."
+        },
+        "to_member_id": {
+          "name": "Do",
+          "description": "Identyfikator osoby, której oddano pieniądze."
+        },
+        "amount": {
+          "name": "Kwota",
+          "description": "W pełnej walucie, nie w groszach."
+        },
+        "payment_date": {
+          "name": "Data",
+          "description": "Kiedy to się wydarzyło. Pominięte — teraz."
+        },
+        "currency": {
+          "name": "Waluta",
+          "description": "Kod ISO 4217 tego, czym zapłacono. Pominięte — waluta projektu."
+        },
+        "description": {
+          "name": "Opis",
+          "description": "Notatka o tym, czego dotyczyło."
+        }
+      }
+    }
+  }
+}

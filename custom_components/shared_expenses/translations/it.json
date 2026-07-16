@@ -1,0 +1,97 @@
+{
+  "config": {
+    "abort": {
+      "single_instance_allowed": "È consentita una sola istanza di Shared Expenses."
+    },
+    "step": {
+      "user": {
+        "title": "Shared Expenses",
+        "description": "Configura Shared Expenses."
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "total_spent": {
+        "name": "Totale speso"
+      },
+      "last_activity": {
+        "name": "Ultima attività"
+      }
+    }
+  },
+  "services": {
+    "add_expense": {
+      "name": "Aggiungi spesa",
+      "description": "Aggiunge una spesa a un progetto. Dall'interfaccia rispetta le regole del progetto, come il pannello; da un'automazione non c'è nessun account dietro, quindi passa e la cronologia registra «Qualcuno».",
+      "fields": {
+        "group_id": {
+          "name": "Progetto",
+          "description": "L'identificatore del progetto, così come appare nell'indirizzo del pannello."
+        },
+        "title": {
+          "name": "Titolo",
+          "description": "A cosa corrisponde la spesa."
+        },
+        "amount": {
+          "name": "Importo",
+          "description": "In moneta intera, non in centesimi. 85,42 e non 8542."
+        },
+        "paid_by_member_id": {
+          "name": "Pagato da",
+          "description": "L'identificatore del membro che ha pagato."
+        },
+        "expense_date": {
+          "name": "Data",
+          "description": "Quando è avvenuta. Se omessa, adesso."
+        },
+        "currency": {
+          "name": "Valuta",
+          "description": "Codice ISO 4217 di ciò che è stato pagato. Se omessa, quella del progetto. Il tasso del giorno viene recuperato e congelato sulla spesa."
+        },
+        "category_id": {
+          "name": "Categoria",
+          "description": "L'identificatore della categoria in cui classificarla."
+        },
+        "description": {
+          "name": "Descrizione",
+          "description": "Una nota sulla spesa."
+        }
+      }
+    },
+    "settle_up": {
+      "name": "Rimborsa",
+      "description": "Registra che un membro ne ha rimborsato un altro.",
+      "fields": {
+        "group_id": {
+          "name": "Progetto",
+          "description": "L'identificatore del progetto, così come appare nell'indirizzo del pannello."
+        },
+        "from_member_id": {
+          "name": "Da",
+          "description": "Chi ha anticipato il denaro, quello il cui denaro è uscito."
+        },
+        "to_member_id": {
+          "name": "A",
+          "description": "L'identificatore del membro rimborsato."
+        },
+        "amount": {
+          "name": "Importo",
+          "description": "In moneta intera, non in centesimi."
+        },
+        "payment_date": {
+          "name": "Data",
+          "description": "Quando è avvenuto. Se omessa, adesso."
+        },
+        "currency": {
+          "name": "Valuta",
+          "description": "Codice ISO 4217 di ciò che è stato pagato. Se omessa, quella del progetto."
+        },
+        "description": {
+          "name": "Descrizione",
+          "description": "Una nota che dice di cosa si trattava."
+        }
+      }
+    }
+  }
+}

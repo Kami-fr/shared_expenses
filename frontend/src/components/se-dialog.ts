@@ -171,12 +171,19 @@ export class SeDialog extends LitElement {
   }
 
   /**
-   * Scroll whatever was just focused back into view.
+   * Scroll a field being typed into back into view.
    *
    * A keyboard opening does not move the dialog, and the browser's own effort
    * to reveal the field gives up at the first scrolling ancestor — which here
    * is the dialog, inside a fixed scrim. So a field near the bottom ends up
    * behind the keyboard, being typed into blind.
+   *
+   * Only for what summons the keyboard, though: an input or a textarea. A
+   * button taking focus on a click — a period tab, "edit split" — brings up no
+   * keyboard and needs no revealing, and centring it only yanked the dialog
+   * down under the tap. The real focused element sits at the foot of the
+   * composed path; `event.target` is retargeted to the shadow boundary and
+   * could not tell a segmented control from an input.
    *
    * Deferred, because at the moment focus lands the keyboard is not up yet and
    * the viewport has not shrunk: scrolling now would aim at where the field
@@ -184,6 +191,12 @@ export class SeDialog extends LitElement {
    * visible too.
    */
   private keepInView = (event: FocusEvent) => {
+    const tag = (event.composedPath()[0] as HTMLElement | undefined)?.tagName;
+
+    if (tag !== "INPUT" && tag !== "TEXTAREA") {
+      return;
+    }
+
     const target = event.target as HTMLElement | null;
 
     if (!target?.scrollIntoView) {

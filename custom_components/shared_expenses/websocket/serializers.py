@@ -163,6 +163,7 @@ def statistics_to_dict(statistics: GroupStatistics) -> dict[str, Any]:
 
     return {
         "total": statistics.total,
+        "count": statistics.count,
         "by_category": [
             {"category_id": item.category_id, "total": item.total}
             for item in statistics.by_category

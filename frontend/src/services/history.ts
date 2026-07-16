@@ -53,6 +53,7 @@ const LABELS: Record<string, Key> = {
   icon: "icon",
   color: "color",
   archived: "archived",
+  exposed: "dashboard",
   default_category_id: "default_category",
   split_rule: "default_split",
   permissions: "permissions",
@@ -129,7 +130,10 @@ function readValue(
     return context.localize(value === "admin" ? "role_admin" : "role_member");
   }
 
-  if (field === "archived") {
+  // Both booleans, read as yes/no. `exposed` is why this change is worth
+  // showing at all: it takes the wall down, and a wall coming down is the one
+  // project change nobody should have to take on trust.
+  if (field === "archived" || field === "exposed") {
     return context.localize(value ? "yes" : "no");
   }
 

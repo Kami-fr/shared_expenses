@@ -1,0 +1,97 @@
+{
+  "config": {
+    "abort": {
+      "single_instance_allowed": "Solo se permite una única configuración de Shared Expenses."
+    },
+    "step": {
+      "user": {
+        "title": "Shared Expenses",
+        "description": "Configurar Shared Expenses."
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "total_spent": {
+        "name": "Total gastado"
+      },
+      "last_activity": {
+        "name": "Última actividad"
+      }
+    }
+  },
+  "services": {
+    "add_expense": {
+      "name": "Añadir gasto",
+      "description": "Añade un gasto a un proyecto. Desde la interfaz respeta las reglas del proyecto, igual que el panel; desde una automatización no hay ninguna cuenta detrás, así que pasa y el historial registra «Alguien».",
+      "fields": {
+        "group_id": {
+          "name": "Proyecto",
+          "description": "El identificador del proyecto, tal como aparece en la dirección del panel."
+        },
+        "title": {
+          "name": "Título",
+          "description": "A qué corresponde el gasto."
+        },
+        "amount": {
+          "name": "Importe",
+          "description": "En moneda entera, no en céntimos. 85,42 y no 8542."
+        },
+        "paid_by_member_id": {
+          "name": "Pagado por",
+          "description": "El identificador del miembro que pagó."
+        },
+        "expense_date": {
+          "name": "Fecha",
+          "description": "Cuándo ocurrió. Si se omite, ahora."
+        },
+        "currency": {
+          "name": "Moneda",
+          "description": "Código ISO 4217 de lo que se pagó. Si se omite, la del proyecto. El tipo del día se obtiene y se congela en el gasto."
+        },
+        "category_id": {
+          "name": "Categoría",
+          "description": "El identificador de la categoría en la que clasificarlo."
+        },
+        "description": {
+          "name": "Descripción",
+          "description": "Una nota sobre el gasto."
+        }
+      }
+    },
+    "settle_up": {
+      "name": "Saldar",
+      "description": "Registra que un miembro le devolvió dinero a otro.",
+      "fields": {
+        "group_id": {
+          "name": "Proyecto",
+          "description": "El identificador del proyecto, tal como aparece en la dirección del panel."
+        },
+        "from_member_id": {
+          "name": "De",
+          "description": "Quien puso el dinero, aquel de quien salió el dinero."
+        },
+        "to_member_id": {
+          "name": "A",
+          "description": "El identificador del miembro al que se le devolvió."
+        },
+        "amount": {
+          "name": "Importe",
+          "description": "En moneda entera, no en céntimos."
+        },
+        "payment_date": {
+          "name": "Fecha",
+          "description": "Cuándo ocurrió. Si se omite, ahora."
+        },
+        "currency": {
+          "name": "Moneda",
+          "description": "Código ISO 4217 de lo que se pagó. Si se omite, la del proyecto."
+        },
+        "description": {
+          "name": "Descripción",
+          "description": "Una nota que diga de qué se trataba."
+        }
+      }
+    }
+  }
+}

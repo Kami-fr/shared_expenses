@@ -109,6 +109,16 @@ export class SeExpenseDialog extends LitElement {
       .editor[hidden] {
         display: none;
       }
+
+      /*
+       * A hairline between filling the expense in and reading its past. The two
+       * are different errands — one edits, the other only looks — and the column
+       * ran them together. The stack gap gives it air on either side.
+       */
+      .rule {
+        height: 1px;
+        background: var(--divider-color, rgba(0, 0, 0, 0.12));
+      }
     `,
   ];
 
@@ -323,6 +333,7 @@ export class SeExpenseDialog extends LitElement {
           <!-- Only once there is a past to read: a new expense has none. -->
           ${this.expense
             ? html`
+                <div class="rule"></div>
                 <se-entity-history
                   .api=${this.api}
                   .localize=${this.localize}

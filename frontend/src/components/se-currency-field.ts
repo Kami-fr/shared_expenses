@@ -58,6 +58,18 @@ export class SeCurrencyField extends LitElement {
   public static styles = [
     sharedStyles,
     css`
+      /*
+       * No box of our own. Nearly every expense is in the group's own currency
+       * and this field shows nothing at all — but an empty flex item still
+       * counts for its parent's gap, so it opened a second gap above whatever
+       * came next, and the description below sat too far down. display: contents
+       * lets the rate block, when there is one, stand as the column's own child,
+       * and lets nothing take up no room.
+       */
+      :host {
+        display: contents;
+      }
+
       /* The heading, and the retry pushed out to the far end. */
       .row {
         display: flex;

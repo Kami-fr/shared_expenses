@@ -62,10 +62,29 @@ def test_nothing_spent_is_all_zeroes():
     result = compute_statistics(expenses=[], shares=[])
 
     assert result.total == 0
+    assert result.count == 0
     assert result.by_category == ()
     assert result.by_month == ()
     assert result.by_member == ()
     assert result.years == ()
+
+
+def test_the_count_is_the_expenses_of_the_period():
+    """The average expense is total over count, so the count is of the period too.
+
+    Off `kept`, not everything: a year that drops an expense from the total must
+    drop it from the count as well, or the average it feeds would lie.
+    """
+
+    expenses = [
+        expense("e1", 1000, date=datetime(2025, 12, 24, tzinfo=UTC)),
+        expense("e2", 2000, date=datetime(2026, 7, 1, tzinfo=UTC)),
+        expense("e3", 4000, date=datetime(2026, 7, 2, tzinfo=UTC)),
+    ]
+
+    assert compute_statistics(expenses=expenses, shares=[]).count == 3
+    assert compute_statistics(expenses=expenses, shares=[], year=2026).count == 2
+    assert compute_statistics(expenses=expenses, shares=[], year=2025).count == 1
 
 
 def test_categories_are_ranked_by_what_they_cost():
@@ -265,6 +284,9 @@ async def test_a_reimbursement_is_not_spending(manager: SharedExpensesManager):
     after = await manager.get_statistics(group.id)
 
     assert after.total == before.total == 9000
+    # The one expense, before the payment and after it: a reimbursement is no
+    # more a count than it is a euro.
+    assert after.count == before.count == 1
     assert [(m.member_id, m.paid) for m in after.by_member] == [
         (m.member_id, m.paid) for m in before.by_member
     ]

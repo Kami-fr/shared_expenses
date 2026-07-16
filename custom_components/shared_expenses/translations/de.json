@@ -1,0 +1,97 @@
+{
+  "config": {
+    "abort": {
+      "single_instance_allowed": "Es ist nur eine einzige Instanz von Shared Expenses erlaubt."
+    },
+    "step": {
+      "user": {
+        "title": "Shared Expenses",
+        "description": "Shared Expenses einrichten."
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "total_spent": {
+        "name": "Gesamt ausgegeben"
+      },
+      "last_activity": {
+        "name": "Letzte Aktivität"
+      }
+    }
+  },
+  "services": {
+    "add_expense": {
+      "name": "Ausgabe hinzufügen",
+      "description": "Fügt einem Projekt eine Ausgabe hinzu. Über die Oberfläche befolgt sie die Regeln des Projekts, wie das Panel; aus einer Automatisierung steht kein Konto dahinter, also geht sie durch und der Verlauf trägt „Jemand“ ein.",
+      "fields": {
+        "group_id": {
+          "name": "Projekt",
+          "description": "Die ID des Projekts, so wie sie in der Adresse des Panels erscheint."
+        },
+        "title": {
+          "name": "Titel",
+          "description": "Wofür die Ausgabe war."
+        },
+        "amount": {
+          "name": "Betrag",
+          "description": "In ganzer Währung, nicht in Cent. 85,42 und nicht 8542."
+        },
+        "paid_by_member_id": {
+          "name": "Bezahlt von",
+          "description": "Die ID des Mitglieds, das bezahlt hat."
+        },
+        "expense_date": {
+          "name": "Datum",
+          "description": "Wann es passiert ist. Weggelassen: jetzt."
+        },
+        "currency": {
+          "name": "Währung",
+          "description": "ISO-4217-Code dessen, was beglichen wurde. Weggelassen: die des Projekts. Der Tageskurs wird abgerufen und auf der Ausgabe festgehalten."
+        },
+        "category_id": {
+          "name": "Kategorie",
+          "description": "Die ID der Kategorie, unter der sie einsortiert wird."
+        },
+        "description": {
+          "name": "Beschreibung",
+          "description": "Eine Notiz zur Ausgabe."
+        }
+      }
+    },
+    "settle_up": {
+      "name": "Ausgleichen",
+      "description": "Hält fest, dass ein Mitglied einem anderen etwas zurückgezahlt hat.",
+      "fields": {
+        "group_id": {
+          "name": "Projekt",
+          "description": "Die ID des Projekts, so wie sie in der Adresse des Panels erscheint."
+        },
+        "from_member_id": {
+          "name": "Von",
+          "description": "Wer in Vorleistung gegangen ist, derjenige, dessen Geld weggegangen ist."
+        },
+        "to_member_id": {
+          "name": "An",
+          "description": "Die ID des Mitglieds, das zurückgezahlt bekam."
+        },
+        "amount": {
+          "name": "Betrag",
+          "description": "In ganzer Währung, nicht in Cent."
+        },
+        "payment_date": {
+          "name": "Datum",
+          "description": "Wann es passiert ist. Weggelassen: jetzt."
+        },
+        "currency": {
+          "name": "Währung",
+          "description": "ISO-4217-Code dessen, was beglichen wurde. Weggelassen: die des Projekts."
+        },
+        "description": {
+          "name": "Beschreibung",
+          "description": "Eine Notiz dazu, worum es ging."
+        }
+      }
+    }
+  }
+}

@@ -19,6 +19,7 @@ from ..exceptions import (
     AdminNeedsAccountError,
     CannotRemoveAdminError,
     CategoryNotFoundError,
+    CurrencyLockedError,
     ExchangeRateUnavailableError,
     ExpenseNotFoundError,
     GroupArchivedError,
@@ -107,6 +108,7 @@ ERROR_CODES: dict[type[SharedExpensesError], str] = {
     InvalidPaymentError: "invalid_payment",
     InvalidExchangeRateError: "invalid_exchange_rate",
     ExchangeRateUnavailableError: "exchange_rate_unavailable",
+    CurrencyLockedError: "currency_locked",
 }
 
 SHARE_SCHEMA = vol.Schema(

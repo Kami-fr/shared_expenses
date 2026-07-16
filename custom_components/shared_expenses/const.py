@@ -28,4 +28,4 @@ SIGNAL_GROUP_CHANGED: Final = f"{DOMAIN}_group_changed"
 
 PANEL_URL: Final = DOMAIN
 PANEL_TITLE: Final = NAME
-PANEL_ICON: Final = "mdi:cash-multiple"
+PANEL_ICON: Final = "mdi:account-cash"
