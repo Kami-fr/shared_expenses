@@ -40,6 +40,10 @@ export class SeBalanceCard extends LitElement {
 
   @property({ type: String }) public language = "en";
 
+  /** A heading of one's own, if given: the group's name on a dashboard of
+   * several. Empty keeps the plain "Current balance" the panel shows. */
+  @property({ type: String }) public heading = "";
+
   public static styles = [
     sharedStyles,
     css`
@@ -279,7 +283,7 @@ export class SeBalanceCard extends LitElement {
     return html`
       <div class="card">
         <div class="head">
-          <h3>${translate("current_balance")}</h3>
+          <h3>${this.heading || translate("current_balance")}</h3>
         </div>
         ${this.renderBody()}
       </div>

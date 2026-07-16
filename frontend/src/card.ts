@@ -23,6 +23,7 @@
 import { LitElement, css, html } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
+import "./card-editor";
 import "./components/se-balance-card";
 import { SharedExpensesApi } from "./services/api";
 import { errorMessage, localizer } from "./services/localize";
@@ -30,9 +31,11 @@ import type { Localizer } from "./services/localize";
 import { sharedStyles } from "./styles/shared";
 import type { Balance, HomeAssistant, Member, Settlement } from "./types";
 
-interface CardConfig {
+export interface CardConfig {
   type: string;
   group_id?: string;
+  /** A heading of the dashboard's choosing. Absent means "Current balance". */
+  title?: string;
 }
 
 @customElement("shared-expenses-card")
@@ -86,6 +89,17 @@ export class SharedExpensesCard extends LitElement {
     const groups = await new SharedExpensesApi(hass).listGroups(false).catch(() => []);
 
     return { type: "custom:shared-expenses-card", group_id: groups[0]?.id };
+  }
+
+  /**
+   * The visual editor Home Assistant opens for the card.
+   *
+   * Its presence is the whole difference between the config dialog dropping to
+   * raw YAML and offering a list of groups. The element sets itself up from the
+   * config Home Assistant hands it.
+   */
+  public static getConfigElement(): HTMLElement {
+    return document.createElement("shared-expenses-card-editor");
   }
 
   /** Roughly the height of the answer, in Home Assistant's own unit of card. */
@@ -256,6 +270,7 @@ export class SharedExpensesCard extends LitElement {
         .meId=${this.meId()}
         .currency=${this.currency}
         .language=${this.language}
+        .heading=${this.config?.title ?? ""}
         @settle-up=${this.settleUp}
       ></se-balance-card>
     `;

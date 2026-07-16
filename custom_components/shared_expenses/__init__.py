@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 
 from .const import DOMAIN, PLATFORMS
 from .coordinator import SharedExpensesCoordinator
@@ -45,6 +46,33 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await async_register_panel(hass)
 
     return True
+
+
+async def async_remove_config_entry_device(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    device: dr.DeviceEntry,
+) -> bool:
+    """Say whether a device may be deleted by hand.
+
+    Home Assistant only shows the delete button when the integration allows it.
+    A group still on the dashboard is a live device and stays — deleting it
+    would only see it rebuilt on the next refresh. One whose switch is shut, or
+    whose group is gone, is the user's to clear away, and this is the one door
+    the registry opens for that. The switch removes such a device on its own;
+    this is for the ones already sitting there when the feature arrived.
+    """
+
+    coordinator: SharedExpensesCoordinator = hass.data[DOMAIN][entry.entry_id][
+        "coordinator"
+    ]
+
+    group_id = next(
+        (identifier for domain, identifier in device.identifiers if domain == DOMAIN),
+        None,
+    )
+
+    return group_id is None or group_id not in (coordinator.data or {})
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

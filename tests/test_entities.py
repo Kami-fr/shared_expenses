@@ -19,6 +19,8 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
 
+from custom_components.shared_expenses import async_remove_config_entry_device
+from custom_components.shared_expenses.const import DOMAIN
 from custom_components.shared_expenses.coordinator import (
     GroupSnapshot,
     SharedExpensesCoordinator,
@@ -467,3 +469,61 @@ async def test_opening_the_dashboard_is_written_in_the_journal(
     assert change.before is False
     assert change.after is True
     assert entries[0].actor_user_id == PLAIN
+
+
+#
+# Whether a device may be deleted by hand, which is how the old ones are cleared
+#
+
+
+def _hass_exposing(*group_ids: str) -> SimpleNamespace:
+    """A hass whose coordinator holds a snapshot for each named group."""
+
+    coordinator = SimpleNamespace(data={gid: a_snapshot() for gid in group_ids})
+
+    return SimpleNamespace(data={DOMAIN: {"entry-id": {"coordinator": coordinator}}})
+
+
+def _device(*identifiers: tuple[str, str]) -> SimpleNamespace:
+    """A device carrying the given registry identifiers."""
+
+    return SimpleNamespace(identifiers=set(identifiers))
+
+
+ENTRY = SimpleNamespace(entry_id="entry-id")
+
+
+async def test_a_live_project_s_device_is_refused_deletion() -> None:
+    """Still on the dashboard: deleting it would only see it rebuilt at once."""
+
+    hass = _hass_exposing("g1")
+
+    allowed = await async_remove_config_entry_device(
+        hass, ENTRY, _device((DOMAIN, "g1"))
+    )
+
+    assert allowed is False
+
+
+async def test_a_gone_project_s_device_may_be_deleted() -> None:
+    """Its switch is shut, or it no longer exists: the user's to clear away."""
+
+    hass = _hass_exposing()  # nothing on the dashboard
+
+    allowed = await async_remove_config_entry_device(
+        hass, ENTRY, _device((DOMAIN, "g1"))
+    )
+
+    assert allowed is True
+
+
+async def test_a_device_that_is_not_ours_may_be_deleted() -> None:
+    """No group of ours behind it, so there is nothing here to protect."""
+
+    hass = _hass_exposing("g1")
+
+    allowed = await async_remove_config_entry_device(
+        hass, ENTRY, _device(("other", "x"))
+    )
+
+    assert allowed is True

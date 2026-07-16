@@ -18,6 +18,7 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import DOMAIN
@@ -30,29 +31,35 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Set up the sensors, and keep setting them up.
+    """Set up the sensors, and keep them in step with what is exposed.
 
     A project can start exposing itself, and somebody can join one, long after
     Home Assistant started. So this does not run once over what exists: it runs
-    again on every refresh, and adds what it has not added before.
+    again on every refresh, adding what it has not added before — and taking
+    down what has left.
 
-    Nothing is removed here. An entity whose project closed its switch goes
-    unavailable and stays in the registry, which is Home Assistant's own habit —
-    a dashboard card pointing at it keeps pointing at it, and says so, rather
-    than disappearing and taking the card's meaning with it.
+    A project that closes its switch, or is deleted, drops out of the
+    coordinator. Its device is removed rather than left unavailable: whoever
+    shut the switch meant the figures gone, and a device sitting there
+    unavailable is the rot they asked not to keep. Removing the device takes its
+    entities with it. A card pointing at one of them will show the loss — which
+    is the honest price of the switch doing what it says.
     """
 
     coordinator: SharedExpensesCoordinator = hass.data[DOMAIN][entry.entry_id][
         "coordinator"
     ]
 
+    devices = dr.async_get(hass)
     known: set[str] = set()
 
     @callback
-    def _add_new() -> None:
+    def _reconcile() -> None:
+        data = coordinator.data or {}
+
         added = []
 
-        for group_id, snapshot in (coordinator.data or {}).items():
+        for group_id, snapshot in data.items():
             if group_id not in known:
                 known.add(group_id)
                 added.append(TotalSpentSensor(coordinator, group_id))
@@ -70,9 +77,36 @@ async def async_setup_entry(
         if added:
             async_add_entities(added)
 
-    entry.async_on_unload(coordinator.async_add_listener(_add_new))
+        _forget(data)
 
-    _add_new()
+    @callback
+    def _forget(data: dict[str, object]) -> None:
+        """Remove the device of any group no longer on the dashboard.
+
+        Its snapshot is gone from the coordinator, so it is missing from `data`.
+        The tracking set forgets it as well, or switching the group back on
+        would find it "already added" and rebuild nothing.
+        """
+
+        for device in dr.async_entries_for_config_entry(devices, entry.entry_id):
+            group_id = next(
+                (value for domain, value in device.identifiers if domain == DOMAIN),
+                None,
+            )
+
+            if group_id is None or group_id in data:
+                continue
+
+            devices.async_remove_device(device.id)
+
+            known.discard(group_id)
+            known.difference_update(
+                {key for key in known if key.startswith(f"{group_id}:")}
+            )
+
+    entry.async_on_unload(coordinator.async_add_listener(_reconcile))
+
+    _reconcile()
 
 
 class MoneySensor(SharedExpensesEntity, SensorEntity):
