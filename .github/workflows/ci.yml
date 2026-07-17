@@ -82,13 +82,3 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
-          # brands stays ignored: HACS's brands check looks for the icon in
-          # home-assistant/brands, which no longer takes pull requests for
-          # custom integrations (Brands Proxy API, HA 2026.3+). The icon ships
-          # in the integration's own brand/ folder instead, from where Home
-          # Assistant serves it. Revisit if HACS validates local brand images
-          # directly. (hacsjson and integration_manifest were ignored too while
-          # the repo was private, since HACS reads those files over
-          # raw.githubusercontent, which served nothing then; public now, they
-          # validate for real.)
-          ignore: brands
