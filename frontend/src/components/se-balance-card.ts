@@ -56,6 +56,10 @@ export class SeBalanceCard extends LitElement {
    */
   @property({ type: Boolean }) public linked = false;
 
+  /** Whether the header's "+ add expense" button shows. On, but a card can drop
+   * it — the title still opens the group, where the "+" waits anyway. */
+  @property({ type: Boolean }) public addButton = true;
+
   public static styles = [
     sharedStyles,
     css`
@@ -344,9 +348,11 @@ export class SeBalanceCard extends LitElement {
                 <button class="open" title=${translate("open_group")} @click=${this.open}>
                   <h3>${title}</h3>
                 </button>
-                <button class="add" @click=${this.add}>
-                  + ${translate("action_add_expense")}
-                </button>
+                ${this.addButton
+                  ? html`<button class="add" @click=${this.add}>
+                      + ${translate("action_add_expense")}
+                    </button>`
+                  : nothing}
               `
             : html`<h3>${title}</h3>`}
         </div>

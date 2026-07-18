@@ -90,6 +90,17 @@ export class SharedExpensesAddEditor extends LitElement {
           @value-changed=${this.setIcon}
         ></se-icon-picker>
 
+        ${this.config.icon
+          ? html`
+              <se-color-picker
+                .localize=${translate}
+                .label=${translate("icon_color")}
+                .value=${this.config.icon_color ?? null}
+                @value-changed=${this.setIconColor}
+              ></se-color-picker>
+            `
+          : nothing}
+
         <se-color-picker
           allow-none
           .localize=${translate}
@@ -143,6 +154,21 @@ export class SharedExpensesAddEditor extends LitElement {
       next.color = color;
     } else {
       delete next.color;
+    }
+
+    this.emit(next);
+  };
+
+  private setIconColor = (event: CustomEvent) => {
+    const color = event.detail.value as string | null;
+    const next: AddConfig = { ...this.config! };
+
+    // Null is "automatic": the glyph takes the label's colour, so the key is
+    // dropped rather than pinned to whatever that happens to be.
+    if (color) {
+      next.icon_color = color;
+    } else {
+      delete next.icon_color;
     }
 
     this.emit(next);

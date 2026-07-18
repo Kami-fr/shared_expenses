@@ -12,7 +12,12 @@ the same ones as in the panel, drawn by the same code:
 ```yaml
 type: custom:shared-expenses-card
 group_id: 01KXHEB4VFFWMAN5CG4BDNNBF9
+add_button: false   # optional: hide the header's "+ add expense" button
 ```
+
+Its header carries a **+ add expense** button that opens the form for this
+group; set `add_button: false`, or untick it in the editor, to drop it — the
+title still opens the group, where the "+" waits anyway.
 
 It says what the panel says, in the same words. **You are owed 42,71 €** when
 two of you are square with everyone but each other; your line first and the
@@ -55,7 +60,7 @@ nothing to fill in first. This is not the `add_expense` action further down: tha
 one posts an expense from the fields you hand it, while these open the real form,
 so the split, the currency and everything else are there to set as usual.
 
-Each takes three optional touches, all offered in the dashboard editor beside the
+Each takes a few optional touches, all offered in the dashboard editor beside the
 group picker:
 
 ```yaml
@@ -63,9 +68,13 @@ type: custom:shared-expenses-add-card
 group_id: 01KXHEB4VFFWMAN5CG4BDNNBF9
 label: Courses          # the word on it; defaults to "Add expense"
 icon: mdi:cart          # a glyph in place of the plain "+"
+icon_color: "#4a7c59"   # the glyph's own colour; omitted, it takes the label's
 color: "#e0533d"        # its background; "none" for the bare card grey,
                         # omitted for the theme's accent
 ```
+
+The icon's colour is offered only once an icon is set — there is nothing to
+colour before then.
 
 ## The entities
 

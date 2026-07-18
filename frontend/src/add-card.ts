@@ -34,6 +34,8 @@ export interface AddConfig {
   color?: string;
   /** An `mdi:*` glyph in place of the plain "+". Absent keeps the "+". */
   icon?: string;
+  /** The glyph's own colour. Absent lets it take the label's colour. */
+  icon_color?: string;
 }
 
 @customElement("shared-expenses-add-card")
@@ -92,10 +94,20 @@ export class SharedExpensesAddCard extends LitElement {
     // absent keeps the theme's accent from the stylesheet.
     const background = plain || !this.config.color ? "" : `background:${this.config.color}`;
 
+    // A chosen icon colour rides on the glyph itself: se-icon's plain glyph
+    // inherits its colour, so setting it on the element is enough. Absent, the
+    // glyph keeps the label's colour, as it always did.
+    const iconStyle = this.config.icon_color ? `color:${this.config.icon_color}` : "";
+
     return html`
       <button class="tile ${plain ? "plain" : ""}" style=${background} @click=${this.add}>
         ${this.config.icon
-          ? html`<se-icon plain .icon=${this.config.icon} .size=${22}></se-icon>`
+          ? html`<se-icon
+              plain
+              style=${iconStyle}
+              .icon=${this.config.icon}
+              .size=${22}
+            ></se-icon>`
           : html`<span class="plus">+</span>`}
         <span class="label">${label}</span>
       </button>
@@ -161,6 +173,8 @@ interface CustomCard {
   type: string;
   name: string;
   description: string;
+  /** Draw a live preview in the card picker, built from `getStubConfig`. */
+  preview?: boolean;
 }
 
 const cards = ((window as unknown as { customCards?: CustomCard[] }).customCards ??=
@@ -170,6 +184,9 @@ cards.push({
   type: "shared-expenses-add-card",
   name: "Shared Expenses — Add expense",
   description: "A button that opens a new expense in a project.",
+  // The picker shows the actual button, so its label, icon and colour are seen
+  // before it is placed rather than described.
+  preview: true,
 });
 
 declare global {

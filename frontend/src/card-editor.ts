@@ -91,6 +91,15 @@ export class SharedExpensesCardEditor extends LitElement {
           placeholder=${translate("current_balance")}
           @value-changed=${this.setTitle}
         ></se-field>
+
+        <label class="switch">
+          <input
+            type="checkbox"
+            .checked=${this.config.add_button !== false}
+            @change=${this.toggleAddButton}
+          />
+          <span>${translate("card_add_button")}</span>
+        </label>
       </div>
     `;
   }
@@ -108,6 +117,21 @@ export class SharedExpensesCardEditor extends LitElement {
     // as short as what was actually chosen.
     if (!title) {
       delete next.title;
+    }
+
+    this.emit(next);
+  };
+
+  private toggleAddButton = (event: Event) => {
+    const show = (event.target as HTMLInputElement).checked;
+    const next: CardConfig = { ...this.config! };
+
+    // On is the default: drop the key rather than write `true`, so the config
+    // only ever carries the choice that departs from it.
+    if (show) {
+      delete next.add_button;
+    } else {
+      next.add_button = false;
     }
 
     this.emit(next);
@@ -133,6 +157,20 @@ export class SharedExpensesCardEditor extends LitElement {
         flex-direction: column;
         gap: 16px;
         padding: 8px 0;
+      }
+
+      .switch {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 14px;
+        cursor: pointer;
+      }
+
+      .switch input {
+        width: 18px;
+        height: 18px;
+        accent-color: var(--primary-color, #03a9f4);
       }
     `,
   ];

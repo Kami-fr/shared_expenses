@@ -64,10 +64,19 @@ export class SharedExpensesAddBadge extends LitElement {
     const plain = this.config.color === NO_COLOR;
     const background = plain || !this.config.color ? "" : `background:${this.config.color}`;
 
+    // The glyph's own colour, when one is chosen: se-icon's plain glyph inherits
+    // it, so it rides on the element. Absent, the glyph keeps the label's colour.
+    const iconStyle = this.config.icon_color ? `color:${this.config.icon_color}` : "";
+
     return html`
       <button class="badge ${plain ? "plain" : ""}" style=${background} @click=${this.add}>
         ${this.config.icon
-          ? html`<se-icon plain .icon=${this.config.icon} .size=${16}></se-icon>`
+          ? html`<se-icon
+              plain
+              style=${iconStyle}
+              .icon=${this.config.icon}
+              .size=${16}
+            ></se-icon>`
           : html`<span class="plus">+</span>`}
         <span class="label">${label}</span>
       </button>
@@ -122,6 +131,8 @@ interface CustomBadge {
   type: string;
   name: string;
   description: string;
+  /** Draw a live preview in the badge picker, built from `getStubConfig`. */
+  preview?: boolean;
 }
 
 const badges = ((window as unknown as { customBadges?: CustomBadge[] })
@@ -131,6 +142,8 @@ badges.push({
   type: "shared-expenses-add-badge",
   name: "Shared Expenses — Add expense",
   description: "A badge that opens a new expense in a project.",
+  // The picker shows the actual badge, so it is chosen by sight, not by prose.
+  preview: true,
 });
 
 declare global {

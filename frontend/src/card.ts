@@ -38,6 +38,8 @@ export interface CardConfig {
   group_id?: string;
   /** A heading of the dashboard's choosing. Absent means "Current balance". */
   title?: string;
+  /** Whether to show the "+ add expense" button. Absent means yes. */
+  add_button?: boolean;
 }
 
 @customElement("shared-expenses-card")
@@ -269,6 +271,7 @@ export class SharedExpensesCard extends LitElement {
         .language=${this.language}
         .heading=${this.config?.title ?? ""}
         linked
+        .addButton=${this.config?.add_button !== false}
         @settle-up=${this.settleUp}
         @open-group=${this.openGroup}
         @add-expense=${this.addExpense}
@@ -301,6 +304,8 @@ interface CustomCard {
   type: string;
   name: string;
   description: string;
+  /** Draw a live preview in the card picker, built from `getStubConfig`. */
+  preview?: boolean;
 }
 
 const cards = ((window as unknown as { customCards?: CustomCard[] }).customCards ??=
@@ -310,6 +315,9 @@ cards.push({
   type: "shared-expenses-card",
   name: "Shared Expenses",
   description: "Who owes what to whom, in one project.",
+  // The picker renders the real card, filled with the account's first group, so
+  // the choice is made against the thing itself rather than a line of prose.
+  preview: true,
 });
 
 declare global {

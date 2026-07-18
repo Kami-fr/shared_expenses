@@ -947,11 +947,13 @@ export class SeGroupPage extends LitElement {
         ?disabled=${!editable}
         @click=${() => this.openPayment(undefined, payment)}
       >
+        <!-- The same 36px an avatar takes, so a reimbursement sits level with
+             the people above and below it rather than looming over them. -->
         <se-icon
           icon=${debt ? "mdi:hand-coin-outline" : "mdi:swap-horizontal"}
           fallback=${debt ? "→" : "⇄"}
           .color=${colour}
-          .size=${40}
+          .size=${36}
         ></se-icon>
         <div class="info">
           <div class="title">
