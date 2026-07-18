@@ -26,6 +26,13 @@ PLATFORMS: Final = [Platform.SENSOR]
 #: the group that actually changed.
 SIGNAL_GROUP_CHANGED: Final = f"{DOMAIN}_group_changed"
 
+#: Fired on Home Assistant's own bus whenever something is written, so an
+#: automation can react — notify, remind, log, light a lamp. The other side of
+#: the actions: those let an automation write, this lets one hear. Carries what
+#: the journal carries — group, kind of thing, what happened, who did it — and
+#: nothing an automation could not already read for itself once told to look.
+EVENT_CHANGED: Final = f"{DOMAIN}_changed"
+
 PANEL_URL: Final = DOMAIN
 PANEL_TITLE: Final = NAME
 PANEL_ICON: Final = "mdi:account-cash"

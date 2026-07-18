@@ -150,6 +150,10 @@ tap_action:
 automation, and where the ids come from — are in
 **[docs/dashboard.md](docs/dashboard.md)**.
 
+And the other direction: every write fires a `shared_expenses_changed` event on
+the bus, so an automation can notify, remind, or react when an expense lands or a
+debt is settled — **[docs/events.md](docs/events.md)**.
+
 ## Requirements
 
 - Home Assistant **2026.7.0** or later

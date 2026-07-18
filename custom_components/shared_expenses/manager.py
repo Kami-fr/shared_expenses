@@ -12,7 +12,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .clients.frankfurter import fetch_rate
-from .const import SIGNAL_GROUP_CHANGED
+from .const import EVENT_CHANGED, SIGNAL_GROUP_CHANGED
 from .exceptions import (
     AdminNeedsAccountError,
     CannotRemoveAdminError,
@@ -568,17 +568,25 @@ class SharedExpensesManager:
     async def delete_group(self, group_id: str) -> None:
         """Delete a group and everything it contains.
 
-        Says so itself rather than through `_record`, being the one write that
-        journals nothing: the revisions cascade away with the group, so there is
-        nobody left to tell. The dashboard still has to hear it — a group with
-        entities on it has just stopped existing.
+        Announces itself rather than going through `_record`, being the one write
+        that journals nothing: the revisions cascade away with the group, so
+        there is nobody left to tell in the history. The dashboard and the bus
+        still have to hear it — a group with entities on it has just stopped
+        existing, and an automation may have been watching for exactly that.
         """
 
         await self.get_group(group_id)
 
         await self._database.group_repository.delete(group_id)
 
-        async_dispatcher_send(self._database.hass, SIGNAL_GROUP_CHANGED, group_id)
+        self._announce(
+            group_id=group_id,
+            entity=RevisionEntity.GROUP,
+            entity_id=group_id,
+            action=RevisionAction.DELETED,
+            label=None,
+            actor_user_id=None,
+        )
 
     #
     # ------------------------------------------------------------------
@@ -1821,13 +1829,20 @@ class SharedExpensesManager:
         questions have the same answer, which is why they share a door.
 
         Sent before the commit, and that is safe because nobody reads yet: the
-        listeners only schedule a refresh, and the refresh runs its own task
-        after this transaction has closed. Sending after the commit would need
-        the caller to remember to, which is the kind of remembering this method
-        exists to take away.
+        listeners only schedule a refresh, and any automation runs its own task,
+        both after this transaction has closed. Sending after the commit would
+        need the caller to remember to, which is the kind of remembering this
+        method exists to take away.
         """
 
-        async_dispatcher_send(self._database.hass, SIGNAL_GROUP_CHANGED, group_id)
+        self._announce(
+            group_id=group_id,
+            entity=entity_type,
+            entity_id=entity_id,
+            action=action,
+            label=label,
+            actor_user_id=actor_user_id,
+        )
 
         await self._database.revision_repository.create(
             Revision(
@@ -1841,6 +1856,42 @@ class SharedExpensesManager:
                 changes=changes,
                 at=datetime.now(UTC),
             )
+        )
+
+    def _announce(
+        self,
+        *,
+        group_id: str,
+        entity: RevisionEntity,
+        entity_id: str,
+        action: RevisionAction,
+        label: str | None,
+        actor_user_id: str | None,
+    ) -> None:
+        """Tell the dashboard and the bus that a group moved, in one breath.
+
+        Two listeners, one door. The coordinator hears the signal and redoes the
+        arithmetic; anything else in the house hears the event and may act on it
+        — a notification, a reminder, a light. The event carries what the journal
+        carries, and no more: an automation that needs the figures reads them for
+        itself, as anyone cleared for the group can.
+
+        The event's name and shape are a promise to whoever wrote an automation
+        against them; they change with the same care a stored column would.
+        """
+
+        async_dispatcher_send(self._database.hass, SIGNAL_GROUP_CHANGED, group_id)
+
+        self._database.hass.bus.async_fire(
+            EVENT_CHANGED,
+            {
+                "group_id": group_id,
+                "entity": str(entity),
+                "entity_id": entity_id,
+                "action": str(action),
+                "label": label,
+                "actor_user_id": actor_user_id,
+            },
         )
 
     #

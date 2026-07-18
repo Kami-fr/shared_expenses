@@ -46,6 +46,31 @@ class FakeConfig:
         return str(target)
 
 
+class FakeBus:
+    """Stand-in for `hass.bus`, remembering what was fired on it.
+
+    The manager announces every write on the real bus so automations can react;
+    the tests hold those events to prove the announcement was made, and made
+    with what an automation would need to trigger on.
+    """
+
+    def __init__(self) -> None:
+        """Start with an empty log of fired events."""
+
+        self.events: list[tuple[str, dict[str, Any]]] = []
+
+    def async_fire(
+        self,
+        event_type: str,
+        event_data: dict[str, Any] | None = None,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
+        """Record a fired event, as Home Assistant would broadcast it."""
+
+        self.events.append((event_type, event_data or {}))
+
+
 class FakeHass:
     """Minimal stand-in for `hass`.
 
@@ -61,6 +86,7 @@ class FakeHass:
 
         self.config = FakeConfig(base)
         self.data: dict[str, Any] = {}
+        self.bus = FakeBus()
         self._tasks: list[asyncio.Task] = []
 
     async def async_add_executor_job(self, func: Any, *args: Any) -> Any:
