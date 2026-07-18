@@ -33,6 +33,40 @@ Add or edit the card from the dashboard's own UI and a group picker fills the
 `group_id` in for you — it lists only the groups you belong to. To write it by
 hand, see **Where the ids come from** below.
 
+## Add an expense, from a card or a badge
+
+Two smaller pieces do just one thing — open a new expense in a group. A card,
+for the body of a dashboard:
+
+```yaml
+type: custom:shared-expenses-add-card
+group_id: 01KXHEB4VFFWMAN5CG4BDNNBF9
+```
+
+And a badge, the same thing shrunk for the row along the top:
+
+```yaml
+type: custom:shared-expenses-add-badge
+group_id: 01KXHEB4VFFWMAN5CG4BDNNBF9
+```
+
+A tap walks to the panel and opens the new-expense form for that group, with
+nothing to fill in first. This is not the `add_expense` action further down: that
+one posts an expense from the fields you hand it, while these open the real form,
+so the split, the currency and everything else are there to set as usual.
+
+Each takes three optional touches, all offered in the dashboard editor beside the
+group picker:
+
+```yaml
+type: custom:shared-expenses-add-card
+group_id: 01KXHEB4VFFWMAN5CG4BDNNBF9
+label: Courses          # the word on it; defaults to "Add expense"
+icon: mdi:cart          # a glyph in place of the plain "+"
+color: "#e0533d"        # its background; "none" for the bare card grey,
+                        # omitted for the theme's accent
+```
+
 ## The entities
 
 A group keeps its *figures* to its panel until you say otherwise. Open **Edit

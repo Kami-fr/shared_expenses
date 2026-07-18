@@ -27,6 +27,7 @@ import "./card-editor";
 import "./components/se-balance-card";
 import { SharedExpensesApi } from "./services/api";
 import { withAvatars } from "./services/avatar";
+import { NEW_EXPENSE, goToGroup } from "./services/navigate";
 import { errorMessage, localizer } from "./services/localize";
 import type { Localizer } from "./services/localize";
 import { sharedStyles } from "./styles/shared";
@@ -240,31 +241,13 @@ export class SharedExpensesCard extends LitElement {
    * the project instead and the line there does the rest. One tap more than
    * the panel, and nothing pretended.
    */
-  private settleUp = () => this.go();
+  private settleUp = () => goToGroup(this.config!.group_id!);
 
-  private openGroup = () => this.go();
+  private openGroup = () => goToGroup(this.config!.group_id!);
 
   // The panel reads `new=expense` off the address and opens the dialog, so a
   // glance at the balances is one tap from adding the shopping that changed them.
-  private addExpense = () => this.go("?new=expense");
-
-  /**
-   * Walk to the group in the panel, at an address that says what to do there.
-   *
-   * The card does not own the page and cannot render a dialog; the panel does,
-   * so everything here is the same move — change the address and let Home
-   * Assistant route. Reloading the browser at the new address would throw the
-   * whole frontend away to move one screen, so it is told rather than reloaded.
-   */
-  private go(suffix = "") {
-    const path = `/shared_expenses/group/${this.config!.group_id}${suffix}`;
-
-    history.pushState(null, "", path);
-
-    window.dispatchEvent(
-      new CustomEvent("location-changed", { bubbles: true, composed: true }),
-    );
-  }
+  private addExpense = () => goToGroup(this.config!.group_id!, NEW_EXPENSE);
 
   protected render() {
     if (this.error) {

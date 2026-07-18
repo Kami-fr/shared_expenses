@@ -63,6 +63,15 @@ export class SeBalanceCard extends LitElement {
         display: block;
       }
 
+      /* On a dashboard the card stands on its own, so it wears the hairline a
+         native Home Assistant card does; in the panel it sits among others that
+         already have their frame, so only the linked one takes it. Themed, so a
+         border-less theme keeps it border-less. */
+      :host([linked]) .card {
+        border: var(--ha-card-border-width, 1px) solid
+          var(--ha-card-border-color, var(--divider-color, #e0e0e0));
+      }
+
       .head {
         display: flex;
         align-items: center;
