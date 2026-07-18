@@ -80,6 +80,15 @@ export class SeGroupPage extends LitElement {
   /** The Home Assistant account looking at the panel, to know who "you" is. */
   @property({ type: String }) public userId: string | null = null;
 
+  /**
+   * Open a fresh expense the moment the group is loaded, then say it is done.
+   *
+   * Set by the app when the address carried `new=expense` — the dashboard card's
+   * "+ expense" walking straight here. Consumed once, on the load that follows,
+   * so switching groups afterwards does not keep reopening it.
+   */
+  @property({ type: Boolean }) public openNewExpense = false;
+
   @state() private group?: Group;
 
   /** Every group the user belongs to, for the switcher. */
@@ -1406,6 +1415,15 @@ export class SeGroupPage extends LitElement {
       }
     } finally {
       this.loading = false;
+
+      // Arrived from a dashboard's "+ expense": open it now the members are
+      // loaded, and tell the app so a later group switch does not reopen it.
+      if (this.openNewExpense && this.group) {
+        this.openExpense();
+        this.dispatchEvent(
+          new CustomEvent("new-expense-opened", { bubbles: true, composed: true }),
+        );
+      }
     }
   }
 

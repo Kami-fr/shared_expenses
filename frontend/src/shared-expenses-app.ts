@@ -34,6 +34,9 @@ export class SharedExpensesPanel extends LitElement {
 
   @state() private groupId?: string;
 
+  /** A fresh expense to open on arrival, asked for in the address by the card. */
+  @state() private newExpense = false;
+
   /** Whether the panel has already resolved where to open. */
   private landed = false;
 
@@ -85,9 +88,11 @@ export class SharedExpensesPanel extends LitElement {
           .groupId=${this.groupId}
           .language=${language}
           .userId=${this.hass.user?.id ?? null}
+          .openNewExpense=${this.newExpense}
           @navigate-back=${this.goToDashboard}
           @group-selected=${this.handleGroupSelected}
           @group-unavailable=${this.handleGroupUnavailable}
+          @new-expense-opened=${() => (this.newExpense = false)}
         ></se-group-page>
       `;
     }
@@ -115,6 +120,15 @@ export class SharedExpensesPanel extends LitElement {
 
     if (match) {
       this.groupId = match[1];
+
+      // The card's "+ expense" lands here with a marker to open the dialog.
+      // Read it once and drop it from the address, so a reload or a step back
+      // does not reopen it — the group itself stays in the URL.
+      if (new URLSearchParams(window.location.search).get("new") === "expense") {
+        this.newExpense = true;
+        this.replacePath(`/group/${this.groupId}`);
+      }
+
       return;
     }
 
@@ -140,6 +154,9 @@ export class SharedExpensesPanel extends LitElement {
   private handleGroupSelected = (event: CustomEvent) => {
     const groupId: string = event.detail.groupId;
 
+    // Picking a group by hand is not asking for a new expense in it: drop any
+    // pending "+ expense" that never got consumed, so it cannot open here.
+    this.newExpense = false;
     this.groupId = groupId;
 
     rememberGroup(groupId);
@@ -147,6 +164,7 @@ export class SharedExpensesPanel extends LitElement {
   };
 
   private goToDashboard = () => {
+    this.newExpense = false;
     this.groupId = undefined;
     this.replacePath("");
   };

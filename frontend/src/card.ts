@@ -240,18 +240,31 @@ export class SharedExpensesCard extends LitElement {
    * the project instead and the line there does the rest. One tap more than
    * the panel, and nothing pretended.
    */
-  private settleUp = () => {
-    const path = `/shared_expenses/group/${this.config!.group_id}`;
+  private settleUp = () => this.go();
+
+  private openGroup = () => this.go();
+
+  // The panel reads `new=expense` off the address and opens the dialog, so a
+  // glance at the balances is one tap from adding the shopping that changed them.
+  private addExpense = () => this.go("?new=expense");
+
+  /**
+   * Walk to the group in the panel, at an address that says what to do there.
+   *
+   * The card does not own the page and cannot render a dialog; the panel does,
+   * so everything here is the same move — change the address and let Home
+   * Assistant route. Reloading the browser at the new address would throw the
+   * whole frontend away to move one screen, so it is told rather than reloaded.
+   */
+  private go(suffix = "") {
+    const path = `/shared_expenses/group/${this.config!.group_id}${suffix}`;
 
     history.pushState(null, "", path);
 
-    // How Home Assistant is told to route: it owns the page, this card does
-    // not, and reloading the browser at the new address would throw the whole
-    // frontend away to move one screen.
     window.dispatchEvent(
       new CustomEvent("location-changed", { bubbles: true, composed: true }),
     );
-  };
+  }
 
   protected render() {
     if (this.error) {
@@ -272,7 +285,10 @@ export class SharedExpensesCard extends LitElement {
         .currency=${this.currency}
         .language=${this.language}
         .heading=${this.config?.title ?? ""}
+        linked
         @settle-up=${this.settleUp}
+        @open-group=${this.openGroup}
+        @add-expense=${this.addExpense}
       ></se-balance-card>
     `;
   }

@@ -20,5 +20,5 @@
     "python-ulid>=3.1.0"
   ],
   "single_config_entry": true,
-  "version": "1.0.2"
+  "version": "1.0.3"
 }

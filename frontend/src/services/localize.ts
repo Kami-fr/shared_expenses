@@ -47,6 +47,7 @@ const EN = {
   stat_even: "Settled up",
 
   current_balance: "Current balance",
+  open_group: "Open group",
   card_group: "Group",
   card_title: "Card title",
   must_receive: "is owed",
@@ -309,6 +310,7 @@ const FR: Record<Key, string> = {
   stat_even: "À l'équilibre",
 
   current_balance: "Solde actuel",
+  open_group: "Ouvrir le groupe",
   card_group: "Groupe",
   card_title: "Titre de la carte",
   must_receive: "doit recevoir",
@@ -573,6 +575,7 @@ const DE: Record<Key, string> = {
   stat_even: "Ausgeglichen",
 
   current_balance: "Aktueller Saldo",
+  open_group: "Gruppe öffnen",
   card_group: "Gruppe",
   card_title: "Kartentitel",
   must_receive: "erhält",
@@ -820,6 +823,7 @@ const NL: Record<Key, string> = {
   stat_owes: "Moet {amount}",
   stat_even: "In evenwicht",
   current_balance: "Huidig saldo",
+  open_group: "Groep openen",
   card_group: "Groep",
   card_title: "Kaarttitel",
   must_receive: "moet ontvangen",
@@ -1059,6 +1063,7 @@ const ES: Record<Key, string> = {
   stat_owes: "Debe {amount}",
   stat_even: "En equilibrio",
   current_balance: "Saldo actual",
+  open_group: "Abrir el grupo",
   card_group: "Grupo",
   card_title: "Título de la tarjeta",
   must_receive: "debe recibir",
@@ -1298,6 +1303,7 @@ const IT: Record<Key, string> = {
   stat_owes: "Deve {amount}",
   stat_even: "In pareggio",
   current_balance: "Saldo attuale",
+  open_group: "Apri il gruppo",
   card_group: "Gruppo",
   card_title: "Titolo della scheda",
   must_receive: "deve ricevere",
@@ -1540,6 +1546,7 @@ const PL: Record<Key, string> = {
   stat_even: "Rozliczone",
 
   current_balance: "Bieżące saldo",
+  open_group: "Otwórz grupę",
   card_group: "Grupa",
   card_title: "Tytuł karty",
   must_receive: "ma dostać",
@@ -1787,6 +1794,7 @@ const PT_BR: Record<Key, string> = {
   stat_owes: "Deve {amount}",
   stat_even: "Em equilíbrio",
   current_balance: "Saldo atual",
+  open_group: "Abrir o grupo",
   card_group: "Grupo",
   card_title: "Título do cartão",
   must_receive: "deve receber",

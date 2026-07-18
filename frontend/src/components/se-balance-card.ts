@@ -45,6 +45,17 @@ export class SeBalanceCard extends LitElement {
    * several. Empty keeps the plain "Current balance" the panel shows. */
   @property({ type: String }) public heading = "";
 
+  /**
+   * Whether the header links out to the group, as it does on a dashboard.
+   *
+   * On the panel the group is already open, so the header is a plain title. On a
+   * dashboard the card is a window onto a group that lives elsewhere, so its
+   * title opens it and a button jumps straight to a new expense — the two things
+   * a glance at the balances makes you want to do next. The card, which owns the
+   * navigation, does the walking; this only says where to.
+   */
+  @property({ type: Boolean }) public linked = false;
+
   public static styles = [
     sharedStyles,
     css`
@@ -57,6 +68,39 @@ export class SeBalanceCard extends LitElement {
         align-items: center;
         gap: 6px;
         padding: 16px 16px 8px;
+      }
+
+      /* On a dashboard the title is a link out to the group; it keeps looking
+         like the heading it replaced, and takes the width so the button sits
+         at the far end. */
+      .head .open {
+        flex: 1;
+        min-width: 0;
+        border: none;
+        background: none;
+        padding: 0;
+        margin: 0;
+        text-align: left;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+      }
+
+      .head .open h3 {
+        margin: 0;
+      }
+
+      .head .add {
+        flex: 0 0 auto;
+        border: none;
+        border-radius: 8px;
+        padding: 6px 12px;
+        font: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        background: var(--primary-color, #03a9f4);
+        color: var(--text-primary-color, #fff);
       }
 
       .duel {
@@ -281,15 +325,38 @@ export class SeBalanceCard extends LitElement {
   protected render() {
     const translate = this.localize;
 
+    const title = this.heading || translate("current_balance");
+
     return html`
       <div class="card">
         <div class="head">
-          <h3>${this.heading || translate("current_balance")}</h3>
+          ${this.linked
+            ? html`
+                <button class="open" title=${translate("open_group")} @click=${this.open}>
+                  <h3>${title}</h3>
+                </button>
+                <button class="add" @click=${this.add}>
+                  + ${translate("action_add_expense")}
+                </button>
+              `
+            : html`<h3>${title}</h3>`}
         </div>
         ${this.renderBody()}
       </div>
     `;
   }
+
+  private open = () => {
+    this.dispatchEvent(
+      new CustomEvent("open-group", { bubbles: true, composed: true }),
+    );
+  };
+
+  private add = () => {
+    this.dispatchEvent(
+      new CustomEvent("add-expense", { bubbles: true, composed: true }),
+    );
+  };
 
   private renderBody() {
     const active = this.balances.filter((balance) => balance.amount !== 0);
