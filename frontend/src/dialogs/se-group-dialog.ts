@@ -29,6 +29,12 @@ export class SeGroupDialog extends LitElement {
   /** What the reader is here. The switches are the admin's alone. */
   @property({ attribute: false }) public role: GroupRole | null = null;
 
+  /**
+   * The house's own currency, offered as the starting point for a new group.
+   * Taken only if the rate service knows it; anything else falls back to EUR.
+   */
+  @property({ attribute: false }) public defaultCurrency?: string;
+
   @state() private name = "";
 
   @state() private description = "";
@@ -89,6 +95,8 @@ export class SeGroupDialog extends LitElement {
       this.currency = this.group.currency;
       this.permissions = new Set(this.group.permissions);
       this.exposed = this.group.exposed;
+    } else if (this.defaultCurrency && CURRENCIES.includes(this.defaultCurrency)) {
+      this.currency = this.defaultCurrency;
     }
   }
 

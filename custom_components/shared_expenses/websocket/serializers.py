@@ -51,6 +51,7 @@ def member_to_dict(member: Member) -> dict[str, Any]:
         "user_id": member.user_id,
         "name": member.name,
         "color": member.color,
+        "use_ha_avatar": member.use_ha_avatar,
         "created_at": member.created_at.isoformat(),
     }
 

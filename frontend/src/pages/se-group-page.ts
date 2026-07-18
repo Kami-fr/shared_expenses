@@ -1,6 +1,8 @@
 import { LitElement, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
+import { renderAvatar } from "../components/avatar";
+import { withAvatars } from "../services/avatar";
 import "../components/se-balance-card";
 import "../components/se-button";
 import "../components/se-field";
@@ -17,7 +19,6 @@ import {
   colorFor,
   formatDayDate,
   formatMoney,
-  initials,
   moneyNeedles,
 } from "../services/format";
 import { errorMessage, type Localizer } from "../services/localize";
@@ -1033,7 +1034,7 @@ export class SeGroupPage extends LitElement {
         ?disabled=${!editable}
         @click=${() => this.openExpense(expense)}
       >
-        ${this.renderAvatar(
+        ${this.renderMemberAvatar(
           payer?.name ?? "?",
           expense.paid_by_member_id,
           `${this.localize("paid_by")} ${payer?.name ?? "?"}`,
@@ -1092,15 +1093,12 @@ export class SeGroupPage extends LitElement {
         ${shares.map((share) => {
           const member = this.memberById(share.member_id);
 
-          return html`
-            <div
-              class="avatar small"
-              title=${member?.name ?? "?"}
-              style=${`background:${member?.color ?? colorFor(share.member_id)}`}
-            >
-              ${initials(member?.name ?? "?")}
-            </div>
-          `;
+          return renderAvatar(
+            member,
+            member?.name ?? "?",
+            share.member_id,
+            "small",
+          );
         })}
       </div>
     `;
@@ -1114,18 +1112,8 @@ export class SeGroupPage extends LitElement {
    * left is the payer and the ones on the right are who shares it, which the
    * circles alone do not say.
    */
-  private renderAvatar(name: string, id: string, hint?: string) {
-    const member = this.memberById(id);
-
-    return html`
-      <div
-        class="avatar"
-        title=${hint ?? name}
-        style=${`background:${member?.color ?? colorFor(id)}`}
-      >
-        ${initials(name)}
-      </div>
-    `;
+  private renderMemberAvatar(name: string, id: string, hint?: string) {
+    return renderAvatar(this.memberById(id), name, id, "", hint ?? name);
   }
 
   private renderDialog() {
@@ -1231,6 +1219,7 @@ export class SeGroupPage extends LitElement {
     return html`
       <se-member-dialog
         .api=${this.api}
+        .hass=${this.hass}
         .localize=${this.localize}
         .groupId=${this.groupId}
         .role=${this.myRole()}
@@ -1398,8 +1387,8 @@ export class SeGroupPage extends LitElement {
 
       this.group = group;
       this.groups = groups;
-      this.members = members;
-      this.pastMembers = pastMembers;
+      this.members = withAvatars(members, this.hass);
+      this.pastMembers = withAvatars(pastMembers, this.hass);
       this.memberships = memberships;
       this.categories = categories;
       this.expenses = expenses;

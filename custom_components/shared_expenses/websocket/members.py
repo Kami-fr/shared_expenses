@@ -132,6 +132,7 @@ async def websocket_create_member(
         vol.Required("group_id"): cv.string,
         vol.Optional("name"): cv.string,
         vol.Optional("color"): vol.Any(None, cv.string),
+        vol.Optional("use_ha_avatar"): bool,
     }
 )
 @websocket_api.async_response
@@ -160,7 +161,11 @@ async def websocket_update_member(
 
     updated = replace(
         member,
-        **{field: msg[field] for field in ("name", "color") if field in msg},
+        **{
+            field: msg[field]
+            for field in ("name", "color", "use_ha_avatar")
+            if field in msg
+        },
     )
 
     await manager.update_member(

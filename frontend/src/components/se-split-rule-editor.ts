@@ -3,7 +3,8 @@ import { customElement, property, state } from "lit/decorators.js";
 
 import "./se-field";
 import "./se-select";
-import { colorFor, formatMoney, initials, parseMoney } from "../services/format";
+import { formatMoney, parseMoney } from "../services/format";
+import { renderAvatar as avatar } from "./avatar";
 import type { Localizer } from "../services/localize";
 import { resolveShares } from "../services/splits";
 import {
@@ -693,11 +694,7 @@ export class SeSplitRuleEditor extends LitElement {
   }
 
   private renderAvatar(member: Member) {
-    return html`
-      <div class="avatar" style=${`background:${member.color ?? colorFor(member.id)}`}>
-        ${initials(member.name)}
-      </div>
-    `;
+    return avatar(member, member.name, member.id);
   }
 
   /**

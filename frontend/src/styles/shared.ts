@@ -162,6 +162,12 @@ export const sharedStyles = css`
     flex: 0 0 auto;
   }
 
+  /* A photo wears the same circle as the initials, cropped to fill it rather
+     than stretched. Whatever size a host gives .avatar, the image takes it. */
+  img.avatar {
+    object-fit: cover;
+  }
+
   .empty {
     padding: 40px 24px;
     text-align: center;

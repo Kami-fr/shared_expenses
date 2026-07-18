@@ -211,7 +211,7 @@ export class SharedExpensesApi {
   public updateMember(
     groupId: string,
     memberId: string,
-    changes: { name?: string; color?: string | null },
+    changes: { name?: string; color?: string | null; use_ha_avatar?: boolean },
   ): Promise<Member> {
     return this.call("update_member", {
       group_id: groupId,

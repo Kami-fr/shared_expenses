@@ -52,6 +52,7 @@ const LABELS: Record<string, Key> = {
   name: "field_name",
   icon: "icon",
   color: "color",
+  use_ha_avatar: "avatar",
   archived: "archived",
   exposed: "dashboard",
   default_category_id: "default_category",
@@ -135,6 +136,12 @@ function readValue(
   // project change nobody should have to take on trust.
   if (field === "archived" || field === "exposed") {
     return context.localize(value ? "yes" : "no");
+  }
+
+  // A boolean too, but yes/no would say nothing: what changed is which of the
+  // two the member wears, so it reads as the choice itself.
+  if (field === "use_ha_avatar") {
+    return context.localize(value ? "avatar_photo" : "avatar_initials");
   }
 
   // Said the way the editor says it, through the same helper: a rule described

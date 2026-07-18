@@ -3,10 +3,11 @@ import { customElement, property, state } from "lit/decorators.js";
 
 import "./se-icon";
 import type { SharedExpensesApi } from "../services/api";
-import { colorFor, formatMoney, formatMonth, initials } from "../services/format";
+import { formatMoney, formatMonth } from "../services/format";
 import { errorMessage, type Key, type Localizer } from "../services/localize";
 import { sharedStyles } from "../styles/shared";
 import type { Category, GroupStatistics, Member } from "../types";
+import { renderAvatar } from "./avatar";
 
 /** Everything, ever. Not a year, so it can never collide with one. */
 const ALL = "all";
@@ -625,12 +626,7 @@ export class SeStatistics extends LitElement {
             return html`
               <div class="mcard">
                 <div class="top">
-                  <div
-                    class="avatar"
-                    style=${`background:${member?.color ?? colorFor(item.member_id)}`}
-                  >
-                    ${initials(name)}
-                  </div>
+                  ${renderAvatar(member, name, item.member_id)}
                   <span class="nm">${name}</span>
                 </div>
                 <div class="kv">

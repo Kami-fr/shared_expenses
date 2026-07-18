@@ -182,6 +182,7 @@ export class SeDashboardPage extends LitElement {
             <se-group-dialog
               .api=${this.api}
               .localize=${this.localize}
+              .defaultCurrency=${this.hass.config?.currency}
               @dialog-cancelled=${() => (this.dialogOpen = false)}
               @group-created=${this.handleCreated}
             ></se-group-dialog>

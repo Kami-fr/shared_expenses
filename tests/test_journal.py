@@ -286,6 +286,47 @@ async def test_a_rename_is_recorded_in_the_project_that_asked(
     assert elsewhere == []
 
 
+async def test_wearing_the_home_assistant_photo_is_recorded(
+    loaded: FakeHass,
+    manager: SharedExpensesManager,
+    project: dict[str, Any],
+):
+    """A member choosing their Home Assistant photo is kept like the colour.
+
+    Sent through the real command, so its schema has to know the field — an
+    unknown key is refused outright. And read back through the journal, not just
+    the row: the save writes unconditionally, so the flag would land whether or
+    not the state knew it; only a missing journal line would betray that the
+    change was never noticed. The line is the proof it was.
+    """
+
+    connection = FakeConnection(PLAIN)
+
+    await send(
+        loaded,
+        connection,
+        members.websocket_update_member,
+        {
+            "member_id": project["plain"].id,
+            "group_id": project["group"].id,
+            "use_ha_avatar": True,
+        },
+    )
+
+    assert connection.errors == {}
+    assert connection.results[1]["use_ha_avatar"] is True
+
+    member = await manager.get_member(project["plain"].id)
+    assert member.use_ha_avatar is True
+
+    entry = (await journal(manager, project, RevisionEntity.MEMBER))[0]
+    change = moved(entry, "use_ha_avatar")
+
+    assert change is not None
+    assert change.before is False
+    assert change.after is True
+
+
 async def test_handing_the_project_on_is_recorded_for_both(
     loaded: FakeHass,
     manager: SharedExpensesManager,

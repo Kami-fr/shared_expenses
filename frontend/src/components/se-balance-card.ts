@@ -1,10 +1,11 @@
 import { LitElement, css, html, nothing } from "lit";
 import { customElement, property } from "lit/decorators.js";
 
-import { colorFor, formatMoney, initials } from "../services/format";
+import { formatMoney } from "../services/format";
 import type { Localizer } from "../services/localize";
 import { sharedStyles } from "../styles/shared";
 import type { Balance, Member, Settlement } from "../types";
+import { renderAvatar } from "./avatar";
 
 /**
  * What you owe, and what the rest of the group owes.
@@ -380,9 +381,7 @@ export class SeBalanceCard extends LitElement {
         title=${translate("settle_up")}
         @click=${() => this.settle(settlement)}
       >
-        <div class="avatar" style=${`background:${other?.color ?? colorFor(otherId)}`}>
-          ${initials(name)}
-        </div>
+        ${renderAvatar(other, name, otherId)}
         <div class="sentence">
           ${owing
             ? html`${translate("you_owe")} ${figure} ${translate("to")} ${name}`
@@ -417,11 +416,7 @@ export class SeBalanceCard extends LitElement {
 
     return html`
       <span class="party" title=${name}>
-        <span
-          class="avatar"
-          style=${`background:${member?.color ?? colorFor(memberId)}`}
-          >${initials(name)}</span
-        >
+        ${renderAvatar(member, name, memberId)}
         <span class="name">${name}</span>
       </span>
     `;
@@ -464,11 +459,7 @@ export class SeBalanceCard extends LitElement {
     const positive = balance.amount > 0;
     const tone = positive ? "positive" : "negative";
 
-    const avatar = html`
-      <div class="avatar" style=${`background:${member?.color ?? colorFor(balance.member_id)}`}>
-        ${initials(member?.name ?? "?")}
-      </div>
-    `;
+    const avatar = renderAvatar(member, member?.name ?? "?", balance.member_id);
 
     // How long the figure is, for the CSS that has to make it fit. Interpolated
     // rather than left to the text: whitespace around it would be counted too.
@@ -512,9 +503,7 @@ export class SeBalanceCard extends LitElement {
 
     return html`
       <div class="row">
-        <div class="avatar" style=${`background:${member?.color ?? colorFor(balance.member_id)}`}>
-          ${initials(member?.name ?? "?")}
-        </div>
+        ${renderAvatar(member, member?.name ?? "?", balance.member_id)}
         <span class="name">${member?.name ?? "?"}</span>
         <div>
           <div class=${`verdict ${tone}`}>

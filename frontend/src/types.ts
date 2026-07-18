@@ -93,7 +93,17 @@ export interface Member {
   user_id: string | null;
   name: string;
   color: string | null;
+  /** Whether they wear their Home Assistant photo rather than the initials. */
+  use_ha_avatar: boolean;
   created_at: string;
+  /**
+   * Their Home Assistant photo, resolved on the client from `hass.states`.
+   *
+   * Never sent by the backend: it is filled in where the members are loaded and
+   * `hass` is at hand. Null when they keep the initials, have no account, or set
+   * no picture — the panel reads its absence as "show the coloured initials".
+   */
+  picture?: string | null;
 }
 
 /** A Home Assistant account, as offered by the member picker. */
@@ -326,9 +336,23 @@ export type ErrorCode =
   | "unknown_error";
 
 /** Minimal shape of the `hass` object handed to the panel. */
+/** A Home Assistant entity, of which we read only a person's photo and account. */
+export interface HassEntity {
+  entity_id: string;
+  attributes: {
+    user_id?: string;
+    entity_picture?: string;
+    [key: string]: unknown;
+  };
+}
+
 export interface HomeAssistant {
   language: string;
   locale?: { language: string };
+  /** The house's own settings, of which we read only the currency. */
+  config?: { currency?: string };
+  /** Every entity's current state, where the person photos are found. */
+  states?: Record<string, HassEntity>;
   themes?: unknown;
   user?: { id: string; name: string; is_admin: boolean };
   callWS<T>(message: object): Promise<T>;

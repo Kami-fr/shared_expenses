@@ -26,6 +26,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import "./card-editor";
 import "./components/se-balance-card";
 import { SharedExpensesApi } from "./services/api";
+import { withAvatars } from "./services/avatar";
 import { errorMessage, localizer } from "./services/localize";
 import type { Localizer } from "./services/localize";
 import { sharedStyles } from "./styles/shared";
@@ -191,7 +192,7 @@ export class SharedExpensesCard extends LitElement {
       this.currency = group.currency;
       this.balances = result.balances;
       this.settlements = result.settlements;
-      this.members = members;
+      this.members = withAvatars(members, this.hass);
       this.error = undefined;
     } catch (err) {
       // Including "no such project", which is what being refused looks like

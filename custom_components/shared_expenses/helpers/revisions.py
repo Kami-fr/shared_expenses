@@ -118,6 +118,7 @@ def member_state(member: Member, role: GroupRole | None = None) -> dict[str, Any
     state: dict[str, Any] = {
         "name": member.name,
         "color": member.color,
+        "use_ha_avatar": member.use_ha_avatar,
     }
 
     if role is not None:
