@@ -721,7 +721,7 @@ export class SeGroupPage extends LitElement {
 
     return html`
       <button role="menuitem" @click=${() => this.openDialog("group")}>
-        ${translate("edit_group")}
+        ${this.may("manage_group") ? translate("edit_group") : translate("group_details")}
       </button>
       <button role="menuitem" @click=${() => this.openDialog("member")}>
         ${translate("members")}
@@ -1207,6 +1207,7 @@ export class SeGroupPage extends LitElement {
           .localize=${this.localize}
           .group=${this.group}
           .role=${this.myRole()}
+          .mayManage=${this.may("manage_group")}
           @dialog-cancelled=${this.closeDialog}
           @group-saved=${this.handleChanged}
         ></se-group-dialog>

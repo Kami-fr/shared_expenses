@@ -1,13 +1,9 @@
 import { LitElement, css, html, nothing } from "lit";
 import { customElement, property } from "lit/decorators.js";
 
-import {
-  colorFor,
-  firstName,
-  formatDayDate,
-  formatMoney,
-  initials,
-} from "../services/format";
+import "./se-icon";
+import { renderAvatar } from "./avatar";
+import { firstName, formatDayDate, formatMoney } from "../services/format";
 import { readChange, type HistoryContext } from "../services/history";
 import type { Key, Localizer } from "../services/localize";
 import { sharedStyles } from "../styles/shared";
@@ -32,6 +28,31 @@ const SUBJECTS: Record<RevisionEntity, Key> = {
   group: "the_group",
   category: "the_category",
   member: "the_member",
+};
+
+/**
+ * What happened, as a mark rather than a word.
+ *
+ * The line underneath already says it in the reader's language, so this is not
+ * here to be read: it is here so that forty lines can be searched with the eye
+ * instead of one at a time. Three meanings and three colours — it appeared, it
+ * changed, it went away — because a legend of four would need looking up, which
+ * is the opposite of the point.
+ *
+ * A restore is a deletion undone, so it wears the colour of a thing that is
+ * there and the glyph of a thing that came back.
+ *
+ * The fallback is not decoration: `se-icon` draws it when Home Assistant has
+ * not registered `ha-icon`, and a badge showing "?" would be worse than none.
+ */
+const ACTIONS: Record<
+  Revision["action"],
+  { icon: string; color: string; fallback: string }
+> = {
+  created: { icon: "mdi:plus", color: "var(--se-positive)", fallback: "+" },
+  updated: { icon: "mdi:pencil", color: "var(--primary-color, #03a9f4)", fallback: "~" },
+  deleted: { icon: "mdi:trash-can-outline", color: "var(--se-negative)", fallback: "×" },
+  restored: { icon: "mdi:restore", color: "var(--se-positive)", fallback: "↺" },
 };
 
 /**
@@ -207,6 +228,29 @@ export class SeHistory extends LitElement {
         height: 28px;
         font-size: 11px;
       }
+
+      /* Holds the face and the mark together, so the pair scrolls as one. */
+      .actor {
+        position: relative;
+        flex: 0 0 auto;
+        line-height: 0;
+      }
+
+      /*
+        Sitting on the corner of the face rather than in a column of its own:
+        who did it and what they did are one glance, and a third column on a
+        phone would have been paid for by the words.
+
+        The ring is the list's own background, not a colour: it is what keeps a
+        red mark on a red avatar from reading as one shape.
+      */
+      .pip {
+        position: absolute;
+        right: -6px;
+        bottom: -6px;
+        border-radius: 50%;
+        border: 2px solid var(--card-background-color, #fff);
+      }
     `,
   ];
 
@@ -224,13 +268,35 @@ export class SeHistory extends LitElement {
     const canOpen = this.stillThere(revision) !== undefined;
     const facts = this.withSubject ? this.subjectOf(revision) : null;
 
+    const mark = ACTIONS[revision.action];
+
     const body = html`
-      <div
-        class="avatar"
-        style=${`background:${actor?.color ?? colorFor(revision.actor_user_id ?? revision.id)}`}
-      >
-        ${initials(name)}
-      </div>
+      <span class="actor">
+        <!--
+          The same face the rest of the panel shows: their Home Assistant photo
+          where they have one, their coloured initials otherwise. This drew the
+          initials and only the initials, so the one list where knowing who did
+          something matters most was the one list nobody was recognisable in.
+
+          Seeded on the account rather than the member, since a change can
+          outlive whoever made it: the revision keeps the account, and a colour
+          has to come from somewhere even when the member is gone.
+        -->
+        ${renderAvatar(actor, name, revision.actor_user_id ?? revision.id)}
+        <!--
+          Hidden from a screen reader on purpose: the sentence below says the
+          same thing in words, and hearing it twice is not being told it better.
+        -->
+        <se-icon
+          class="pip"
+          aria-hidden="true"
+          .icon=${mark.icon}
+          .color=${mark.color}
+          .fallback=${mark.fallback}
+          .size=${15}
+          .glyph=${0.82}
+        ></se-icon>
+      </span>
       <div class="body">
         <div class="head">
           <span class="who">${name}</span>

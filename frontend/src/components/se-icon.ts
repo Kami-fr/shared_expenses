@@ -24,6 +24,16 @@ export class SeIcon extends LitElement {
   /** Draw the glyph on its own, in the current text colour, with no pill. */
   @property({ type: Boolean }) public plain = false;
 
+  /**
+   * How much of the pill the glyph takes.
+   *
+   * A category icon wants air around it — it sits in a list of them, and the
+   * pill is half the mark. A badge of 15px has no room to spare: the same ratio
+   * there leaves a glyph too small to tell a pencil from a plus. So the caller
+   * says, and the default is what every pill drew before.
+   */
+  @property({ type: Number }) public glyph = 0.55;
+
   public static styles = css`
     :host {
       display: block;
@@ -72,8 +82,8 @@ export class SeIcon extends LitElement {
       background: ${this.color};
       width: ${this.size}px;
       height: ${this.size}px;
-      font-size: ${Math.round(this.size * 0.35)}px;
-      --mdc-icon-size: ${Math.round(this.size * 0.55)}px;
+      font-size: ${Math.round(this.size * this.glyph * 0.64)}px;
+      --mdc-icon-size: ${Math.round(this.size * this.glyph)}px;
     `;
 
     return html`
