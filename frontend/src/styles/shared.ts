@@ -77,7 +77,9 @@ export const sharedStyles = css`
   }
 
   /*
-   * Two fields per row where they fit; one per row when the screen is narrow.
+   * Two fields per row, on every screen: phones differ more by their display
+   * zoom than by their glass, and the pair collapsing on one and not the other
+   * read as a bug rather than as care.
    *
    * minmax(0, …) rather than 1fr: a bare 1fr keeps an automatic minimum of the
    * content's own width, and a date input asks for more than half a phone. The
@@ -87,12 +89,6 @@ export const sharedStyles = css`
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 12px;
-  }
-
-  @media (max-width: 380px) {
-    .pair {
-      grid-template-columns: minmax(0, 1fr);
-    }
   }
 
   .stack {

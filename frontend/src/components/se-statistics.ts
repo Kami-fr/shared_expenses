@@ -1,12 +1,12 @@
-import { LitElement, css, html, nothing } from "lit";
+import { LitElement, css, html, nothing, svg } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
 import "./se-icon";
 import type { SharedExpensesApi } from "../services/api";
-import { formatMoney, formatMonth } from "../services/format";
+import { colorFor, formatMoney, formatMonth } from "../services/format";
 import { errorMessage, type Key, type Localizer } from "../services/localize";
 import { sharedStyles } from "../styles/shared";
-import type { Category, GroupStatistics, Member } from "../types";
+import type { Category, CategoryTotal, GroupStatistics, Member } from "../types";
 import { renderAvatar } from "./avatar";
 
 /** Everything, ever. Not a year, so it can never collide with one. */
@@ -58,6 +58,9 @@ export class SeStatistics extends LitElement {
   @state() private period: string = ALL;
 
   @state() private error?: string;
+
+  /** Whether "where it went" is drawn as a disc rather than a run of bars. */
+  @state() private pie = readPieStyle();
 
   public static styles = [
     sharedStyles,
@@ -194,6 +197,79 @@ export class SeStatistics extends LitElement {
         text-transform: uppercase;
         color: var(--secondary-text-color);
         margin-bottom: 14px;
+      }
+
+      /* A section title with something to set on its right. */
+      .head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+
+      .head .sec {
+        margin-bottom: 0;
+      }
+
+      /* Which chart, on the switch the split editor puts the currency and the
+         percent on: two halves, the one in use filled. Glyphs rather than
+         words, so it says the same thing in every language. */
+      .units {
+        display: flex;
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        border-radius: 8px;
+        overflow: hidden;
+        flex: 0 0 auto;
+      }
+
+      .units button {
+        display: flex;
+        align-items: center;
+        background: none;
+        border: none;
+        color: var(--secondary-text-color);
+        font-family: inherit;
+        font-size: 13px;
+        padding: 5px 12px;
+        cursor: pointer;
+      }
+
+      .units button[aria-pressed="true"] {
+        background: var(--primary-color, #03a9f4);
+        color: var(--text-primary-color, #fff);
+      }
+
+      /* The same figures as a disc, for whoever reads a proportion faster as an
+         angle than as a length. The list below it stays the legend. */
+      .pie {
+        display: block;
+        width: 176px;
+        height: 176px;
+        max-width: 100%;
+        margin: 0 auto 14px;
+        filter: drop-shadow(0 2px 4px rgba(20, 30, 40, 0.2));
+      }
+
+      /* Each wedge is cut from its neighbours by a line in the card's own
+         colour, so the disc reads as a set of pieces rather than one ring of
+         paint. */
+      .pie path,
+      .pie circle {
+        stroke: var(--card-background-color, #fff);
+        /* In the square's units too: 1.4 is the 3px the crop was drawn at. */
+        stroke-width: 1.4;
+        stroke-linejoin: round;
+      }
+
+      .pie text {
+        /* Drawn in the square's units, so the cropped box magnifies it: 6.2
+           here is the 13px it was before the crop. */
+        font-size: 6.2px;
+        font-weight: 700;
+        text-anchor: middle;
+        dominant-baseline: central;
+        font-variant-numeric: tabular-nums;
       }
 
       /* Where the money went: a ranking of bars, biggest first. A bar answers
@@ -522,7 +598,7 @@ export class SeStatistics extends LitElement {
           .size=${20}
           .icon=${topIcon}
           .fallback=${""}
-          style=${`color:${topCategory?.color ?? "var(--primary-color)"}`}
+          style=${`color:${top ? this.categoryColour(top.category_id) : "var(--primary-color)"}`}
         ></se-icon>
         <p>${parts.join(" ")}</p>
       </div>
@@ -536,45 +612,147 @@ export class SeStatistics extends LitElement {
       return nothing;
     }
 
-    const biggest = result.by_category[0].total || 1;
-
     return html`
       <div class="panel">
-        <div class="sec">${this.localize("stat_where")}</div>
-        ${result.by_category.map((item) => {
-          const category = this.category(item.category_id);
-          const colour = category?.color ?? NO_CATEGORY_COLOUR;
-
-          // A real category shows its icon, or its initial where it has none;
-          // the uncategorised shows the struck tag rather than an empty chip.
-          const icon = category ? category.icon : NO_CATEGORY_ICON;
-          const fallback = category ? category.name.charAt(0).toUpperCase() : "";
-
-          return html`
-            <div class="cat">
-              <div
-                class="chip"
-                style=${`background:color-mix(in srgb, ${colour} 15%, transparent);color:${colour}`}
-              >
-                <se-icon plain .size=${20} .icon=${icon} .fallback=${fallback}></se-icon>
-              </div>
-              <div class="cb">
-                <div class="t">
-                  <span class="nm">${this.categoryName(item.category_id)}</span>
-                  <span class="amt">${this.money(item.total)}</span>
-                </div>
-                <div class="track">
-                  <i
-                    style=${`width:${Math.max(3, (item.total / biggest) * 100)}%;background:${colour}`}
-                  ></i>
-                </div>
-              </div>
-              <div class="pc">${Math.round((item.total / result.total) * 100)}%</div>
-            </div>
-          `;
-        })}
+        <div class="head">
+          <div class="sec">${this.localize("stat_where")}</div>
+          ${this.renderChartStyle()}
+        </div>
+        ${this.pie ? this.renderPie() : this.renderBars()}
       </div>
     `;
+  }
+
+  /** The switch between the two charts, remembered by the browser it is set in. */
+  private renderChartStyle() {
+    const bars = this.localize("stat_chart_bars");
+    const pie = this.localize("stat_chart_pie");
+
+    return html`
+      <div class="units" role="group">
+        <button
+          aria-pressed=${!this.pie}
+          aria-label=${bars}
+          title=${bars}
+          @click=${() => this.setPie(false)}
+        >
+          <se-icon plain .size=${16} .icon=${"mdi:chart-bar"}></se-icon>
+        </button>
+        <button
+          aria-pressed=${this.pie}
+          aria-label=${pie}
+          title=${pie}
+          @click=${() => this.setPie(true)}
+        >
+          <se-icon plain .size=${16} .icon=${"mdi:chart-pie"}></se-icon>
+        </button>
+      </div>
+    `;
+  }
+
+  /** Biggest first, each against the biggest, so the ranking is the shape. */
+  private renderBars() {
+    const result = this.result!;
+    const biggest = result.by_category[0].total || 1;
+
+    return html`${result.by_category.map((item) => this.renderCategoryRow(item, biggest))}`;
+  }
+
+  /**
+   * The same figures as a disc, each category a wedge in its own colour, laid
+   * out clockwise from noon and from the biggest, since the list already
+   * arrives sorted. Its share is written on it where there is room to write it,
+   * and the rows below stay the legend: a wedge alone says nothing about what
+   * it is.
+   */
+  private renderPie() {
+    const result = this.result!;
+    const total = result.total || 1;
+    const slices = result.by_category.filter((item) => item.total > 0);
+    let cursor = 0;
+
+    return html`
+      <!-- The disc is drawn in a 100-square but only fills its middle, so the
+           box is cropped to the disc and a hair for the stroke: the geometry
+           stays plain to read, and no dead margin is paid for on screen. -->
+      <svg class="pie" viewBox="9 9 82 82" aria-hidden="true">
+        ${slices.map((item, index) => {
+          const colour = this.categoryColour(item.category_id);
+          const share = item.total / total;
+          const start = cursor;
+
+          // The last wedge closes on the full turn exactly: adding up one slice
+          // at a time otherwise leaves a hairline of nothing showing at the end.
+          const end = index === slices.length - 1 ? 360 : start + share * 360;
+          cursor = end;
+
+          // A wedge that is the whole disc has no middle to sit beside: its
+          // figure belongs in the centre, not adrift at the bottom of it.
+          const [x, y] =
+            end - start >= 359.999 ? [50, 50] : pointAt((start + end) / 2, LABEL_RADIUS);
+
+          return svg`
+            ${wedge(start, end, colour)}
+            ${share >= LABEL_MIN_SHARE
+              ? svg`<text x=${x} y=${y} fill=${inkOn(colour)}>
+                  ${Math.round(share * 100)}%
+                </text>`
+              : nothing}
+          `;
+        })}
+      </svg>
+      ${result.by_category.map((item) => this.renderCategoryRow(item, null))}
+    `;
+  }
+
+  /**
+   * One category, the same line under either chart: its mark, its name, what it
+   * cost and what share of everything that is. The bar is drawn only when it is
+   * the chart — under the disc, the wedge has already said it.
+   */
+  private renderCategoryRow(item: CategoryTotal, biggest: number | null) {
+    const result = this.result!;
+    const category = this.category(item.category_id);
+    const colour = this.categoryColour(item.category_id);
+
+    // A real category shows its icon, or its initial where it has none;
+    // the uncategorised shows the struck tag rather than an empty chip.
+    const icon = category ? category.icon : NO_CATEGORY_ICON;
+    const fallback = category ? category.name.charAt(0).toUpperCase() : "";
+
+    return html`
+      <div class="cat">
+        <div
+          class="chip"
+          style=${`background:color-mix(in srgb, ${colour} 15%, transparent);color:${colour}`}
+        >
+          <se-icon plain .size=${20} .icon=${icon} .fallback=${fallback}></se-icon>
+        </div>
+        <div class="cb">
+          <div class="t">
+            <span class="nm">${this.categoryName(item.category_id)}</span>
+            <span class="amt">${this.money(item.total)}</span>
+          </div>
+          ${biggest === null
+            ? nothing
+            : html`<div class="track">
+                <i
+                  style=${`width:${Math.max(3, (item.total / biggest) * 100)}%;background:${colour}`}
+                ></i>
+              </div>`}
+        </div>
+        <div class="pc">${Math.round((item.total / result.total) * 100)}%</div>
+      </div>
+    `;
+  }
+
+  private setPie(pie: boolean) {
+    if (pie === this.pie) {
+      return;
+    }
+
+    this.pie = pie;
+    rememberPieStyle(pie);
   }
 
   private renderMonths() {
@@ -664,6 +842,26 @@ export class SeStatistics extends LitElement {
     return this.categories.find((category) => category.id === id);
   }
 
+  /**
+   * What a category is drawn in, here and nowhere else.
+   *
+   * Its own colour when it chose one, and otherwise a stable one drawn from its
+   * id — the same trick a member without a colour gets for their initials. A
+   * category left on the default would otherwise share the neutral grey with
+   * the uncategorised, and a chart of grey bars says nothing about which is
+   * which. The uncategorised keeps that grey: it is the absence of a category,
+   * not one more of them.
+   */
+  private categoryColour(id: string | null): string {
+    const category = this.category(id);
+
+    if (!category) {
+      return NO_CATEGORY_COLOUR;
+    }
+
+    return category.color ?? colorFor(category.id);
+  }
+
   private categoryName(id: string | null): string {
     return this.category(id)?.name ?? this.localize("no_category");
   }
@@ -703,6 +901,101 @@ export class SeStatistics extends LitElement {
     } catch (error) {
       this.error = errorMessage(error, this.localize);
     }
+  }
+}
+
+/** The disc, in the 100-square the pie is drawn in. */
+const PIE_RADIUS = 40;
+
+/** How far out a share is written: inside the wedge, clear of both edges. */
+const LABEL_RADIUS = 26;
+
+/** Under this, the wedge is narrower than the figure would be. Left unwritten. */
+const LABEL_MIN_SHARE = 0.07;
+
+/** Where an angle lands, clockwise from noon rather than from three o'clock. */
+function pointAt(degrees: number, radius: number): [number, number] {
+  const radians = ((degrees - 90) * Math.PI) / 180;
+
+  return [50 + radius * Math.cos(radians), 50 + radius * Math.sin(radians)];
+}
+
+/**
+ * One wedge, from one angle to another.
+ *
+ * A whole turn is a circle rather than a path: an arc that starts where it ends
+ * draws nothing at all, so a group spending on one category alone would show an
+ * empty disc.
+ */
+function wedge(start: number, end: number, colour: string) {
+  if (end - start >= 359.999) {
+    return svg`<circle cx="50" cy="50" r=${PIE_RADIUS} fill=${colour}></circle>`;
+  }
+
+  const [x1, y1] = pointAt(start, PIE_RADIUS);
+  const [x2, y2] = pointAt(end, PIE_RADIUS);
+  const wide = end - start > 180 ? 1 : 0;
+
+  return svg`<path
+    d=${`M 50 50 L ${x1} ${y1} A ${PIE_RADIUS} ${PIE_RADIUS} 0 ${wide} 1 ${x2} ${y2} Z`}
+    fill=${colour}
+  ></path>`;
+}
+
+/**
+ * Ink that stands out on a wedge of this colour.
+ *
+ * A category picks its own colour, and white on a pale yellow is unreadable.
+ * The eye weighs green most and blue least, so the figure is weighed the same
+ * way, and anything past the middle takes dark ink instead.
+ */
+function inkOn(colour: string): string {
+  const hex = colour.trim().replace("#", "");
+  const full =
+    hex.length === 3
+      ? hex
+          .split("")
+          .map((character) => character + character)
+          .join("")
+      : hex;
+
+  const value = Number.parseInt(full, 16);
+
+  if (full.length !== 6 || Number.isNaN(value)) {
+    return "#fff";
+  }
+
+  const red = (value >> 16) & 255;
+  const green = (value >> 8) & 255;
+  const blue = value & 255;
+
+  return (0.299 * red + 0.587 * green + 0.114 * blue) / 255 > 0.62
+    ? "rgba(0, 0, 0, 0.75)"
+    : "#fff";
+}
+
+/**
+ * Which chart the categories are drawn as, remembered per browser.
+ *
+ * A display preference, not group data: it belongs to the screen looking, the
+ * way the last group opened does, and every access is guarded since a browser
+ * with storage disabled throws outright. Forgetting it costs one flick.
+ */
+const PIE_KEY = "shared_expenses.stat_pie";
+
+function readPieStyle(): boolean {
+  try {
+    return window.localStorage.getItem(PIE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function rememberPieStyle(pie: boolean): void {
+  try {
+    window.localStorage.setItem(PIE_KEY, pie ? "1" : "0");
+  } catch {
+    // Not being able to remember is not worth breaking the page over.
   }
 }
 
