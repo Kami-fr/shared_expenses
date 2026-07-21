@@ -15,7 +15,7 @@ import "./components/se-icon";
 import { NO_COLOR } from "./components/se-color-picker";
 import type { AddConfig } from "./add-card";
 import { localizer } from "./services/localize";
-import { NEW_EXPENSE, goToGroup } from "./services/navigate";
+import { NEW_EXPENSE, goToGroup, goToPanel } from "./services/navigate";
 import { SharedExpensesApi } from "./services/api";
 import { sharedStyles } from "./styles/shared";
 import type { HomeAssistant } from "./types";
@@ -26,14 +26,8 @@ export class SharedExpensesAddBadge extends LitElement {
 
   @state() private config?: AddConfig;
 
+  /** As on the card: a missing group means "wherever the reader is". */
   public setConfig(config: AddConfig): void {
-    if (!config?.group_id) {
-      throw new Error(
-        "shared-expenses-add-badge needs a group_id — the group to add the " +
-          "expense to.",
-      );
-    }
-
     this.config = config;
   }
 
@@ -52,7 +46,13 @@ export class SharedExpensesAddBadge extends LitElement {
   }
 
   private add = () => {
-    goToGroup(this.config!.group_id!, NEW_EXPENSE);
+    const groupId = this.config?.group_id;
+
+    if (groupId) {
+      goToGroup(groupId, NEW_EXPENSE);
+    } else {
+      goToPanel(NEW_EXPENSE);
+    }
   };
 
   protected render() {

@@ -3,7 +3,8 @@
  *
  * Both have the same one thing worth choosing — which group the expense lands
  * in — offered as a list of the account's own groups rather than an id to
- * paste, exactly as the balance card's editor does. A label is offered too,
+ * paste, exactly as the balance card's editor does. "The last group opened"
+ * heads the list: a tile may follow its reader instead of naming a group. A label is offered too,
  * empty by default, so the button reads "Add expense" unless a dashboard wants
  * its own word for it.
  */
@@ -69,10 +70,16 @@ export class SharedExpensesAddEditor extends LitElement {
         <se-select
           .label=${translate("card_group")}
           .value=${this.config.group_id ?? ""}
-          .options=${this.groups.map((group) => ({
-            value: group.id,
-            label: group.name,
-          }))}
+          .options=${[
+            // First, and not one of the groups: no group at all is a choice.
+            // The tile then follows its reader, adding to whatever group the
+            // panel would open on for them.
+            { value: "", label: translate("card_group_last") },
+            ...this.groups.map((group) => ({
+              value: group.id,
+              label: group.name,
+            })),
+          ]}
           @value-changed=${this.pickGroup}
         ></se-select>
 
@@ -114,7 +121,18 @@ export class SharedExpensesAddEditor extends LitElement {
   }
 
   private pickGroup = (event: CustomEvent) => {
-    this.emit({ ...this.config!, group_id: event.detail.value });
+    const groupId = event.detail.value as string;
+    const next: AddConfig = { ...this.config! };
+
+    // Empty is the "last opened" choice: drop the key rather than write an
+    // empty id, so the config stays as short as what was actually chosen.
+    if (groupId) {
+      next.group_id = groupId;
+    } else {
+      delete next.group_id;
+    }
+
+    this.emit(next);
   };
 
   private setLabel = (event: CustomEvent) => {

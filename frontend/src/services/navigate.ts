@@ -10,10 +10,15 @@
 /** Appended to the group's address to have the panel open a fresh expense. */
 export const NEW_EXPENSE = "?new=expense";
 
-export function goToGroup(groupId: string, suffix = ""): void {
-  history.pushState(null, "", `/shared_expenses/group/${groupId}${suffix}`);
+/** Walk to the panel itself, and let it decide what that opens on. */
+export function goToPanel(suffix = ""): void {
+  history.pushState(null, "", `/shared_expenses${suffix}`);
 
   window.dispatchEvent(
     new CustomEvent("location-changed", { bubbles: true, composed: true }),
   );
+}
+
+export function goToGroup(groupId: string, suffix = ""): void {
+  goToPanel(`/group/${groupId}${suffix}`);
 }

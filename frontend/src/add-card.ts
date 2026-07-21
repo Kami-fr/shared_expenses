@@ -7,7 +7,9 @@
  * so this only says where to go, the same way the balance card's "+" does.
  *
  * The group it adds to is chosen once, in the editor; a tap is then a tap, with
- * nothing to fill in before you are looking at the form.
+ * nothing to fill in before you are looking at the form. Or it is not chosen at
+ * all, and the tile follows its reader instead: the panel opens the form on the
+ * group it would have opened anyway — the last one this account had open.
  */
 
 import { LitElement, css, html } from "lit";
@@ -17,7 +19,7 @@ import "./add-editor";
 import "./components/se-icon";
 import { NO_COLOR } from "./components/se-color-picker";
 import { localizer } from "./services/localize";
-import { NEW_EXPENSE, goToGroup } from "./services/navigate";
+import { NEW_EXPENSE, goToGroup, goToPanel } from "./services/navigate";
 import { SharedExpensesApi } from "./services/api";
 import { sharedStyles } from "./styles/shared";
 import type { HomeAssistant } from "./types";
@@ -27,6 +29,7 @@ export const ADD_TILE_COLOR = "#03a9f4";
 
 export interface AddConfig {
   type: string;
+  /** The group to add to. Absent means the last group opened by the reader. */
   group_id?: string;
   /** The word on the button. Empty falls back to "Add expense". */
   label?: string;
@@ -45,17 +48,11 @@ export class SharedExpensesAddCard extends LitElement {
   @state() private config?: AddConfig;
 
   /**
-   * Home Assistant hands a card its config here, and a card refuses one it
-   * cannot use by throwing: without a group there is nowhere to add to.
+   * Home Assistant hands a card its config here. A missing group is a valid
+   * one, not a broken card: it means "wherever the reader is", and the panel
+   * resolves it on arrival.
    */
   public setConfig(config: AddConfig): void {
-    if (!config?.group_id) {
-      throw new Error(
-        "shared-expenses-add-card needs a group_id — the group to add the " +
-          "expense to.",
-      );
-    }
-
     this.config = config;
   }
 
@@ -79,7 +76,15 @@ export class SharedExpensesAddCard extends LitElement {
   }
 
   private add = () => {
-    goToGroup(this.config!.group_id!, NEW_EXPENSE);
+    const groupId = this.config?.group_id;
+
+    // No group of its own: the panel decides, opening the form on the
+    // remembered group, or the group list when there is none yet.
+    if (groupId) {
+      goToGroup(groupId, NEW_EXPENSE);
+    } else {
+      goToPanel(NEW_EXPENSE);
+    }
   };
 
   protected render() {

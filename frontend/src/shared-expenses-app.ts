@@ -4,6 +4,13 @@ import { customElement, property, state } from "lit/decorators.js";
 import "./pages/se-dashboard-page";
 import "./pages/se-group-page";
 import { SharedExpensesApi } from "./services/api";
+import {
+  cacheGroup,
+  forgetGroup,
+  readCachedGroup,
+  readRememberedGroup,
+  rememberGroup,
+} from "./services/last-group";
 import { localizer, type Localizer } from "./services/localize";
 import type { HomeAssistant, Route } from "./types";
 
@@ -40,6 +47,19 @@ export class SharedExpensesPanel extends LitElement {
   /** Whether the panel has already resolved where to open. */
   private landed = false;
 
+  /**
+   * The server is being asked where to land, this device having forgotten.
+   * The panel holds blank for that one round trip rather than flash the
+   * dashboard and then jump.
+   */
+  @state() private resolving = false;
+
+  /** The tile's "+ expense" marker, carried across that round trip. */
+  private resolvingWantsExpense = false;
+
+  /** The ask has been fired, so re-renders while awaiting do not repeat it. */
+  private askedServer = false;
+
   private api?: SharedExpensesApi;
 
   public static styles = css`
@@ -68,10 +88,17 @@ export class SharedExpensesPanel extends LitElement {
     if (this.hass && !this.api) {
       this.api = new SharedExpensesApi(this.hass);
     }
+
+    // Deferred to here rather than done where the need is found: the route is
+    // read in connectedCallback, and `hass` may not be set on the element yet.
+    if (this.hass && this.resolving && !this.askedServer) {
+      this.askedServer = true;
+      void this.landFromServer();
+    }
   }
 
   protected render() {
-    if (!this.hass || !this.api) {
+    if (!this.hass || !this.api || this.resolving) {
       return html``;
     }
 
@@ -132,6 +159,12 @@ export class SharedExpensesPanel extends LitElement {
       return;
     }
 
+    // A dashboard tile with no group of its own lands at the root with the
+    // marker: "a new expense, wherever the reader is". The remembered group
+    // says where that is.
+    const wantsExpense =
+      new URLSearchParams(window.location.search).get("new") === "expense";
+
     if (this.landed) {
       // Already inside the panel: the dashboard is a deliberate choice now.
       this.groupId = undefined;
@@ -140,16 +173,41 @@ export class SharedExpensesPanel extends LitElement {
 
     this.landed = true;
 
-    const remembered = readLastGroup();
+    const cached = readCachedGroup();
 
-    if (remembered) {
-      this.groupId = remembered;
-      this.replacePath(`/group/${remembered}`);
+    if (cached) {
+      this.groupId = cached;
+      this.newExpense = wantsExpense;
+      this.replacePath(`/group/${cached}`);
       return;
     }
 
+    // Nothing on this device. Before settling for the dashboard, ask the
+    // server what this account had open: the companion app's WebView throws
+    // its storage away now and then, and losing it must not read as the
+    // panel forgetting you.
+    this.resolvingWantsExpense = wantsExpense;
+    this.resolving = true;
     this.groupId = undefined;
   };
+
+  /** Land where the server last saw this account, or on the dashboard. */
+  private async landFromServer(): Promise<void> {
+    const remembered = await readRememberedGroup(this.hass);
+
+    if (remembered) {
+      cacheGroup(remembered);
+      this.groupId = remembered;
+      this.newExpense = this.resolvingWantsExpense;
+      this.replacePath(`/group/${remembered}`);
+    } else if (this.resolvingWantsExpense) {
+      // No group anywhere: the dashboard, with the marker dropped so a
+      // reload does not carry it around.
+      this.replacePath("");
+    }
+
+    this.resolving = false;
+  }
 
   private handleGroupSelected = (event: CustomEvent) => {
     const groupId: string = event.detail.groupId;
@@ -159,7 +217,7 @@ export class SharedExpensesPanel extends LitElement {
     this.newExpense = false;
     this.groupId = groupId;
 
-    rememberGroup(groupId);
+    rememberGroup(this.hass, groupId);
     this.replacePath(`/group/${groupId}`);
   };
 
@@ -176,7 +234,7 @@ export class SharedExpensesPanel extends LitElement {
    * visit.
    */
   private handleGroupUnavailable = () => {
-    forgetGroup();
+    forgetGroup(this.hass);
     this.goToDashboard();
   };
 
@@ -193,39 +251,6 @@ export class SharedExpensesPanel extends LitElement {
     const base = prefix.startsWith("/") ? prefix : `/${prefix}`;
 
     history.replaceState(null, "", `${base}${suffix}`);
-  }
-}
-
-/**
- * The last group opened, remembered per browser.
- *
- * A display preference, not group data: it belongs to the device you are on,
- * not to the household. Every access is guarded, as localStorage throws outright
- * when a browser disables storage.
- */
-const LAST_GROUP_KEY = "shared_expenses.last_group";
-
-function readLastGroup(): string | null {
-  try {
-    return window.localStorage.getItem(LAST_GROUP_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function rememberGroup(groupId: string): void {
-  try {
-    window.localStorage.setItem(LAST_GROUP_KEY, groupId);
-  } catch {
-    // Not being able to remember is not worth breaking the panel over.
-  }
-}
-
-function forgetGroup(): void {
-  try {
-    window.localStorage.removeItem(LAST_GROUP_KEY);
-  } catch {
-    // Same: losing the shortcut is harmless.
   }
 }
 
