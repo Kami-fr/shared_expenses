@@ -370,6 +370,27 @@ connection runs with `isolation_level=None`, so a repository statement outside a
 transaction commits on its own instead of sitting in an implicit transaction that
 nothing would ever commit.
 
+**One connection carries one transaction, so one writer at a time.** A lock is
+held for the length of the outermost transaction, and the task holding it is
+remembered so a nested `transaction()` joins rather than waiting on itself. This
+was a depth counter shared by every coroutine, and the counter went up only
+after the `BEGIN` had been awaited: two writers starting together both believed
+they were first, one of their `BEGIN`s failed, and whichever left last committed
+the other's unfinished work or rolled it back from under them. Both were silent.
+
+**What a write promises is said after it lands.** `Database.after_commit()`
+holds a callback until the outermost transaction has committed, and drops it
+when there was no commit. That is how `_announce` reaches the coordinator, the
+dashboard card and the bus: everything that hears a change comes back to this
+connection to read, and a listener told before the COMMIT reads a write that has
+not happened.
+
+**Known and left alone:** reads do not take the lock. They share the connection,
+so a read landing in the middle of somebody's write sees uncommitted rows for a
+few milliseconds. Nothing acts on that any more — the announcement waits, so
+nobody is sent to look at the wrong moment — and closing it properly would mean
+a second connection for reading. Not worth it yet.
+
 ---
 
 ## Split rules

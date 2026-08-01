@@ -1832,21 +1832,14 @@ class SharedExpensesManager:
         journals is a change nobody needed to be told about either — the two
         questions have the same answer, which is why they share a door.
 
-        Sent before the commit, and that is safe because nobody reads yet: the
-        listeners only schedule a refresh, and any automation runs its own task,
-        both after this transaction has closed. Sending after the commit would
-        need the caller to remember to, which is the kind of remembering this
-        method exists to take away.
+        Announced through `Database.after_commit`, so it is heard when the write
+        is on disk and never when it is undone. It used to be sent from here,
+        before the commit, on the reasoning that nobody read yet — true until
+        Home Assistant began starting tasks eagerly. Sending it after the commit
+        by hand would need every caller to remember to, which is the kind of
+        remembering this method exists to take away, so the database remembers
+        instead.
         """
-
-        self._announce(
-            group_id=group_id,
-            entity=entity_type,
-            entity_id=entity_id,
-            action=action,
-            label=label,
-            actor_user_id=actor_user_id,
-        )
 
         await self._database.revision_repository.create(
             Revision(
@@ -1862,6 +1855,18 @@ class SharedExpensesManager:
             )
         )
 
+        # Journalled, then announced. The order stopped mattering the day the
+        # announcement started waiting for the commit; it is kept because that
+        # is the order the two things happen in.
+        self._announce(
+            group_id=group_id,
+            entity=entity_type,
+            entity_id=entity_id,
+            action=action,
+            label=label,
+            actor_user_id=actor_user_id,
+        )
+
     def _announce(
         self,
         *,
@@ -1872,31 +1877,44 @@ class SharedExpensesManager:
         label: str | None,
         actor_user_id: str | None,
     ) -> None:
-        """Tell the dashboard and the bus that a group moved, in one breath.
+        """Tell the dashboard and the bus that a group moved — once it really has.
 
-        Two listeners, one door. The coordinator hears the signal and redoes the
-        arithmetic; anything else in the house hears the event and may act on it
-        — a notification, a reminder, a light. The event carries what the journal
-        carries, and no more: an automation that needs the figures reads them for
-        itself, as anyone cleared for the group can.
+        Three listeners, one door. The coordinator hears the signal and redoes
+        the arithmetic; a card left running on a kitchen wall hears the same one
+        and asks for the figures again; anything else in the house hears the
+        event and may act on it — a notification, a reminder, a light. The event
+        carries what the journal carries, and no more: an automation that needs
+        the figures reads them for itself, as anyone cleared for the group can.
+
+        Handed to the database rather than sent from here. Every one of these
+        sends somebody back to this connection, and a reader told before the
+        COMMIT reads a write that has not landed — see `Database.after_commit`,
+        which holds it until it has and throws it away when it never does.
 
         The event's name and shape are a promise to whoever wrote an automation
         against them; they change with the same care a stored column would.
         """
 
-        async_dispatcher_send(self._database.hass, SIGNAL_GROUP_CHANGED, group_id)
+        hass = self._database.hass
 
-        self._database.hass.bus.async_fire(
-            EVENT_CHANGED,
-            {
-                "group_id": group_id,
-                "entity": str(entity),
-                "entity_id": entity_id,
-                "action": str(action),
-                "label": label,
-                "actor_user_id": actor_user_id,
-            },
-        )
+        def _speak() -> None:
+            """Say it, with the write behind it."""
+
+            async_dispatcher_send(hass, SIGNAL_GROUP_CHANGED, group_id)
+
+            hass.bus.async_fire(
+                EVENT_CHANGED,
+                {
+                    "group_id": group_id,
+                    "entity": str(entity),
+                    "entity_id": entity_id,
+                    "action": str(action),
+                    "label": label,
+                    "actor_user_id": actor_user_id,
+                },
+            )
+
+        self._database.after_commit(_speak)
 
     #
     # ------------------------------------------------------------------

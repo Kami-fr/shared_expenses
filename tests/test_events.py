@@ -131,3 +131,50 @@ async def test_a_write_that_moves_nothing_stays_silent(
 
     assert connection.errors == {}
     assert announced(loaded) == []
+
+
+async def test_a_write_is_announced_only_once_it_has_landed(
+    loaded: FakeHass,
+    manager: SharedExpensesManager,
+    project: dict[str, Any],
+):
+    """Through the database's own door, not straight onto the bus.
+
+    Everything that hears this goes back to the one connection it was written
+    on, and one told before the COMMIT reads a write that has not landed — or
+    one that never will. `test_transactions.py` holds what that door does; this
+    holds that the manager still knocks on it, because sending from `_announce`
+    directly would pass every test in that file and put the bug straight back.
+    """
+
+    door: list[str] = []
+
+    real = manager.database.after_commit
+
+    def watched(action: Any) -> None:
+        door.append("knocked")
+
+        real(action)
+
+    manager.database.after_commit = watched  # type: ignore[method-assign]
+
+    loaded.bus.events.clear()
+
+    connection = FakeConnection(ADMIN)
+
+    await send(
+        loaded,
+        connection,
+        expenses.websocket_create_expense,
+        {
+            "group_id": project["group"].id,
+            "title": "Courses",
+            "amount": 8_542,
+            "paid_by_member_id": project["admin"].id,
+            "expense_date": NOW.isoformat(),
+        },
+    )
+
+    assert connection.errors == {}
+    assert door == ["knocked"]
+    assert len(announced(loaded)) == 1

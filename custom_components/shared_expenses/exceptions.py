@@ -130,6 +130,23 @@ class InvalidExchangeRateError(SharedExpensesError):
     """Exchange rate is missing, malformed or not plausible."""
 
 
+#
+# Storage
+#
+
+
+class DatabaseNotReadyError(SharedExpensesError):
+    """The database is not open.
+
+    A moment rather than a mistake, which is why it is raised and not asserted:
+    a read still in flight when the entry unloads finds the file closed under
+    it. An assert says the same thing until somebody runs Python with `-O`, and
+    then says nothing at all — the connection is `None` and the traceback is
+    about an attribute. This is also a `SharedExpensesError`, so the coordinator
+    can turn it into one lost cycle instead of a stack trace.
+    """
+
+
 class ExchangeRateUnavailableError(SharedExpensesError):
     """No rate could be had for this pair, from anywhere.
 

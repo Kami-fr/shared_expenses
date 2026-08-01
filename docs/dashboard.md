@@ -98,9 +98,13 @@ There is no "you" out there, either. An entity's state is the same for everybody
 reading it, so nothing here says "you are owed" — a balance is named for whose it
 is. That is what the card above is for, and why it is not built out of these.
 
-A group that closes the switch, or is deleted, has its device removed and its
-entities with it: no stale figures left unavailable to rot. Turn it back on and
-they come straight back.
+A group that closes the switch keeps its device, and every entity on it says it
+has nothing to say — no figure, no last known balance, nothing to read. Turn it
+back on and the numbers come back to the same entities, with the names, rooms
+and history you gave them, and the tiles pointing at them never noticed. A group
+that is actually deleted is the other thing: there is nothing left to point at,
+so its device goes. To clear away a silent one anyway, delete it from its own
+device page.
 
 **Where the ids come from.** A group and a member are this integration's own, not
 Home Assistant entities, so no selector lists them. They are under **Developer

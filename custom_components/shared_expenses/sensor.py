@@ -35,15 +35,21 @@ async def async_setup_entry(
 
     A project can start exposing itself, and somebody can join one, long after
     Home Assistant started. So this does not run once over what exists: it runs
-    again on every refresh, adding what it has not added before — and taking
-    down what has left.
+    again on every refresh, adding what it has not added before.
 
-    A project that closes its switch, or is deleted, drops out of the
-    coordinator. Its device is removed rather than left unavailable: whoever
-    shut the switch meant the figures gone, and a device sitting there
-    unavailable is the rot they asked not to keep. Removing the device takes its
-    entities with it. A card pointing at one of them will show the loss — which
-    is the honest price of the switch doing what it says.
+    Taking something down is the rarer half and the careful one. A project that
+    closes its switch keeps its device and its entities, and every one of them
+    says it has nothing to say: that is what Home Assistant does everywhere
+    else, a card goes on pointing at an entity and reads "unavailable" rather
+    than the entity vanishing and taking the card's meaning with it. Nothing
+    leaks — every value is None and the whole device is unavailable — and
+    opening the switch again brings the figures back to the entities that were
+    already there, with their history and whatever the household renamed them.
+
+    Only a project that no longer exists loses its device. The two used to be
+    the same thing here, because both drop out of the coordinator, and treating
+    them alike is what pulled the entity out from under somebody's tile every
+    time a read went sideways.
     """
 
     coordinator: SharedExpensesCoordinator = hass.data[DOMAIN][entry.entry_id][
@@ -55,6 +61,12 @@ async def async_setup_entry(
 
     @callback
     def _reconcile() -> None:
+        # A read that failed says nothing about what exists. The coordinator
+        # keeps its last good data through one, so nothing below would find
+        # anything new anyway — except `_forget`, and `_forget` deletes.
+        if not coordinator.last_update_success:
+            return
+
         data = coordinator.data or {}
 
         added = []
@@ -77,24 +89,26 @@ async def async_setup_entry(
         if added:
             async_add_entities(added)
 
-        _forget(data)
+        _forget()
 
     @callback
-    def _forget(data: dict[str, object]) -> None:
-        """Remove the device of any group no longer on the dashboard.
+    def _forget() -> None:
+        """Remove the device of any group that no longer exists.
 
-        Its snapshot is gone from the coordinator, so it is missing from `data`.
-        The tracking set forgets it as well, or switching the group back on
-        would find it "already added" and rebuild nothing.
+        Not one that merely closed its switch: that group is still there, still
+        somebody's, and its entities are worth keeping so the tile pointing at
+        them survives the switch being thrown twice.
+
+        The tracking set forgets a removed group as well, or a group recreated
+        under the same id would be found "already added" and nothing rebuilt.
         """
 
-        for device in dr.async_entries_for_config_entry(devices, entry.entry_id):
-            group_id = next(
-                (value for domain, value in device.identifiers if domain == DOMAIN),
-                None,
-            )
+        alive = coordinator.known_group_ids
 
-            if group_id is None or group_id in data:
+        for device in dr.async_entries_for_config_entry(devices, entry.entry_id):
+            group_id = _group_of(device)
+
+            if not _is_forgotten(group_id, alive):
                 continue
 
             devices.async_remove_device(device.id)
@@ -107,6 +121,25 @@ async def async_setup_entry(
     entry.async_on_unload(coordinator.async_add_listener(_reconcile))
 
     _reconcile()
+
+
+def _group_of(device: dr.DeviceEntry) -> str | None:
+    """Return the project a device stands for, if it stands for one of ours."""
+
+    return next(
+        (value for domain, value in device.identifiers if domain == DOMAIN),
+        None,
+    )
+
+
+def _is_forgotten(group_id: str | None, alive: frozenset[str]) -> bool:
+    """Say whether a device's project is gone, rather than merely quiet.
+
+    The one decision in this file that can destroy something, so it is written
+    down on its own, where a test can hold it without a running Home Assistant.
+    """
+
+    return group_id is not None and group_id not in alive
 
 
 class MoneySensor(SharedExpensesEntity, SensorEntity):
@@ -236,7 +269,7 @@ class BalanceSensor(MoneySensor):
 
         snapshot = self.snapshot
 
-        if snapshot is None or not super().available:
+        if snapshot is None:
             return False
 
         return any(member.id == self._member_id for member in snapshot.members)

@@ -67,7 +67,19 @@ class SharedExpensesEntity(CoordinatorEntity[SharedExpensesCoordinator]):
         A project that stopped exposing itself is exactly as unavailable as one
         that was deleted: whoever closed the switch meant the figures to go, and
         a sensor holding its last known balance would be the leak the switch was
-        closed to stop.
+        closed to stop. That is the whole of the question, and the snapshot
+        answers it.
+
+        `super().available` used to be here too, and it is what made the tiles
+        flicker. It is `coordinator.last_update_success`, so one failed read —
+        anything at all, on a database this integration owns and nobody else can
+        take away — said *unavailable* for every entity of every project at
+        once. The database being briefly unreadable is a bug to log, not a
+        figure to pull off the wall; Home Assistant's own integrations that own
+        their storage, `local_todo` and `local_calendar` among them, do not
+        implement this property at all. The coordinator keeps its last good data
+        through a failure, so what stays on screen is the last thing that was
+        true, and the clock replaces it within ten minutes.
         """
 
-        return super().available and self.snapshot is not None
+        return self.snapshot is not None

@@ -28,8 +28,10 @@ exactly this.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from homeassistant.core import HomeAssistant, ServiceCall, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.util import dt as dt_util
 import voluptuous as vol
@@ -43,11 +45,15 @@ SERVICE_SETTLE_UP = "settle_up"
 #: Amounts arrive as money and are held as cents, like everywhere else here.
 _AMOUNT = vol.All(vol.Coerce(float), vol.Range(min=0, min_included=False))
 
+#: An expense may run the other way: a negative amount is a refund from a shop.
+#: Zero is refused either way — it is not a small expense, it is no expense.
+_EXPENSE_AMOUNT = vol.All(vol.Coerce(float), vol.NotIn([0], "An amount is needed."))
+
 ADD_EXPENSE_SCHEMA = vol.Schema(
     {
         vol.Required("group_id"): cv.string,
         vol.Required("title"): cv.string,
-        vol.Required("amount"): _AMOUNT,
+        vol.Required("amount"): _EXPENSE_AMOUNT,
         vol.Required("paid_by_member_id"): cv.string,
         vol.Optional("expense_date"): cv.datetime,
         vol.Optional("currency"): cv.string,
@@ -137,9 +143,18 @@ def async_unload_services(hass: HomeAssistant) -> None:
 
 
 def _manager(hass: HomeAssistant) -> SharedExpensesManager:
-    """Return the manager of the one entry there is."""
+    """Return the manager of the one entry there is.
 
-    entries = hass.data[DOMAIN]
+    Guarded the way `websocket/api.py` guards its own lookup, and for the same
+    reason: an action can be called while the entry is reloading, and a bare
+    `hass.data[DOMAIN]` reached whoever pressed the tile as a `KeyError` rather
+    than as a sentence.
+    """
+
+    entries: dict[str, dict[str, Any]] = hass.data.get(DOMAIN, {})
+
+    if not entries:
+        raise HomeAssistantError("Shared Expenses is not loaded.")
 
     return next(iter(entries.values()))["manager"]
 
