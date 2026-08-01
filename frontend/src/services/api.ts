@@ -70,6 +70,13 @@ export interface CreateExpenseInput {
   /** Rule applied to this expense only. */
   split_rule?: SplitRule | null;
   /**
+   * The purchase a refund gives money back on.
+   *
+   * Null unlinks on an update, where leaving a field out changes nothing: taking
+   * a refund off the purchase it named has to be said out loud.
+   */
+  refund_of?: string | null;
+  /**
    * The rate to convert at, in millionths.
    *
    * Sent when the panel has shown one and had it accepted, so that what was

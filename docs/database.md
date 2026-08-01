@@ -150,6 +150,33 @@ There used to be an `owner` above the admin. v11 removed it — see ADR-013.
 | exchange_rate | INTEGER | The rate applied, in millionths: 0.87681 is 876810 |
 | rate_as_of | TEXT | The day the rate is from, ISO-8601 date (nullable) |
 | created_by_member_id | TEXT | Who entered it, → members.id (nullable) |
+| refund_of | TEXT | The purchase a refund answers, **no FK** (nullable) |
+
+`refund_of` says which purchase a refund gives money back on. Only a refund may
+carry it — an expense with a negative `amount` — and even a refund need not: a
+shop handing money back is often about a basket rather than one line of it. The
+manager refuses three things: a purchase carrying it at all, a purchase belonging
+to another project, and a refund of a refund.
+
+It is read and never counted, the shares being the money. What it buys is the
+panel opening a refund on the split its purchase was borne under — the same
+*proportions*, so 40,00 shared 30/10 with 20,00 given back offers 15/5, and a
+refund of the whole thing offers exactly 30/10. That is `apportion`, which reads
+the stored shares rather than the rule that made them and so behaves the same
+whether the purchase was split equally, by percentages, or by hand. It exists in
+TypeScript as well, and the two are checked against each other — see ADR-012.
+
+**And it is the one expense column with no foreign key**, deliberately. A deleted
+expense really leaves this table; its revision is the only place it still exists,
+and a restore brings it back under the same id. `ON DELETE SET NULL` would cut
+every refund loose the moment somebody deleted the purchase, and restoring that
+purchase would not tie them again — losing exactly what the journal spends its
+time keeping. `REFERENCES` with no action would refuse the deletion outright, a
+rule nobody asked for. So the id is held plainly and waits: while the purchase is
+away it points at nothing, which the panel reads as "not here", and the day it
+comes back the link reads again with nobody having repaired it.
+`idx_expenses_refund_of` answers what the purchase side asks — how much of this
+has come back.
 
 `created_by_member_id` is who typed it in, which is not always who paid it, and
 it is read by exactly one thing: whether this is theirs to edit without the
@@ -460,7 +487,7 @@ creates `schema_v1.sql` on an empty database, then applies `migration_v<n>.sql`
 one by one up to `DATABASE_VERSION`. Each migration file bumps the version
 itself. Downgrades are refused.
 
-**Current version: 12.**
+**Current version: 15.**
 
 | Version | What it added |
 |---------|---------------|
@@ -476,6 +503,17 @@ itself. Downgrades are refused.
 | 10 | The four `groups.allow_` columns, and `created_by_member_id` on expenses and payments |
 | 11 | Two roles instead of three: `owner` goes, `admin` stays |
 | 12 | `groups.exposed`: whether a project puts its figures on the dashboard |
+| 13 | `members.use_ha_avatar`: a member wears their Home Assistant photo |
+| 14 | `payments.expense_id`, never read and taken back by v15 |
+| 15 | `expenses.refund_of` and its index: the purchase a refund answers |
+
+**v14 is the exception to that, and v15 is why.** A column went onto `payments`
+on a reading of "reimbursement" that turned out to be the wrong one — what wanted
+a link was the shop's refund, which is an expense, not money moving between
+members. Nothing ever read it. v15 drops it rather than leaving it lying there, so
+that a database migrated through v14 and one created tomorrow are the same
+database: a schema that differs by when you installed it is a schema nobody can
+reason about. SQLite refuses to drop an indexed column, so the index goes first.
 
 Migrations are additive. Every existing row must come out of one meaning what it
 meant going in — v7 converts every past expense to itself at a rate of one,

@@ -102,6 +102,11 @@ async def websocket_get_expense(
         vol.Optional("description"): vol.Any(None, cv.string),
         vol.Optional("shares"): [SHARE_SCHEMA],
         vol.Optional("split_rule"): vol.Any(None, SPLIT_RULE_SCHEMA),
+        # The purchase a refund gives money back on. Null has to get through: on
+        # the update below, leaving a field out means "leave it alone", so null is
+        # the only way to cut a refund loose from a purchase again. Typed
+        # `cv.string`, the schema would have refused that before anybody looked.
+        vol.Optional("refund_of"): vol.Any(None, cv.string),
         # In millionths. Sent when the panel has shown a rate and had it
         # accepted; left out, the manager finds one itself.
         vol.Optional("exchange_rate"): int,
@@ -134,6 +139,7 @@ async def websocket_create_expense(
         shares=shares_from_msg(msg),
         split_rule=split_rule_from_msg(msg),
         exchange_rate=msg.get("exchange_rate"),
+        refund_of=msg.get("refund_of"),
         actor_user_id=connection.user.id,
     )
 
@@ -155,6 +161,11 @@ async def websocket_create_expense(
         vol.Optional("description"): vol.Any(None, cv.string),
         vol.Optional("shares"): [SHARE_SCHEMA],
         vol.Optional("split_rule"): vol.Any(None, SPLIT_RULE_SCHEMA),
+        # The purchase a refund gives money back on. Null has to get through: on
+        # the update below, leaving a field out means "leave it alone", so null is
+        # the only way to cut a refund loose from a purchase again. Typed
+        # `cv.string`, the schema would have refused that before anybody looked.
+        vol.Optional("refund_of"): vol.Any(None, cv.string),
         # In millionths. Sent when the panel has shown a rate and had it
         # accepted; left out, the manager finds one itself.
         vol.Optional("exchange_rate"): int,
@@ -181,6 +192,7 @@ async def websocket_update_expense(
             "currency",
             "category_id",
             "description",
+            "refund_of",
         )
         if field in msg
     }

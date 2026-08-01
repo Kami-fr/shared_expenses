@@ -39,9 +39,10 @@ class ExpenseRepository(BaseRepository):
                 converted_amount,
                 exchange_rate,
                 rate_as_of,
-                created_by_member_id
+                created_by_member_id,
+                refund_of
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 expense.id,
@@ -59,6 +60,7 @@ class ExpenseRepository(BaseRepository):
                 expense.exchange_rate,
                 None if expense.rate_as_of is None else expense.rate_as_of.isoformat(),
                 expense.created_by_member_id,
+                expense.refund_of,
             ),
         )
 
@@ -103,7 +105,8 @@ class ExpenseRepository(BaseRepository):
                 converted_amount,
                 exchange_rate,
                 rate_as_of,
-                created_by_member_id
+                created_by_member_id,
+                refund_of
             FROM expenses
             WHERE id = ?
             """,
@@ -138,7 +141,8 @@ class ExpenseRepository(BaseRepository):
                 converted_amount,
                 exchange_rate,
                 rate_as_of,
-                created_by_member_id
+                created_by_member_id,
+                refund_of
             FROM expenses
             WHERE group_id = ?
             -- A date input carries no time, so everything entered on the same
@@ -229,7 +233,8 @@ class ExpenseRepository(BaseRepository):
                 split_rule = ?,
                 converted_amount = ?,
                 exchange_rate = ?,
-                rate_as_of = ?
+                rate_as_of = ?,
+                refund_of = ?
             WHERE id = ?
             """,
             (
@@ -244,6 +249,7 @@ class ExpenseRepository(BaseRepository):
                 expense.converted_amount,
                 expense.exchange_rate,
                 None if expense.rate_as_of is None else expense.rate_as_of.isoformat(),
+                expense.refund_of,
                 expense.id,
             ),
         )
@@ -328,4 +334,5 @@ class ExpenseRepository(BaseRepository):
                 else date.fromisoformat(row["rate_as_of"])
             ),
             created_by_member_id=row["created_by_member_id"],
+            refund_of=row["refund_of"],
         )

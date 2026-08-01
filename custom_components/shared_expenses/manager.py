@@ -1201,6 +1201,7 @@ class SharedExpensesManager:
         shares: Sequence[ExpenseShare] | None = None,
         split_rule: SplitRule | None = None,
         exchange_rate: int | None = None,
+        refund_of: str | None = None,
         actor_user_id: str | None = None,
     ) -> Expense:
         """Create an expense and its shares.
@@ -1212,6 +1213,11 @@ class SharedExpensesManager:
         A negative amount is a refund from a shop: the same expense with the
         money going the other way. Whoever is down as having paid it is whoever
         got it back, and each share comes off what that member bore.
+
+        `refund_of` names the purchase a refund gives money back on, and naming
+        none is allowed: a shop handing money back is often about a basket rather
+        than one line of it. It changes no figure — the shares are the money — so
+        it is the one field here a mistake in cannot cost anybody anything.
         """
 
         group = await self._get_active_group(group_id)
@@ -1261,6 +1267,7 @@ class SharedExpensesManager:
             exchange_rate=rate,
             rate_as_of=rate_as_of,
             created_by_member_id=await self._member_of(actor_user_id),
+            refund_of=await self._refunded_expense(refund_of, group_id, converted),
         )
 
         built = _build_shares(expense.id, amounts, now)
@@ -1279,6 +1286,59 @@ class SharedExpensesManager:
             )
 
         return expense
+
+    async def _refunded_expense(
+        self,
+        refund_of: str | None,
+        group_id: str,
+        converted: int,
+    ) -> str | None:
+        """Return the purchase a refund names, refusing one it cannot name.
+
+        Four ways it cannot. A purchase is not a refund of anything, so only a
+        negative amount may carry this at all — otherwise an ordinary expense
+        could be filed as giving money back on another and read as both. A
+        purchase from another project is out of reach: an id is enough to ask, and
+        without this the answer would come back. A refund of a refund says nothing
+        anybody means. And **a shop cannot hand back more than it was given**.
+
+        That last one is not tidiness. The panel opens a refund on the way its
+        purchase was borne, so a figure larger than the purchase stretches those
+        proportions past anything they meant: 6,95 shared 3,48/3,47 — a single
+        cent of rounding — becomes 7,51/7,49 when pulled out to 15,00, and the
+        rounding reads as an intention nobody had.
+
+        Compared in the group's own money, both sides, since a refund need not be
+        in the currency the purchase was paid in.
+
+        Refused rather than quietly dropped: a link that does not appear is read
+        as a save that did not take, and somebody would only try again.
+        """
+
+        if refund_of is None:
+            return None
+
+        if converted >= 0:
+            raise InvalidExpenseError(
+                "Only a refund can give money back on another expense."
+            )
+
+        purchase = await self.get_expense(refund_of)
+
+        if purchase.group_id != group_id:
+            raise InvalidExpenseError(
+                "An expense of another project cannot be refunded here."
+            )
+
+        if purchase.amount < 0:
+            raise InvalidExpenseError("A refund cannot give money back on a refund.")
+
+        if -converted > purchase.converted_amount:
+            raise InvalidExpenseError(
+                "A refund cannot give back more than the expense it is refunding."
+            )
+
+        return refund_of
 
     async def get_expense(self, expense_id: str) -> Expense:
         """Return an expense."""
@@ -1352,6 +1412,15 @@ class SharedExpensesManager:
             on=expense.expense_date.date(),
             given_rate=exchange_rate,
             known=previous,
+        )
+
+        # After the conversion, not before: what a refund may not exceed is the
+        # purchase in the group's own money, and until here this expense has only
+        # the figure that was typed.
+        await self._refunded_expense(
+            expense.refund_of,
+            expense.group_id,
+            converted,
         )
 
         amounts, effective_rule = await self._resolve_amounts(
@@ -1493,6 +1562,10 @@ class SharedExpensesManager:
             exchange_rate=rate,
             rate_as_of=rate_as_of,
             created_by_member_id=state.get("created_by_member_id"),
+            # Brought back naming the purchase it named. That purchase may itself
+            # be away, in which case the link waits for it exactly as it did
+            # before this refund was deleted.
+            refund_of=state.get("refund_of"),
         )
 
         built = _build_shares(expense.id, state.get("shares") or {}, now)

@@ -159,6 +159,14 @@ export interface Expense {
   exchange_rate: number;
   /** The day the rate is from, or null when nothing was converted. */
   rate_as_of: string | null;
+  /**
+   * The purchase this refund gives money back on, or null.
+   *
+   * Only ever set on a refund — an expense with a negative `amount`. Read, never
+   * counted: the shares are the money. It may name an expense that is not here,
+   * a deleted one keeping its id while the link waits for it.
+   */
+  refund_of: string | null;
   paid_by_member_id: string;
   /**
    * Who entered it, which is not always who paid it.

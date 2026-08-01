@@ -113,6 +113,10 @@ def expense_to_dict(
         "rate_as_of": (
             None if expense.rate_as_of is None else expense.rate_as_of.isoformat()
         ),
+        # The purchase this refund gives money back on, or null. No command lists
+        # the refunds of one purchase: the panel already holds every expense of
+        # the group, so that is a filter rather than another round trip.
+        "refund_of": expense.refund_of,
         "split_rule": rule_to_dict(expense.split_rule),
     }
 

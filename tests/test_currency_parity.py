@@ -23,6 +23,7 @@ import pytest
 from custom_components.shared_expenses.exceptions import InvalidExchangeRateError
 from custom_components.shared_expenses.helpers.currency import (
     RATE_ONE,
+    apportion,
     convert,
     rate_from_decimal,
     rate_to_decimal,
@@ -48,6 +49,23 @@ RATES = (
     333_333,
     666_667,
 )
+
+#: Splits a household really makes, and the awkward ones. Three equal shares of
+#: an odd total is where the leftover cent has to land on the same member in both
+#: languages; a share of nothing and one member alone are the edges.
+SPLITS = (
+    {"a": 1, "b": 1},
+    {"a": 1, "b": 1, "c": 1},
+    {"a": 3_000, "b": 1_000},
+    {"a": 2_000, "b": 8_000},
+    {"a": 1, "b": 2, "c": 3, "d": 4},
+    {"a": 100},
+    {"a": 0, "b": 100},
+    {"a": -3_000, "b": -1_000},
+)
+
+#: Totals to divide in those proportions, refunds included.
+TOTALS = (0, 1, 2, 3, 7, 100, 999, 1_000, 2_001, 8_768, -1, -20, -2_001, -8_768)
 
 TYPED = (
     "1",
@@ -75,6 +93,10 @@ def to_javascript(source: str) -> str:
     """Return currency.ts as runnable JavaScript, changing nothing but types."""
 
     for annotation in (
+        # The widest first: stripping ": number" out of
+        # ": Record<string, number>" would leave a shape node cannot read.
+        r": Record<string, number> \| null",
+        r": Record<string, number>",
         r": number \| null",
         r": number",
         r": string \| null",
@@ -119,6 +141,26 @@ def build_cases() -> list[dict]:
         cases.append(
             {"kind": "format", "rate": rate, "expected": rate_to_decimal(rate)}
         )
+
+    # Apportioning a total in the proportions of a set of shares. This is what a
+    # refund opens on -- 40 shared 30/10 and 20 given back is 15/5 -- so a cent
+    # between the two implementations is a split the panel promised and the
+    # backend refused to store.
+    for amounts in SPLITS:
+        for total in TOTALS:
+            try:
+                expected = apportion(amounts, total)
+            except InvalidExchangeRateError:
+                expected = None
+
+            cases.append(
+                {
+                    "kind": "apportion",
+                    "amounts": amounts,
+                    "total": total,
+                    "expected": expected,
+                }
+            )
 
     return cases
 
@@ -197,3 +239,32 @@ def test_the_harness_would_notice_a_drift(tmp_path: Path):
     report = run(tmp_path, build_cases(), broken)
 
     assert report["failures"], "the rounding was dropped and nothing noticed"
+
+
+def test_the_harness_would_notice_the_wrong_member_taking_a_cent(tmp_path: Path):
+    """The same proof for the apportioning, sabotaged where it actually hurts.
+
+    Not the arithmetic -- every share would still add up -- but *which* member
+    takes the cent that will not divide. That is the failure a suite checking only
+    totals cannot see, and it is the one that quietly puts every odd cent on the
+    same person.
+    """
+
+    if shutil.which("node") is None:
+        pytest.skip("node is needed to run the frontend module")
+
+    source = to_javascript(CURRENCY_TS.read_text(encoding="utf-8"))
+
+    # Sabotage: serve the first of the list on a tie, as the backend did before
+    # the rotation was put in.
+    broken = source.replace(
+        "const start = Math.floor(total / count) % count;",
+        "const start = 0;",
+        1,
+    )
+
+    assert broken != source, "the sabotage no longer applies; check currency.ts"
+
+    report = run(tmp_path, build_cases(), broken)
+
+    assert report["failures"], "the rotation was dropped and nothing noticed"

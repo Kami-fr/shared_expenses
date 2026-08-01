@@ -56,6 +56,102 @@ export function convert(amount: number, rate: number): number | null {
 }
 
 /**
+ * Return `total`, divided in the same proportions as `amounts`.
+ *
+ * A mirror of `apportion` in `helpers/currency.py`, and checked against it. The
+ * panel needs it to open a refund on the split the purchase was borne under: 40
+ * shared 30/10 and 20 given back is 15/5, whatever produced the 30/10 in the
+ * first place — which is why this reads the shares rather than the rule that made
+ * them. A refund of the whole thing comes back to exactly the original shares.
+ *
+ * Divided exactly: the cents that flooring leaves over go to the largest
+ * remainders first, and a tie between those starts on the member the total points
+ * at rather than on the first, so the same expense always resolves the same way
+ * without one member bearing every odd cent. Same rotation as the split resolver,
+ * same reason.
+ *
+ * Returns null where the backend would refuse, rather than throwing: the caller
+ * is a dialog showing a live preview of half-typed input.
+ */
+export function apportion(
+  amounts: Record<string, number>,
+  total: number,
+): Record<string, number> | null {
+  const entries = Object.entries(amounts);
+
+  if (entries.length === 0 || !Number.isInteger(total)) {
+    return null;
+  }
+
+  if (entries.some(([, value]) => !Number.isInteger(value))) {
+    return null;
+  }
+
+  // A refund makes the whole trip the other way, shares and total together. Two
+  // pulling against each other is a caller that has lost track of which way the
+  // money went, not a rounding question.
+  if (total < 0) {
+    if (entries.some(([, value]) => value > 0)) {
+      return null;
+    }
+
+    const mirrored = apportion(
+      Object.fromEntries(entries.map(([id, value]) => [id, -value])),
+      -total,
+    );
+
+    if (mirrored === null) {
+      return null;
+    }
+
+    return Object.fromEntries(
+      Object.entries(mirrored).map(([id, value]) => [id, -value]),
+    );
+  }
+
+  if (entries.some(([, value]) => value < 0)) {
+    return null;
+  }
+
+  const whole = entries.reduce((sum, [, value]) => sum + value, 0);
+
+  if (whole <= 0) {
+    return null;
+  }
+
+  const count = entries.length;
+
+  // Which member a tie starts on: the quotient, exactly as the backend does it.
+  // Python's % is never negative and JavaScript's can be, hence the + count.
+  const start = Math.floor(total / count) % count;
+
+  const shares: Record<string, number> = {};
+
+  entries.forEach(([id, value]) => {
+    shares[id] = Math.floor((value * total) / whole);
+  });
+
+  const left =
+    total - Object.values(shares).reduce((sum, value) => sum + value, 0);
+
+  // Built by map and sorted in one breath, so the harness that strips the types
+  // out of this file has no annotation of its own to understand here.
+  const ranked = entries
+    .map(([id, value], index) => ({
+      id,
+      remainder: (value * total) % whole,
+      rank: (index - start + count) % count,
+    }))
+    .sort((a, b) => b.remainder - a.remainder || a.rank - b.rank);
+
+  for (const { id } of ranked.slice(0, left)) {
+    shares[id] += 1;
+  }
+
+  return shares;
+}
+
+/**
  * Read a rate typed as "0,87681" into millionths.
  *
  * Parsed by hand rather than through parseFloat: 0.1 is not 0.1 in binary, and

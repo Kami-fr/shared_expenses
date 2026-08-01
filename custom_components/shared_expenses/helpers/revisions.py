@@ -44,6 +44,13 @@ def expense_state(
         "paid_by_member_id": expense.paid_by_member_id,
         "expense_date": expense.expense_date.isoformat(),
         "category_id": expense.category_id,
+        # The purchase a refund gives money back on. It moves no money and still
+        # belongs here, twice over: the journal should say when a refund was
+        # pinned to a purchase or cut loose from one, and an update that compares
+        # states to decide whether anything moved would otherwise conclude that
+        # nothing had. `kind` was left out of the payment's state once for looking
+        # exactly this harmless, and a debt could not become a reimbursement.
+        "refund_of": expense.refund_of,
     }
 
     if shares is not None:

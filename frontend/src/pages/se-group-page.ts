@@ -1254,6 +1254,7 @@ export class SeGroupPage extends LitElement {
           .members=${this.membersFor(this.editedExpense)}
           .categories=${this.categories}
           .expense=${this.editedExpense}
+          .expenses=${this.expenses}
           .meId=${this.meId()}
           .language=${this.language}
           @dialog-cancelled=${this.closeDialog}
