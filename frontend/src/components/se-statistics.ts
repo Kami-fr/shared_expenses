@@ -750,7 +750,15 @@ export class SeStatistics extends LitElement {
                 ></i>
               </div>`}
         </div>
-        <div class="pc">${Math.round((item.total / result.total) * 100)}%</div>
+        <!--
+          Never below nothing. A category refunded past what it cost comes out
+          negative, and a share of what the group spent cannot be: "-12 %" is not
+          a fact about anything. Nothing is hidden by flooring it — the bar beside
+          it is drawn on the size, and the figure on the row carries its own minus.
+        -->
+        <div class="pc">
+          ${Math.max(0, Math.round((item.total / result.total) * 100))}%
+        </div>
       </div>
     `;
   }

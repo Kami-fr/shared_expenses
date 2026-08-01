@@ -1255,6 +1255,7 @@ export class SeGroupPage extends LitElement {
           .categories=${this.categories}
           .expense=${this.editedExpense}
           .expenses=${this.expenses}
+          .refunds=${this.refundsOf(this.editedExpense)}
           .meId=${this.meId()}
           .language=${this.language}
           @dialog-cancelled=${this.closeDialog}
@@ -1430,6 +1431,21 @@ export class SeGroupPage extends LitElement {
   /** Whether you may open an entry to change it, rather than only read it. */
   private mayEdit(entry: Expense | Payment): boolean {
     return this.mine(entry) || this.may("edit_others");
+  }
+
+  /**
+   * The refunds that name this expense.
+   *
+   * Filtered here rather than fetched: the page already holds every expense of
+   * the group, so "how much of this came back" is a question it can answer
+   * without another round trip — which is why no command lists them.
+   */
+  private refundsOf(expense?: Expense): Expense[] {
+    if (!expense) {
+      return [];
+    }
+
+    return this.expenses.filter((item) => item.refund_of === expense.id);
   }
 
   /**

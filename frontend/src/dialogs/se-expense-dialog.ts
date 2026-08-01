@@ -14,6 +14,7 @@ import type { CreateExpenseInput, SharedExpensesApi } from "../services/api";
 import {
   centsToInput,
   dateToIso,
+  formatDayDate,
   formatMoney,
   isoToDateInput,
   parseMoney,
@@ -53,6 +54,15 @@ export class SeExpenseDialog extends LitElement {
    */
   @property({ attribute: false }) public expenses: Expense[] = [];
 
+  /**
+   * The refunds that name this expense, when it is a purchase.
+   *
+   * Handed in already filtered: the page holds every expense of the group, so
+   * "how much of this came back" costs nothing to know and needs no command of
+   * its own.
+   */
+  @property({ attribute: false }) public refunds: Expense[] = [];
+
   /** Which member you are, to fill in who paid. Null: nobody in this group. */
   @property({ type: String }) public meId: string | null = null;
 
@@ -84,6 +94,9 @@ export class SeExpenseDialog extends LitElement {
 
   /** The purchase a refund gives money back on, or "" for none. */
   @state() private refundOf = "";
+
+  /** Whether the refunds of this purchase are unfolded. Closed, as history is. */
+  @state() private showRefunds = false;
 
   @state() private busy = false;
 
@@ -141,6 +154,14 @@ export class SeExpenseDialog extends LitElement {
       .rule {
         height: 1px;
         background: var(--divider-color, rgba(0, 0, 0, 0.12));
+      }
+
+      /* A label and the link that unfolds it, as se-entity-history wears. */
+      .head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
       }
     `,
   ];
@@ -392,6 +413,59 @@ export class SeExpenseDialog extends LitElement {
             : nothing}
 
           ${this.renderSplit(amount)}
+
+          <!--
+            What has already come back on this purchase, folded away as the
+            history is and for the same reason: most of the time an expense is
+            opened to fix a typo, and this is not what the dialog is for. Nothing
+            at all when nothing has come back — an empty section would announce a
+            question the reader had not asked.
+
+            The total is on the head, since that is the whole of what most people
+            want: 6,95 spent, 2,00 back. Unfolding is for which ones and when.
+          -->
+          ${this.refunds.length > 0
+            ? html`
+                <div class="rule"></div>
+                <div>
+                  <div class="head">
+                    <label class="muted">
+                      ${translate("refunds")} ·
+                      ${formatMoney(
+                        this.refunds.reduce(
+                          (sum, refund) => sum + Math.abs(refund.converted_amount),
+                          0,
+                        ),
+                        this.group.currency,
+                        this.language,
+                      )}
+                    </label>
+                    <button
+                      class="link"
+                      @click=${() => (this.showRefunds = !this.showRefunds)}
+                    >
+                      ${this.showRefunds ? translate("done") : translate("see_all")}
+                    </button>
+                  </div>
+
+                  ${this.showRefunds
+                    ? this.refunds.map(
+                        (refund) => html`
+                          <div class="muted">
+                            ${formatDayDate(refund.expense_date, this.language)} ·
+                            ${refund.title} ·
+                            ${formatMoney(
+                              Math.abs(refund.amount),
+                              refund.currency,
+                              this.language,
+                            )}
+                          </div>
+                        `,
+                      )
+                    : nothing}
+                </div>
+              `
+            : nothing}
 
           <!-- Only once there is a past to read: a new expense has none. -->
           ${this.expense
