@@ -34,6 +34,8 @@ belong to, and nothing else.
 - **Who may do what** — four switches (members, categories, the group, others'
   expenses), the same for everyone, with one admin above them who can hand it on.
 - **Expenses** — a title, an amount, who paid, a date, a category, and a split.
+- **Refunds** — a shop giving money back is the same expense the other way: it
+  comes off the total and off each share, split exactly as the purchase was.
 - **Split rules** — equally, by fixed amounts or percentages, or an envelope
   shared between some with the rest to whoever paid; categories carry their own.
 - **Other currencies** — pay in another currency; the day's rate is fetched and

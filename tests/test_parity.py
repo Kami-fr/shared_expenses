@@ -106,6 +106,9 @@ RULES: list[dict | None] = [
 #: Amounts that do not divide evenly are where a rounding drift would show.
 AMOUNTS = (1, 2, 3, 26, 100, 999, 1000, 1001, 2600, 8542, 123457)
 
+#: Zero, which neither side may resolve, and which no rule makes any different.
+NOTHING = 0
+
 GROUPS = ([A, B], [A, B, C], [A])
 
 
@@ -114,7 +117,12 @@ def build_cases() -> list[dict]:
 
     cases: list[dict] = []
 
-    for amount in AMOUNTS:
+    # Every amount both ways round, plus nothing at all. A refund runs the same
+    # rules backwards on both sides, and the cent that flooring leaves over has
+    # to land on the same member going out as coming back.
+    signed = tuple(amount for size in AMOUNTS for amount in (size, -size))
+
+    for amount in (*signed, NOTHING):
         for member_ids in GROUPS:
             for rule in RULES:
                 if rule is not None and _names_outsiders(rule, member_ids):

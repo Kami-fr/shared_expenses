@@ -653,7 +653,12 @@ export class SeStatistics extends LitElement {
   /** Biggest first, each against the biggest, so the ranking is the shape. */
   private renderBars() {
     const result = this.result!;
-    const biggest = result.by_category[0].total || 1;
+
+    // On size, so a category that came out refunded still draws a bar as long
+    // as what it gave back. The figure beside it carries the minus; a bar of
+    // negative length draws nothing at all, which would read as "no expense".
+    const biggest =
+      Math.max(...result.by_category.map((item) => Math.abs(item.total))) || 1;
 
     return html`${result.by_category.map((item) => this.renderCategoryRow(item, biggest))}`;
   }
@@ -667,8 +672,12 @@ export class SeStatistics extends LitElement {
    */
   private renderPie() {
     const result = this.result!;
-    const total = result.total || 1;
     const slices = result.by_category.filter((item) => item.total > 0);
+
+    // The disc adds up to what it draws, not to what the group spent. Refunds
+    // pull the total under the sum of the categories still standing, and the
+    // wedges would then run past the full turn and lie on top of each other.
+    const total = slices.reduce((sum, item) => sum + item.total, 0) || 1;
     let cursor = 0;
 
     return html`
@@ -737,7 +746,7 @@ export class SeStatistics extends LitElement {
             ? nothing
             : html`<div class="track">
                 <i
-                  style=${`width:${Math.max(3, (item.total / biggest) * 100)}%;background:${colour}`}
+                  style=${`width:${Math.max(3, (Math.abs(item.total) / biggest) * 100)}%;background:${colour}`}
                 ></i>
               </div>`}
         </div>
@@ -763,7 +772,10 @@ export class SeStatistics extends LitElement {
     }
 
     const peak = result.by_month.reduce((a, b) => (b.total > a.total ? b : a));
-    const tallest = peak.total || 1;
+
+    // At least one, so a run of months that all came out refunded cannot turn
+    // every bar upside down by dividing by a negative peak.
+    const tallest = Math.max(peak.total, 1);
 
     return html`
       <div class="panel">
@@ -775,7 +787,10 @@ export class SeStatistics extends LitElement {
             return html`
               <div class="mo ${isPeak ? "pk" : ""}">
                 <div class="mv">${this.money(item.total)}</div>
-                <div class="bx" style=${`height:${(item.total / tallest) * 100}%`}></div>
+                <div
+                  class="bx"
+                  style=${`height:${Math.max(0, (item.total / tallest) * 100)}%`}
+                ></div>
                 <div class="ml">${formatMonth(item.month, this.language)}</div>
               </div>
             `;

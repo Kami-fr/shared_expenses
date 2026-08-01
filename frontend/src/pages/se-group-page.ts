@@ -1038,6 +1038,10 @@ export class SeGroupPage extends LitElement {
 
     const editable = this.mayEdit(expense);
 
+    // Money a shop gave back. It is the one row here whose figure carries a
+    // minus, and the avatar on the left is who received it rather than who paid.
+    const refund = expense.amount < 0;
+
     return html`
       <button
         class=${`item ${editable ? "item-button" : "item-fixed"}`}
@@ -1048,7 +1052,7 @@ export class SeGroupPage extends LitElement {
         ${this.renderMemberAvatar(
           payer?.name ?? "?",
           expense.paid_by_member_id,
-          `${this.localize("paid_by")} ${payer?.name ?? "?"}`,
+          `${this.localize(refund ? "refunded_to" : "paid_by")} ${payer?.name ?? "?"}`,
         )}
         <div class="info">
           <div class="title">
@@ -1068,7 +1072,13 @@ export class SeGroupPage extends LitElement {
           </div>
         </div>
         <div class="tail">
-          <span class="amount">
+          <!--
+            Green on a refund, and it is not the point of view the rest of this
+            list takes: money coming back is good news for whoever shares it,
+            whichever of them you are. The minus says it too — the colour is so
+            it is not read as one more thing bought.
+          -->
+          <span class="amount ${refund ? "positive" : ""}">
             ${formatMoney(expense.amount, expense.currency, this.language)}
           </span>
           <!--

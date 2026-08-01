@@ -22,3 +22,10 @@ frontend/dist/
 # The built panel is committed on purpose: HACS ships the repository as is and
 # never runs a build, so custom_components/shared_expenses/www/index.js must be
 # versioned.
+
+# Local tooling
+#
+# The one workstation's own settings, holding the commands it was told to allow
+# with its absolute paths in them. A .claude/settings.json meant for everybody
+# would still be versioned.
+.claude/settings.local.json

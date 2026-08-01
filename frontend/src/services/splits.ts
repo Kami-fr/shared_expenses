@@ -28,8 +28,28 @@ export interface ResolveInput {
 export function resolveShares(input: ResolveInput): Record<string, number> | null {
   const { amount, payerId, memberIds } = input;
 
-  if (!Number.isInteger(amount) || amount <= 0) {
+  if (!Number.isInteger(amount) || amount === 0) {
     return null;
+  }
+
+  // A refund from a shop is the purchase it undoes, run backwards. The rule is
+  // read on what came back, and every share it resolves to is then owed the
+  // other way round — exactly what the backend does, and for the same reason:
+  // whatever a rule does to a purchase it must do to what gives it back.
+  if (amount < 0) {
+    const refunded = resolveShares({ ...input, amount: -amount });
+
+    if (refunded === null) {
+      return null;
+    }
+
+    const owed: Record<string, number> = {};
+
+    for (const [memberId, value] of Object.entries(refunded)) {
+      owed[memberId] = -value;
+    }
+
+    return owed;
   }
 
   const pool = [...new Set(memberIds)];

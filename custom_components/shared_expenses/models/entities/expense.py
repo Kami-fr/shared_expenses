@@ -22,7 +22,13 @@ class Expense:
     description: str | None
 
     amount: int
-    """What was actually paid, in the cents of `currency`."""
+    """What was actually paid, in the cents of `currency`.
+
+    Negative where a shop gave money back. The same expense run the other way:
+    `paid_by_member_id` is then whoever received it, and every share is owed
+    backwards, so it comes off what each of them bore. Never zero — that is not
+    a small expense, it is no expense.
+    """
 
     currency: str
     """What it was paid in. Not always the group's."""

@@ -48,9 +48,13 @@ def test_nothing_converts_to_nothing():
     assert convert(0, rate_from_decimal("0.87681")) == 0
 
 
-def test_a_negative_amount_is_refused():
-    with pytest.raises(InvalidExchangeRateError):
-        convert(-100, RATE_ONE)
+def test_a_refund_converts_to_exactly_what_it_undoes():
+    """Otherwise a shop refunding what it charged would leave a cent behind."""
+
+    rate = rate_from_decimal("0.87681")
+
+    for amount in range(1, 500):
+        assert convert(-amount, rate) == -convert(amount, rate)
 
 
 @pytest.mark.parametrize("rate", [0, -1])
@@ -170,3 +174,16 @@ def test_apportion_refuses_what_cannot_be_divided():
 
     with pytest.raises(InvalidExchangeRateError):
         apportion({"a": 1}, -1)
+
+
+def test_apportion_takes_a_refund_the_whole_way_round():
+    """Shares and total make the same trip, in whichever direction."""
+
+    assert apportion({"a": -2_000, "b": -8_000}, -8_768) == {"a": -1_754, "b": -7_014}
+
+
+def test_apportion_refuses_a_share_pulling_against_its_total():
+    """A member owing money because a shop gave some back means nothing."""
+
+    with pytest.raises(InvalidExchangeRateError):
+        apportion({"a": -100, "b": 20}, -80)

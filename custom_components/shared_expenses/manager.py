@@ -1208,12 +1208,16 @@ class SharedExpensesManager:
         Pass `shares` to set every share explicitly. Otherwise the shares are
         derived from `split_rule`, falling back to the rule of the category,
         then to the rule of the group, then to an equal split.
+
+        A negative amount is a refund from a shop: the same expense with the
+        money going the other way. Whoever is down as having paid it is whoever
+        got it back, and each share comes off what that member bore.
         """
 
         group = await self._get_active_group(group_id)
 
-        if amount <= 0:
-            raise InvalidExpenseError("An expense amount must be positive.")
+        if amount == 0:
+            raise InvalidExpenseError("An expense amount cannot be zero.")
 
         await self.get_member(paid_by_member_id)
 
@@ -1329,8 +1333,8 @@ class SharedExpensesManager:
 
         group = await self.get_group(expense.group_id)
 
-        if expense.amount <= 0:
-            raise InvalidExpenseError("An expense amount must be positive.")
+        if expense.amount == 0:
+            raise InvalidExpenseError("An expense amount cannot be zero.")
 
         await self.get_member(expense.paid_by_member_id)
 
@@ -2120,7 +2124,12 @@ def _validate_payment(
 
 
 def _explicit_amounts(shares: Sequence[ExpenseShare], amount: int) -> dict[str, int]:
-    """Return the amounts of explicitly provided shares."""
+    """Return the amounts of explicitly provided shares.
+
+    Every share runs the same way as the expense: a purchase is borne, a refund
+    is given back. One share pulling against the others would say a member owes
+    money because a shop handed some back, which no split means to say.
+    """
 
     amounts: dict[str, int] = {}
 
@@ -2130,8 +2139,11 @@ def _explicit_amounts(shares: Sequence[ExpenseShare], amount: int) -> dict[str, 
     if not amounts:
         raise InvalidExpenseSharesError("An expense needs at least one share.")
 
-    if any(value < 0 for value in amounts.values()):
+    if amount > 0 and any(value < 0 for value in amounts.values()):
         raise InvalidExpenseSharesError("A share cannot be negative.")
+
+    if amount < 0 and any(value > 0 for value in amounts.values()):
+        raise InvalidExpenseSharesError("A share of a refund cannot be positive.")
 
     if sum(amounts.values()) != amount:
         raise InvalidExpenseSharesError("Shares do not add up to the expense amount.")

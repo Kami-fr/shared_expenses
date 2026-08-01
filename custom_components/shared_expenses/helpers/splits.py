@@ -27,8 +27,28 @@ def resolve_shares(
     `amount`.
     """
 
-    if amount <= 0:
-        raise InvalidSplitRuleError("Expense amount must be positive.")
+    if amount == 0:
+        raise InvalidSplitRuleError("An expense amount cannot be zero.")
+
+    if amount < 0:
+        # A refund from a shop is the purchase it undoes, run backwards. The
+        # rule is read on what came back — an envelope of 20 is 20 of the
+        # refund, and 60% is 60% of it — and every share it resolves to is then
+        # owed the other way round.
+        #
+        # Turned round here rather than threaded through the arithmetic below,
+        # so that whatever a rule does to a purchase it does to what gives it
+        # back. Two signed code paths would be two chances for a refund to
+        # split differently from the very expense it cancels.
+        return {
+            member_id: -share
+            for member_id, share in resolve_shares(
+                amount=-amount,
+                payer_id=payer_id,
+                member_ids=member_ids,
+                rule=rule,
+            ).items()
+        }
 
     pool = tuple(dict.fromkeys(member_ids))
 

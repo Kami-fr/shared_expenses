@@ -54,6 +54,14 @@ export class SeExpenseDialog extends LitElement {
 
   @state() private description = "";
 
+  /**
+   * The amount as typed, minus sign and all.
+   *
+   * A minus is how a refund from a shop is entered: the same expense with the
+   * money going the other way, and no second control saying so. The dialog
+   * reads the sign as it is typed — the heading, who it is down to, and the
+   * shares underneath all turn round with it.
+   */
   @state() private amountInput = "";
 
   @state() private paidBy = "";
@@ -183,8 +191,10 @@ export class SeExpenseDialog extends LitElement {
       envelope: 0,
       remainder: {
         members: shares.map((share) => share.member_id),
+        // Sizes, like every figure in a rule: a rule says how something is
+        // shared, never which way it went. The refund puts that back on.
         fixed: Object.fromEntries(
-          shares.map((share) => [share.member_id, share.amount]),
+          shares.map((share) => [share.member_id, Math.abs(share.amount)]),
         ),
       },
     };
@@ -229,8 +239,13 @@ export class SeExpenseDialog extends LitElement {
 
   protected render() {
     const translate = this.localize;
+
     const amount = parseMoney(this.amountInput);
-    const heading = this.expense ? translate("edit_expense") : translate("new_expense");
+    const refund = amount !== null && amount < 0;
+
+    const heading = this.expense
+      ? translate(refund ? "edit_refund" : "edit_expense")
+      : translate(refund ? "new_refund" : "new_expense");
 
     return html`
       <se-dialog open heading=${heading} @dialog-closed=${this.cancel}>
@@ -241,7 +256,7 @@ export class SeExpenseDialog extends LitElement {
             .label=${translate("expense_title")}
             .value=${this.expenseTitle}
             required
-            placeholder="Courses Carrefour"
+            placeholder=${refund ? "Retour Decathlon" : "Courses Carrefour"}
             @value-changed=${(e: CustomEvent) => (this.expenseTitle = e.detail.value)}
           ></se-field>
 
@@ -286,8 +301,9 @@ export class SeExpenseDialog extends LitElement {
           </div>
 
           <div class="pair">
+            <!-- Whoever is out of pocket for it, or whoever got the money. -->
             <se-select
-              .label=${translate("paid_by")}
+              .label=${translate(refund ? "refunded_to" : "paid_by")}
               .value=${this.paidBy}
               .options=${this.members.map((m) => ({ value: m.id, label: m.name }))}
               @value-changed=${(e: CustomEvent) => (this.paidBy = e.detail.value)}
@@ -310,7 +326,7 @@ export class SeExpenseDialog extends LitElement {
             .groupCurrency=${this.group.currency}
             .currency=${this.currency}
             .on=${this.date}
-            .amount=${amount}
+            .amount=${amount === null ? null : Math.abs(amount)}
             .initialRate=${this.expense?.exchange_rate ?? null}
             .language=${this.language}
             @rate-changed=${this.handleRate}
@@ -357,7 +373,7 @@ export class SeExpenseDialog extends LitElement {
 
         ${this.confirmingDelete
           ? html`<div slot="banner" class="warning">
-              ${translate("confirm_delete_expense")}
+              ${translate(refund ? "confirm_delete_refund" : "confirm_delete_expense")}
             </div>`
           : nothing}
 
@@ -412,9 +428,14 @@ export class SeExpenseDialog extends LitElement {
 
         ${this.editingSplit ? nothing : this.renderSummary(amount)}
 
-        <!-- Kept mounted while folded: it owns the rule and resolves it. -->
+        <!--
+          Kept mounted while folded: it owns the rule and resolves it. On the
+          size of it, never on the sign — a rule shares 30 the same way whether
+          the shop took it or gave it back, and the editor would otherwise have
+          to spell out an envelope and percentages of a negative number.
+        -->
         <div class="editor" ?hidden=${!this.editingSplit}>
-          ${this.renderEditor(amount)}
+          ${this.renderEditor(amount === null ? null : Math.abs(amount))}
         </div>
       </div>
     `;
@@ -488,6 +509,7 @@ export class SeExpenseDialog extends LitElement {
     this.rule = null;
   };
 
+
   /** Every currency a rate can be had for, and the group's, which may not be. */
   private currencies(): string[] {
     const known = new Set([...CURRENCIES, this.group.currency, this.currency]);
@@ -517,8 +539,14 @@ export class SeExpenseDialog extends LitElement {
     return this.isValid(amount) && this.rate !== null;
   }
 
+  /**
+   * Whether what is on screen makes an expense.
+   *
+   * Either sign will do; nothing at all will not. Zero is not a small expense,
+   * it is no expense, and a minus on its own is somebody halfway through typing.
+   */
   private isValid(amount: number | null): boolean {
-    if (this.expenseTitle.trim() === "" || amount === null || amount <= 0) {
+    if (this.expenseTitle.trim() === "" || amount === null || amount === 0) {
       return false;
     }
 
@@ -550,7 +578,7 @@ export class SeExpenseDialog extends LitElement {
     // what gets stored, and the resolver agrees with the backend on every cent.
     const shares = this.resolved(amount);
 
-    if (amount === null || !shares) {
+    if (amount === null || amount === 0 || !shares) {
       return;
     }
 

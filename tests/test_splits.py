@@ -168,10 +168,73 @@ def test_shares_always_add_up_to_the_amount():
         assert sum(shares.values()) == amount
 
 
-@pytest.mark.parametrize("amount", [0, -1, -100])
-def test_a_non_positive_amount_is_refused(amount: int):
+def test_an_amount_of_nothing_is_refused():
+    """Zero is not a small expense, it is no expense."""
+
     with pytest.raises(InvalidSplitRuleError):
-        resolve_shares(amount=amount, payer_id=STEPHANE, member_ids=PAIR)
+        resolve_shares(amount=0, payer_id=STEPHANE, member_ids=PAIR)
+
+
+def test_a_refund_splits_the_way_the_expense_did():
+    """A shop giving 30 back undoes 30 spent, share for share."""
+
+    rule = SplitRule(envelope=1000, participants=PAIR)
+
+    spent = resolve_shares(
+        amount=3000,
+        payer_id=STEPHANE,
+        member_ids=PAIR,
+        rule=rule,
+    )
+
+    given_back = resolve_shares(
+        amount=-3000,
+        payer_id=STEPHANE,
+        member_ids=PAIR,
+        rule=rule,
+    )
+
+    assert given_back == {member_id: -share for member_id, share in spent.items()}
+    assert sum(given_back.values()) == -3000
+
+
+def test_a_refund_reads_its_rule_on_what_came_back():
+    """The figures of a rule are sizes: an envelope of 10 is 10 of the refund."""
+
+    shares = resolve_shares(
+        amount=-2500,
+        payer_id=STEPHANE,
+        member_ids=PAIR,
+        rule=SplitRule(envelope=1000, participants=PAIR),
+    )
+
+    # 10 shared between the two, and the 15 left back to whoever was refunded.
+    assert shares == {STEPHANE: -2000, ANTONIN: -500}
+
+
+def test_a_refund_that_does_not_divide_evenly_still_adds_up():
+    """The cents flooring leaves over cannot go missing on the way back."""
+
+    for amount in range(1, 300):
+        shares = resolve_shares(
+            amount=-amount,
+            payer_id=STEPHANE,
+            member_ids=EVERYONE,
+        )
+
+        assert sum(shares.values()) == -amount
+
+
+def test_a_rule_a_refund_cannot_honour_is_refused():
+    """Refused on the way back for the same reason as on the way out."""
+
+    rule = SplitRule(
+        envelope=0,
+        remainder=Remainder(members=PAIR, fixed={STEPHANE: 9999}),
+    )
+
+    with pytest.raises(InvalidSplitRuleError):
+        resolve_shares(amount=-100, payer_id=STEPHANE, member_ids=PAIR, rule=rule)
 
 
 def test_a_payer_outside_the_group_is_refused():

@@ -35,11 +35,11 @@
         },
         "amount": {
           "name": "Betrag",
-          "description": "In ganzer Währung, nicht in Cent. 85,42 und nicht 8542."
+          "description": "In ganzer Währung, nicht in Cent. 85,42 und nicht 8542. Ein negativer Betrag ist eine Rückerstattung eines Geschäfts: -12,90 gibt der Gruppe 12,90 zurück."
         },
         "paid_by_member_id": {
           "name": "Bezahlt von",
-          "description": "Die ID des Mitglieds, das bezahlt hat."
+          "description": "Die ID des Mitglieds, das bezahlt hat. Bei einer Rückerstattung: wer das Geld zurückbekommen hat."
         },
         "expense_date": {
           "name": "Datum",

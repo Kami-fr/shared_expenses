@@ -352,11 +352,9 @@ async def test_shares_that_do_not_add_up_are_refused(manager: SharedExpensesMana
         )
 
 
-@pytest.mark.parametrize("amount", [0, -500])
-async def test_a_non_positive_expense_is_refused(
-    manager: SharedExpensesManager,
-    amount: int,
-):
+async def test_an_expense_of_nothing_is_refused(manager: SharedExpensesManager):
+    """Zero is not a small expense, it is no expense."""
+
     group = await make_group(manager)
     admin = (await manager.list_group_members(group.id))[0]
 
@@ -364,10 +362,104 @@ async def test_a_non_positive_expense_is_refused(
         await manager.create_expense(
             group_id=group.id,
             title="Nope",
-            amount=amount,
+            amount=0,
             paid_by_member_id=admin.id,
             expense_date=NOW,
         )
+
+
+async def test_a_refund_from_a_shop_takes_back_what_the_expense_cost(
+    manager: SharedExpensesManager,
+):
+    """The whole point: 50 spent, 20 given back, 30 shared between the two."""
+
+    group = await make_group(manager)
+    antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
+    admin = await admin_of(manager, group.id)
+
+    await manager.create_expense(
+        group_id=group.id,
+        title="Chaussures",
+        amount=5000,
+        paid_by_member_id=admin.id,
+        expense_date=NOW,
+    )
+
+    refund = await manager.create_expense(
+        group_id=group.id,
+        title="Retour d'une paire",
+        amount=-2000,
+        paid_by_member_id=admin.id,
+        expense_date=NOW,
+    )
+
+    assert await shares_of(manager, refund.id) == {admin.id: -1000, antonin.id: -1000}
+
+    result = await manager.get_balances(group.id)
+
+    assert result.balances == {admin.id: 1500, antonin.id: -1500}
+
+
+async def test_a_refund_can_be_split_explicitly(manager: SharedExpensesManager):
+    """The shop gave back what only one of them had borne."""
+
+    group = await make_group(manager)
+    antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
+    admin = await admin_of(manager, group.id)
+
+    refund = await manager.create_expense(
+        group_id=group.id,
+        title="Retour",
+        amount=-3000,
+        paid_by_member_id=admin.id,
+        expense_date=NOW,
+        shares=[share_input(antonin.id, -3000)],
+    )
+
+    assert await shares_of(manager, refund.id) == {antonin.id: -3000}
+
+
+async def test_a_share_pulling_against_a_refund_is_refused(
+    manager: SharedExpensesManager,
+):
+    """Nobody owes money because a shop handed some back."""
+
+    group = await make_group(manager)
+    antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
+    admin = await admin_of(manager, group.id)
+
+    with pytest.raises(InvalidExpenseSharesError):
+        await manager.create_expense(
+            group_id=group.id,
+            title="Retour",
+            amount=-2000,
+            paid_by_member_id=admin.id,
+            expense_date=NOW,
+            shares=[share_input(admin.id, -3000), share_input(antonin.id, 1000)],
+        )
+
+
+async def test_an_expense_can_be_turned_into_a_refund(manager: SharedExpensesManager):
+    """Entered the wrong way round, and put right without deleting anything."""
+
+    group = await make_group(manager)
+    await manager.create_group_member(group_id=group.id, name="Antonin")
+    admin = await admin_of(manager, group.id)
+
+    expense = await manager.create_expense(
+        group_id=group.id,
+        title="Chaussures",
+        amount=2000,
+        paid_by_member_id=admin.id,
+        expense_date=NOW,
+    )
+
+    await manager.update_expense(replace(expense, amount=-2000))
+
+    updated = await manager.get_expense(expense.id)
+
+    assert updated.amount == -2000
+    assert sum((await shares_of(manager, expense.id)).values()) == -2000
 
 
 async def test_updating_an_expense_replaces_its_shares(manager: SharedExpensesManager):

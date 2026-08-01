@@ -523,6 +523,59 @@ def test_the_schema_takes_what_the_panel_sends():
         SPLIT_RULE_SCHEMA(rule)
 
 
+async def test_a_refund_goes_through_the_real_command(
+    loaded: FakeHass,
+    household: dict[str, Any],
+    manager: SharedExpensesManager,
+):
+    """The message the panel sends for a refund, against the schema it must pass.
+
+    Through the command rather than the manager, because that is where a sign
+    would be refused: a negative amount and negative shares have to survive
+    voluptuous before anything is asked of the split.
+    """
+
+    connection = FakeConnection(MINE)
+    admin = household["my_admin"]
+    other = await manager.create_group_member(
+        group_id=household["mine"].id,
+        name="Antonin",
+    )
+
+    await call(
+        loaded,
+        connection,
+        expenses.websocket_create_expense,
+        {
+            "type": "shared_expenses/create_expense",
+            "group_id": household["mine"].id,
+            "title": "Retour Decathlon",
+            "amount": -3_000,
+            "paid_by_member_id": admin.id,
+            "expense_date": NOW.isoformat(),
+            "shares": [
+                {"member_id": admin.id, "amount": -1_500},
+                {"member_id": other.id, "amount": -1_500},
+            ],
+        },
+    )
+
+    assert connection.errors == {}
+
+    expense = connection.results[1]
+
+    assert expense["amount"] == -3_000
+    assert expense["converted_amount"] == -3_000
+
+    shares = {
+        share.member_id: share.amount
+        for share in await manager.list_expense_shares(household["mine"].id)
+        if share.expense_id == expense["id"]
+    }
+
+    assert shares == {admin.id: -1_500, other.id: -1_500}
+
+
 async def test_a_foreign_expense_goes_through_the_real_command(
     loaded: FakeHass,
     household: dict[str, Any],

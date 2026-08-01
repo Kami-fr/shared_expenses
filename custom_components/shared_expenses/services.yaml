@@ -22,12 +22,13 @@ add_expense:
       selector:
         text:
 
+    # No floor, unlike settling up below: a negative amount is a refund from a
+    # shop, and this action is the only way an automation has of entering one.
     amount:
       required: true
       example: 85.42
       selector:
         number:
-          min: 0.01
           step: 0.01
           mode: box
 

@@ -42,12 +42,17 @@ def convert(amount: int, rate: int) -> int:
     involving a float. Python's own `round` would not do — it rounds halves to
     even, so 0,005 would land on 0,00 and 0,015 on 0,02, which is defensible in
     statistics and indefensible on a receipt.
+
+    A refund converts on its size and keeps its sign, so that -100 comes back as
+    exactly minus what 100 comes to. Rounding the negative number itself would
+    round a half downwards — away from zero on one side and towards it on the
+    other — and a shop refunding what it charged would leave a cent behind.
     """
 
-    if amount < 0:
-        raise InvalidExchangeRateError("Cannot convert a negative amount.")
-
     validate_rate(rate)
+
+    if amount < 0:
+        return -convert(-amount, rate)
 
     return (amount * rate + RATE_ONE // 2) // RATE_ONE
 
@@ -67,10 +72,24 @@ def apportion(amounts: Mapping[str, int], total: int) -> dict[str, int]:
     total is divided instead, and it is divided exactly: the cents that
     flooring leaves over go to the largest remainders first, ties to whoever
     came first, so the same expense always resolves the same way.
+
+    A refund makes the whole trip the other way, shares and total together. What
+    is refused is the two disagreeing: a share pulling against its own total is
+    not a rounding question, it is a caller that has lost track of which way the
+    money went.
     """
 
     if total < 0:
-        raise InvalidExchangeRateError("Cannot apportion a negative amount.")
+        if any(value > 0 for value in amounts.values()):
+            raise InvalidExchangeRateError("Cannot apportion a refund into a debt.")
+
+        return {
+            member_id: -share
+            for member_id, share in apportion(
+                {member_id: -value for member_id, value in amounts.items()},
+                -total,
+            ).items()
+        }
 
     if any(value < 0 for value in amounts.values()):
         raise InvalidExchangeRateError("Cannot apportion a negative share.")

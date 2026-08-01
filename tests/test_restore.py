@@ -122,6 +122,25 @@ async def test_a_restored_expense_is_the_one_that_was_deleted(
     assert shares_after == shares_before
 
 
+async def test_a_restored_refund_comes_back_a_refund(
+    manager: SharedExpensesManager,
+    project: dict[str, Any],
+):
+    """The one field a lost sign would flip in silence, into an expense."""
+
+    expense = await an_expense(manager, project, title="Retour", amount=-2000)
+
+    await manager.delete_expense(expense.id, actor_user_id=ADMIN)
+    await manager.restore_expense(project["group"].id, expense.id, actor_user_id=ADMIN)
+
+    back = await manager.get_expense(expense.id)
+    shares = await manager.get_expense_shares(expense.id)
+
+    assert back.amount == -2000
+    assert back.converted_amount == -2000
+    assert sum(share.amount for share in shares) == -2000
+
+
 async def test_a_restored_expense_keeps_the_rate_it_was_frozen_at(
     loaded: FakeHass,
     manager: SharedExpensesManager,
