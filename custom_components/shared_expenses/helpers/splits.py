@@ -361,19 +361,42 @@ def _members_from(value: Any) -> tuple[str, ...] | None:
 def _distribute(amount: int, member_ids: Sequence[str]) -> dict[str, int]:
     """Split an amount in cents as evenly as possible.
 
-    The extra cents that cannot be divided evenly go to the first members, so
-    that the result stays deterministic.
+    The cents that will not divide start on the member the amount points at,
+    rather than always on the first. Going to the first was deterministic, which
+    was all it set out to be — and since the pool comes in the group's own order,
+    it meant one member bore the extra cent of every uneven split the group ever
+    made. Three members over a thousand expenses put 6,67 € on one of them and
+    not a centime on another.
+
+    **The offset is the quotient, not the amount.** `amount % count` is `extra`
+    itself and carries nothing the remainder does not: at two members every odd
+    amount would hand its cent to the second and never to the first, the same
+    unfairness wearing the other shoe. The quotient moves independently of the
+    remainder, and over every amount it comes out level — nothing to spread at
+    two, four or five members, a dozen cents in six thousand expenses at eight.
+
+    It is the amount and nothing else because of what it cannot be: the expense
+    has no id yet while the dialog is still adding it up, and the panel must
+    resolve what the backend will store. Same amount, same shares — so reopening
+    an expense leaves every share where it was.
+
+    An amount that recurs unchanged does still land on the same member every
+    time. Folding the date in would give the daily bread its turn, at the price
+    of editing a date moving a cent.
     """
 
     if amount <= 0 or not member_ids:
         return {}
 
-    base, extra = divmod(amount, len(member_ids))
+    count = len(member_ids)
+    base, extra = divmod(amount, count)
 
     shares = {member_id: base for member_id in member_ids}
 
-    for member_id in member_ids[:extra]:
-        shares[member_id] += 1
+    start = base % count
+
+    for step in range(extra):
+        shares[member_ids[(start + step) % count]] += 1
 
     return shares
 

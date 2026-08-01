@@ -158,11 +158,24 @@ def test_apportion_survives_what_converting_one_by_one_would_lose():
     assert shares == {"a": 1, "b": 0, "c": 0}
 
 
-def test_apportion_is_deterministic_on_a_tie():
-    """Two shares wanting the same half-cent: the first one asked gets it."""
+def test_apportion_turns_which_share_takes_the_odd_cent():
+    """Two shares wanting the same half-cent: not always the same one.
 
-    assert apportion({"a": 1, "b": 1}, 3) == {"a": 2, "b": 1}
-    assert apportion({"b": 1, "a": 1}, 3) == {"b": 2, "a": 1}
+    An equal split ties everywhere, so serving the first of the list would hand
+    it the odd cent of every conversion the group ever made. Which one is served
+    first turns with the total -- and turns the same way every time, so the same
+    expense still resolves to the same shares.
+    """
+
+    assert apportion({"a": 1, "b": 1}, 3) == {"a": 1, "b": 2}
+    assert apportion({"a": 1, "b": 1}, 5) == {"a": 3, "b": 2}
+
+    # Twice, to say it is the total that decides and not the clock.
+    assert apportion({"a": 1, "b": 1}, 3) == {"a": 1, "b": 2}
+
+    # The order they came in still decides who is where; only the starting point
+    # moved. Swap them and the cent swaps with them.
+    assert apportion({"b": 1, "a": 1}, 3) == {"b": 1, "a": 2}
 
 
 def test_apportion_refuses_what_cannot_be_divided():

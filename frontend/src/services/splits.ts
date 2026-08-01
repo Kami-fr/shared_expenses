@@ -2,9 +2,9 @@
  * Split resolution, mirroring `helpers/splits.py`.
  *
  * The panel needs the resolved shares live, as the user types, so this has to
- * exist client side. It is a faithful port: the leftover cents go to the first
- * members, exactly like the backend, so what the dialog shows is what gets
- * stored. The parity harness checks both against the same cases.
+ * exist client side. It is a faithful port down to which member bears the cents
+ * that will not divide, so what the dialog shows is what gets stored. The parity
+ * harness checks both against the same cases.
  */
 
 import type { Remainder, SplitRule } from "../types";
@@ -234,21 +234,34 @@ function resolveRemainder(
 /**
  * Split an amount as evenly as possible.
  *
- * The extra cents go to the first members, which is what the backend does.
+ * The cents that will not divide start on the member the amount points at, which
+ * is what the backend does — see `_distribute` in `helpers/splits.py` for why one
+ * member used to bear every one of them.
+ *
+ * The offset is the quotient and not the amount: `amount % count` is `extra`
+ * itself, so at two members every odd cent would go to the second and never to
+ * the first.
  */
 function distribute(amount: number, memberIds: string[]): Record<string, number> {
   if (amount <= 0 || memberIds.length === 0) {
     return {};
   }
 
-  const base = Math.floor(amount / memberIds.length);
-  const extra = amount % memberIds.length;
+  const count = memberIds.length;
+  const base = Math.floor(amount / count);
+  const extra = amount % count;
 
   const shares: Record<string, number> = {};
 
-  memberIds.forEach((memberId, index) => {
-    shares[memberId] = base + (index < extra ? 1 : 0);
-  });
+  for (const memberId of memberIds) {
+    shares[memberId] = base;
+  }
+
+  const start = base % count;
+
+  for (let step = 0; step < extra; step += 1) {
+    shares[memberIds[(start + step) % count]] += 1;
+  }
 
   return shares;
 }

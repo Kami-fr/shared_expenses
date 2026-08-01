@@ -5277,10 +5277,13 @@ function Oi(e, t, r, a) {
 function yt(e, t) {
   if (e <= 0 || t.length === 0)
     return {};
-  const r = Math.floor(e / t.length), a = e % t.length, i = {};
-  return t.forEach((s, n) => {
-    i[s] = r + (n < a ? 1 : 0);
-  }), i;
+  const r = t.length, a = Math.floor(e / r), i = e % r, s = {};
+  for (const p of t)
+    s[p] = a;
+  const n = a % r;
+  for (let p = 0; p < i; p += 1)
+    s[t[(n + p) % r]] += 1;
+  return s;
 }
 const Qt = 1e4;
 function Pt(e) {

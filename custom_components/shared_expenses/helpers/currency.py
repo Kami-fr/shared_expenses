@@ -70,8 +70,12 @@ def apportion(amounts: Mapping[str, int], total: int) -> dict[str, int]:
     zero against a total that weighs one — the shares would no longer add up to
     what they are shares of, and the balances count both. So the converted
     total is divided instead, and it is divided exactly: the cents that
-    flooring leaves over go to the largest remainders first, ties to whoever
-    came first, so the same expense always resolves the same way.
+    flooring leaves over go to the largest remainders first, and a tie between
+    those starts on the member the total points at rather than on the first —
+    the same rotation as `_distribute`, and for the same reason. An equal split
+    ties everywhere, so the first of the list would otherwise take the odd cent
+    of every one the group ever converted. The same expense still always
+    resolves the same way.
 
     A refund makes the whole trip the other way, shares and total together. What
     is refused is the two disagreeing: a share pulling against its own total is
@@ -99,6 +103,13 @@ def apportion(amounts: Mapping[str, int], total: int) -> dict[str, int]:
     if whole <= 0:
         raise InvalidExchangeRateError("Cannot apportion between nothing.")
 
+    count = len(amounts)
+
+    # Which member a tie starts on. The quotient rather than the total itself,
+    # exactly as in `_distribute`: a remainder-derived offset would move in step
+    # with the very count of cents it is meant to spread.
+    start = (total // count) % count
+
     shares: dict[str, int] = {}
     remainders: list[tuple[int, int, str]] = []
 
@@ -107,8 +118,8 @@ def apportion(amounts: Mapping[str, int], total: int) -> dict[str, int]:
         shares[member_id] = scaled // whole
 
         # Negated, so that sorting the whole tuple downwards still reads the
-        # order they came in upwards.
-        remainders.append((scaled % whole, -index, member_id))
+        # rotated order upwards.
+        remainders.append((scaled % whole, -((index - start) % count), member_id))
 
     left = total - sum(shares.values())
 

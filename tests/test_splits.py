@@ -38,11 +38,88 @@ def test_an_empty_rule_is_the_equal_split():
     ) == {STEPHANE: 500, ANTONIN: 500}
 
 
-def test_extra_cents_go_to_the_first_members():
+def test_the_extra_cents_land_where_the_amount_says():
+    # 1000 // 3 is 333, and 333 % 3 is 0, so the odd cent starts on the first.
     shares = resolve_shares(amount=1000, payer_id=STEPHANE, member_ids=EVERYONE)
 
     assert shares == {STEPHANE: 334, ANTONIN: 333, CLARA: 333}
     assert sum(shares.values()) == 1000
+
+    # The same quotient, with two cents to place: the first and the second.
+    assert resolve_shares(amount=1001, payer_id=STEPHANE, member_ids=EVERYONE) == {
+        STEPHANE: 334,
+        ANTONIN: 334,
+        CLARA: 333,
+    }
+
+    # 1003 // 3 is 334, and 334 % 3 is 1, so the odd cent starts on the second.
+    assert resolve_shares(amount=1003, payer_id=STEPHANE, member_ids=EVERYONE) == {
+        STEPHANE: 334,
+        ANTONIN: 335,
+        CLARA: 334,
+    }
+
+
+def test_the_odd_cent_does_not_always_fall_on_the_same_member():
+    """The bug this rule exists for, and the test whose absence let it live.
+
+    An uneven split handed its extra cents to the first members of the pool, and
+    the pool arrives in the group's own order -- so one member bore the odd cent
+    of every uneven split the group ever made, and another never bore one at all.
+    Over every amount up to 60,00 the old rule put 40,00 of cents on Stephane and
+    nothing on Clara.
+    """
+
+    borne = dict.fromkeys(EVERYONE, 0)
+
+    for amount in range(1, 6_001):
+        shares = resolve_shares(amount=amount, payer_id=STEPHANE, member_ids=EVERYONE)
+
+        assert sum(shares.values()) == amount
+
+        for member_id, share in shares.items():
+            borne[member_id] += share - amount // len(EVERYONE)
+
+    assert max(borne.values()) - min(borne.values()) <= len(EVERYONE)
+
+
+def test_a_pair_shares_the_odd_cents_exactly():
+    """Two members, where every odd amount has a cent to place.
+
+    The tempting offset -- the amount itself -- is the very count of leftover
+    cents, so at two members it would have handed every one of them to Antonin
+    and never to Stephane: as unfair as the rule it replaced, in the commonest
+    group there is. The quotient does not have that shape, and here it comes out
+    exactly level.
+    """
+
+    borne = dict.fromkeys(PAIR, 0)
+
+    for amount in range(1, 6_001):
+        for member_id, share in resolve_shares(
+            amount=amount,
+            payer_id=STEPHANE,
+            member_ids=PAIR,
+        ).items():
+            borne[member_id] += share - amount // len(PAIR)
+
+    assert borne[STEPHANE] == borne[ANTONIN]
+
+
+def test_an_uneven_split_resolves_the_same_way_every_time():
+    """Deterministic, as the old rule was and as this one had to stay.
+
+    The offset comes from the amount and from nothing else -- not from the
+    expense's id, which does not exist while the dialog is still adding it up,
+    and the panel has to promise what the backend will store.
+    """
+
+    resolved = [
+        resolve_shares(amount=1_001, payer_id=STEPHANE, member_ids=EVERYONE)
+        for _ in range(3)
+    ]
+
+    assert resolved[0] == resolved[1] == resolved[2]
 
 
 def test_the_reference_case():

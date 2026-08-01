@@ -55,8 +55,24 @@ Business logic never manipulates floating-point values.
 Currency formatting is performed only when displaying values to the user.
 
 Dividing money is never exact, so it is done explicitly: an amount split three
-ways hands the leftover cents to the first members, deterministically, rather
-than losing them. Converting a set of shares divides the converted total instead
+ways hands the leftover cents out deterministically rather than losing them,
+starting on the member the amount points at rather than always on the first.
+Always on the first was deterministic too, and that was the whole of what it
+set out to be — but the pool arrives in the group's own order, so the same
+member bore the extra cent of every uneven split the group ever made: 6,67 € of
+them over a thousand expenses split three ways, against nothing at all for
+another member.
+
+The offset is the **quotient** of the division, not the amount. `amount % count`
+is the count of leftover cents itself, so at two members every odd amount would
+hand its cent to the second and never to the first — the same unfairness wearing
+the other shoe. The quotient moves independently of the remainder and comes out
+level over every amount.
+
+It is derived from the amount alone, and it has to be: the expense has no id
+while the dialog is still adding it up, and the panel must resolve exactly what
+the backend will store. Same amount, same shares, so reopening an expense leaves
+every share where it was. Converting a set of shares divides the converted total instead
 of converting each share, for the same reason — three shares of a cent at a rate
 of a third would each round to nothing, and the shares would stop adding up to
 what they are shares of.
