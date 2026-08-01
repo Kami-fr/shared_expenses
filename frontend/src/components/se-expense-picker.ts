@@ -147,12 +147,16 @@ export class SeExpensePicker extends LitElement {
         border: 2px solid var(--card-background-color, #fff);
       }
 
+      /* Two lines, so the shop and the day never fight for the same one. */
       .info {
         flex: 1;
         min-width: 0;
+        display: flex;
+        flex-direction: column;
       }
 
-      .title {
+      /* What it was, carrying the line, exactly as on the group page. */
+      .what {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -161,6 +165,22 @@ export class SeExpensePicker extends LitElement {
       .when {
         font-size: 12px;
         color: var(--secondary-text-color);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      /*
+       * What somebody wrote about it, in the group page's own note: smaller and
+       * quieter than the shop it follows, so the two are told apart without
+       * either being decorated. Copied down to the 6px, since a picker that
+       * styled the same fact differently would read as a different fact.
+       */
+      .note {
+        font-size: 12px;
+        font-weight: 400;
+        color: var(--secondary-text-color);
+        margin-left: 6px;
       }
 
       .figure {
@@ -238,8 +258,22 @@ export class SeExpensePicker extends LitElement {
             ></se-icon>`
           : nothing}
       </span>
+      <!--
+        The shop, then what was written about it, then the day — the group page's
+        own order, and kept deliberately. A picker that reordered the same facts
+        would make somebody read a row twice: once to find it, once to be sure it
+        is the one they just scrolled past.
+
+        The description is here because the group page shows it too, and because
+        two visits to the same shop in one week are told apart by nothing else.
+      -->
       <span class="info">
-        <span class="title">${expense.title}</span>
+        <span class="what">
+          ${expense.title}
+          ${expense.description
+            ? html`<span class="note">${expense.description}</span>`
+            : nothing}
+        </span>
         <span class="when">${formatDayDate(expense.expense_date, this.language)}</span>
       </span>
       <span class="figure">

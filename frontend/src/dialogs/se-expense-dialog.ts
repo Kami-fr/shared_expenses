@@ -633,6 +633,34 @@ export class SeExpenseDialog extends LitElement {
       // The shop hands it back to whoever paid, unless somebody says otherwise.
       this.paidBy = purchase.paid_by_member_id;
 
+      // The purchase's own words. A refund of the bakery is about the bakery, and
+      // retyping the shop's name under a figure that already names it is work
+      // nobody should be given. The sign and the colour are what tell the two
+      // rows apart; the words are the same words.
+      //
+      // Only into empty fields: anything already typed was typed on purpose, and
+      // "Retour Decathlon" is a better title than "Decathlon" for whoever wrote
+      // it.
+      if (this.expenseTitle.trim() === "") {
+        this.expenseTitle = purchase.title;
+      }
+
+      // The category follows outright, where the words only fill a gap. A new
+      // expense opens on the group's default rather than on nothing, so "only
+      // when empty" would never fire here and the refund would sit in whatever
+      // category the group happens to favour — money back on the bakery counted
+      // against the shopping. Taken rather than offered, and it is one dropdown
+      // away if the purchase was filed somewhere the refund is not.
+      this.categoryId = purchase.category_id ?? "";
+
+      if (this.description.trim() === "" && purchase.description) {
+        this.description = purchase.description;
+
+        // Unfolded, or it would sit behind a link saying "add a description"
+        // while holding one.
+        this.showDescription = true;
+      }
+
       // The whole of it, which is what a refund usually is — and never more than
       // the purchase, which the backend refuses anyway. A smaller figure already
       // typed is left alone: a partial refund is a deliberate thing to have said.
