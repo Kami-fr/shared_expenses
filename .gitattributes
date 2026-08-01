@@ -1,0 +1,16 @@
+# Built, never edited.
+#
+# The Vite output, versioned because HACS ships the repository as it is and never
+# runs a build -- see the note at the end of .gitignore. A minifier allocates its
+# short names in order of appearance, so adding one identifier upstream shifts
+# every one of them: a three-line change to a page rewrites a thousand lines of
+# this file, most of them inside lit rather than in anything we wrote. The diff
+# then buries the change it came from.
+#
+# `-diff` keeps git from printing it, so `git diff` shows the source alone. Pass
+# `--text` to see it anyway. `linguist-generated` folds it away in a pull request
+# and keeps it out of the language statistics.
+#
+# The CI's staleness check is unaffected: it reads the exit code of
+# `git diff --quiet`, which still says the file moved.
+custom_components/shared_expenses/www/index.js -diff linguist-generated
