@@ -1164,13 +1164,25 @@ export class SeGroupPage extends LitElement {
         </div>
         <div class="tail">
           <!--
-            Green on a refund, and it is not the point of view the rest of this
-            list takes: money coming back is good news for whoever shares it,
-            whichever of them you are. The minus says it too — the colour is so
-            it is not read as one more thing bought.
+            Money that left the group, or came back to it. Red on a purchase and
+            green on a refund, for whoever is reading: this row is not a movement
+            between two of you and so it has no side to be on. A reimbursement is
+            the other case and takes its colour from the reader, which is what
+            toneFor is for.
+
+            So the two colours answer two different questions in the same list,
+            and that is the point rather than an inconsistency: crossing the
+            group's edge is a direction, moving inside it is a position.
           -->
-          <span class="amount ${refund ? "positive" : ""}">
-            ${formatMoney(expense.amount, expense.currency, this.language)}
+          <span class="amount ${refund ? "positive" : "negative"}">
+            <!--
+              Without its minus. Only a refund is ever negative here, so the sign
+              carried nothing the green was not already saying, and said it in the
+              one place a figure is read for its size. Math.abs rather than a
+              branch: a purchase is never negative, so there is nothing for it to
+              do on one.
+            -->
+            ${formatMoney(Math.abs(expense.amount), expense.currency, this.language)}
           </span>
           <!--
             What it weighs in the group, under what was handed over at the till.
@@ -1181,7 +1193,7 @@ export class SeGroupPage extends LitElement {
             ? nothing
             : html`<span class="converted">
                 ${formatMoney(
-                  expense.converted_amount,
+                  Math.abs(expense.converted_amount),
                   this.group!.currency,
                   this.language,
                 )}
