@@ -526,6 +526,34 @@ export class SeGroupPage extends LitElement {
         gap: 6px;
       }
 
+      /* Holds the face and its mark together, so the pair scrolls as one. */
+      .face {
+        position: relative;
+        flex: 0 0 auto;
+        line-height: 0;
+      }
+
+      /*
+       * The category on the corner of the face rather than in a column of its
+       * own — the journal's arrangement, see se-history. Who paid and what for
+       * are one glance, and a third circle in the row would have been paid for
+       * by the width of the title.
+       *
+       * It also settles the row with no category: nothing is drawn and nothing
+       * has to be held open for it, where a column would have needed a blank
+       * kept in it to stop the titles going ragged.
+       *
+       * The ring is the card's own background and not a colour: it is what keeps
+       * an orange mark on an orange avatar from reading as one shape.
+       */
+      .face .pip {
+        position: absolute;
+        right: -5px;
+        bottom: -5px;
+        border-radius: 50%;
+        border: 2px solid var(--card-background-color, #fff);
+      }
+
       .stack-avatars {
         display: flex;
       }
@@ -938,6 +966,10 @@ export class SeGroupPage extends LitElement {
     const payer = this.memberById(payerId);
     const colour = payer?.color ?? colorFor(payerId);
 
+    // The other end. A payment has exactly one, which is what makes it a
+    // payment and not an expense.
+    const taker = this.memberById(takerId);
+
     const editable = this.mayEdit(payment);
 
     return html`
@@ -947,14 +979,35 @@ export class SeGroupPage extends LitElement {
         ?disabled=${!editable}
         @click=${() => this.openPayment(undefined, payment)}
       >
-        <!-- The same 36px an avatar takes, so a reimbursement sits level with
-             the people above and below it rather than looming over them. -->
-        <se-icon
-          icon=${debt ? "mdi:hand-coin-outline" : "mdi:swap-horizontal"}
-          fallback=${debt ? "→" : "⇄"}
-          .color=${colour}
-          .size=${36}
-        ></se-icon>
+        <span class="face">
+          <!--
+            Whose line it is, wearing the same face the expenses above and below
+            it show. This was the kind's own icon at 36px and nothing else, so
+            the one list where money moves between two people was the one list
+            neither of them had a face in.
+          -->
+          ${this.renderMemberAvatar(payer?.name ?? "?", payerId)}
+          <!--
+            Reimbursement or debt on the corner, exactly as an expense wears its
+            category. It keeps the payer's colour, which the avatar behind it
+            carries as well: the ring is what holds the two apart, and holding a
+            mark apart from an avatar of its own colour is the whole reason that
+            ring exists. Which of the two it is, the glyph says — a hand holding
+            a coin for money still owed, two arrows for money that moved.
+
+            Hidden from screen readers: the line underneath already says
+            "Reimbursement" or "Debt" in the reader's own language.
+          -->
+          <se-icon
+            class="pip"
+            aria-hidden="true"
+            .icon=${debt ? "mdi:hand-coin-outline" : "mdi:swap-horizontal"}
+            .fallback=${debt ? "→" : "⇄"}
+            .color=${colour}
+            .size=${18}
+            .glyph=${0.82}
+          ></se-icon>
+        </span>
         <div class="info">
           <div class="title">
             ${this.nameFrom(payerId)} → ${this.nameFrom(takerId)}
@@ -986,6 +1039,15 @@ export class SeGroupPage extends LitElement {
                   this.language,
                 )}
               </span>`}
+          <!--
+            Who it reaches, where an expense keeps the people who share it. The
+            same stack and the same 26px, holding one face rather than several:
+            a payment has one other end, and putting it anywhere else on the row
+            would have been a fourth column for a list that reads in three.
+          -->
+          <div class="stack-avatars">
+            ${renderAvatar(taker, taker?.name ?? "?", takerId, "small")}
+          </div>
         </div>
       </button>
     `;
@@ -1049,11 +1111,40 @@ export class SeGroupPage extends LitElement {
         ?disabled=${!editable}
         @click=${() => this.openExpense(expense)}
       >
-        ${this.renderMemberAvatar(
-          payer?.name ?? "?",
-          expense.paid_by_member_id,
-          `${this.localize(refund ? "refunded_to" : "paid_by")} ${payer?.name ?? "?"}`,
-        )}
+        <span class="face">
+          ${this.renderMemberAvatar(
+            payer?.name ?? "?",
+            expense.paid_by_member_id,
+            `${this.localize(refund ? "refunded_to" : "paid_by")} ${payer?.name ?? "?"}`,
+          )}
+          <!--
+            What it was, on the corner of who paid for it, exactly as the journal
+            marks the face that wrote a line. The category was a word in grey
+            under the title and nothing else, so telling the bread from the
+            weekly shopping meant reading every row — while the icon and colour
+            it was given when it was created were only ever seen in the dialog
+            where they were chosen.
+
+            Hidden from screen readers: the name is still written underneath, in
+            the reader's own language, and hearing it twice is not hearing it
+            better.
+
+            A glyph nearly filling the badge, as the journal's does. The default
+            ratio is measured for a 34px pill and would leave a mark this small
+            with a glyph too faint to tell a loaf from a barcode.
+          -->
+          ${category
+            ? html`<se-icon
+                class="pip"
+                aria-hidden="true"
+                .icon=${category.icon}
+                .fallback=${category.name.charAt(0).toUpperCase()}
+                .color=${category.color ?? colorFor(category.id)}
+                .size=${18}
+                .glyph=${0.82}
+              ></se-icon>`
+            : nothing}
+        </span>
         <div class="info">
           <div class="title">
             ${expense.title}
