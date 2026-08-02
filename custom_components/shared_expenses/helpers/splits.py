@@ -28,7 +28,12 @@ def resolve_shares(
     """
 
     if amount == 0:
-        raise InvalidSplitRuleError("An expense amount cannot be zero.")
+        # The same cause the manager already names, so it reads the same
+        # whichever of the two catches it first.
+        raise InvalidSplitRuleError(
+            "An expense amount cannot be zero.",
+            code="expense_amount_zero",
+        )
 
     if amount < 0:
         # A refund from a shop is the purchase it undoes, run backwards. The
@@ -53,10 +58,16 @@ def resolve_shares(
     pool = tuple(dict.fromkeys(member_ids))
 
     if not pool:
-        raise InvalidSplitRuleError("The group has no member to split between.")
+        raise InvalidSplitRuleError(
+            "The group has no member to split between.",
+            code="split_no_members",
+        )
 
     if payer_id not in pool:
-        raise InvalidSplitRuleError("The payer must be a member of the group.")
+        raise InvalidSplitRuleError(
+            "The payer must be a member of the group.",
+            code="split_payer_not_member",
+        )
 
     rule = rule if rule is not None else SplitRule()
 
@@ -99,7 +110,10 @@ def _envelope(rule: SplitRule, amount: int) -> int:
         return amount
 
     if rule.envelope < 0:
-        raise InvalidSplitRuleError("The shared amount cannot be negative.")
+        raise InvalidSplitRuleError(
+            "The shared amount cannot be negative.",
+            code="split_envelope_negative",
+        )
 
     return min(rule.envelope, amount)
 
@@ -138,10 +152,16 @@ def _resolve_remainder(
     _ensure_known(remainder.percent, pool, "remainder")
 
     if any(value < 0 for value in remainder.fixed.values()):
-        raise InvalidSplitRuleError("A remainder amount cannot be negative.")
+        raise InvalidSplitRuleError(
+            "A remainder amount cannot be negative.",
+            code="split_fixed_negative",
+        )
 
     if any(value < 0 for value in remainder.percent.values()):
-        raise InvalidSplitRuleError("A remainder share cannot be negative.")
+        raise InvalidSplitRuleError(
+            "A remainder share cannot be negative.",
+            code="split_percent_negative",
+        )
 
     members = remainder.members
 
@@ -154,7 +174,10 @@ def _resolve_remainder(
         _ensure_known(members, pool, "remainder")
 
     if not members:
-        raise InvalidSplitRuleError("Nobody takes the remainder.")
+        raise InvalidSplitRuleError(
+            "Nobody takes the remainder.",
+            code="split_remainder_nobody",
+        )
 
     fixed = {
         member_id: value
@@ -172,13 +195,17 @@ def _resolve_remainder(
 
     if both:
         raise InvalidSplitRuleError(
-            f"A member cannot owe both an amount and a share: {', '.join(both)}"
+            f"A member cannot owe both an amount and a share: {', '.join(both)}",
+            code="split_both_amount_and_share",
         )
 
     percent_total = sum(percent.values())
 
     if percent_total > FULL_PERCENT:
-        raise InvalidSplitRuleError("The remainder shares exceed the whole.")
+        raise InvalidSplitRuleError(
+            "The remainder shares exceed the whole.",
+            code="split_percent_over",
+        )
 
     # Both are taken out of what the envelope left, so a share means a share of
     # that — not of what the fixed amounts happen to leave behind. "60%" is 60%
@@ -191,7 +218,10 @@ def _resolve_remainder(
     claimed = fixed_total + sum(from_percent.values())
 
     if claimed > left:
-        raise InvalidSplitRuleError("The remainder exceeds what is left.")
+        raise InvalidSplitRuleError(
+            "The remainder exceeds what is left.",
+            code="split_remainder_exceeds",
+        )
 
     shares = {**fixed, **from_percent}
 
@@ -220,7 +250,10 @@ def _resolve_remainder(
 
         return shares
 
-    raise InvalidSplitRuleError("The remainder does not add up to what is left.")
+    raise InvalidSplitRuleError(
+        "The remainder does not add up to what is left.",
+        code="split_remainder_short",
+    )
 
 
 RULE_KEYS = frozenset({"envelope", "participants", "remainder"})
@@ -411,7 +444,14 @@ def _ensure_known(
     unknown = sorted(set(member_ids) - set(pool))
 
     if unknown:
-        raise InvalidSplitRuleError(f"Unknown {label} member: {', '.join(unknown)}")
+        # One code for both labels. What the message adds over it is a list of
+        # ids, which the panel would show to somebody who has never seen one:
+        # a translated sentence is the better of the two, and the ids stay in
+        # the log where they are worth something.
+        raise InvalidSplitRuleError(
+            f"Unknown {label} member: {', '.join(unknown)}",
+            code="split_unknown_member",
+        )
 
 
 def _as_int(value: Any) -> int:

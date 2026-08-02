@@ -23,13 +23,22 @@ def validate_rate(rate: int) -> int:
     """Return the rate, refusing what cannot be one."""
 
     if isinstance(rate, bool) or not isinstance(rate, int):
-        raise InvalidExchangeRateError(f"A rate must be a whole number, got {rate!r}")
+        raise InvalidExchangeRateError(
+            f"A rate must be a whole number, got {rate!r}",
+            code="rate_not_a_rate",
+        )
 
     if rate <= 0:
-        raise InvalidExchangeRateError("A rate must be positive.")
+        raise InvalidExchangeRateError(
+            "A rate must be positive.",
+            code="rate_not_positive",
+        )
 
     if rate > RATE_MAX:
-        raise InvalidExchangeRateError("This rate is not plausible.")
+        raise InvalidExchangeRateError(
+            "This rate is not plausible.",
+            code="rate_implausible",
+        )
 
     return rate
 
@@ -139,20 +148,29 @@ def rate_from_decimal(value: str) -> int:
     text = value.strip().replace(",", ".")
 
     if not text:
-        raise InvalidExchangeRateError("A rate is needed.")
+        # `rate_needed`, which the panel already says under an empty field: one
+        # sentence for one cause, whichever side notices it.
+        raise InvalidExchangeRateError("A rate is needed.", code="rate_needed")
 
     negative = text.startswith("-")
     whole, _, fraction = text.lstrip("+-").partition(".")
 
     if not whole and not fraction:
-        raise InvalidExchangeRateError(f"This is not a rate: {value!r}")
+        raise InvalidExchangeRateError(
+            f"This is not a rate: {value!r}", code="rate_not_a_rate"
+        )
 
     if not (whole + fraction).isdigit():
-        raise InvalidExchangeRateError(f"This is not a rate: {value!r}")
+        raise InvalidExchangeRateError(
+            f"This is not a rate: {value!r}", code="rate_not_a_rate"
+        )
 
     # Six digits, no more: a seventh would be silently dropped, so say so.
     if len(fraction) > 6:
-        raise InvalidExchangeRateError("A rate carries at most six decimals.")
+        raise InvalidExchangeRateError(
+            "A rate carries at most six decimals.",
+            code="rate_too_precise",
+        )
 
     scaled = int(whole or "0") * RATE_ONE + int(fraction.ljust(6, "0") or "0")
 

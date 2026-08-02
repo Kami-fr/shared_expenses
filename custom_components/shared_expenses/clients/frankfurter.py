@@ -32,6 +32,14 @@ USER_AGENT = "HomeAssistant-SharedExpenses"
 #: Long enough for a slow morning, short enough that a dialog is not stuck.
 TIMEOUT = aiohttp.ClientTimeout(total=10)
 
+#: Two codes for six causes, because there are only two things to do about
+#: them. Down, offline, or answering a shape nobody can read all leave the
+#: reader in the same place — type a rate by hand — while a pair the service
+#: does not carry will not be fixed by waiting or by retrying. The six messages
+#: stay distinct behind the codes, for the log.
+UNREACHABLE = "rate_service_unreachable"
+UNKNOWN_CURRENCY = "rate_unknown_currency"
+
 
 async def fetch_rate(
     session: aiohttp.ClientSession,
@@ -59,7 +67,8 @@ async def fetch_rate(
         ) as response:
             if response.status != 200:
                 raise ExchangeRateUnavailableError(
-                    f"The rate service answered {response.status}."
+                    f"The rate service answered {response.status}.",
+                    code=UNREACHABLE,
                 )
 
             payload = await response.json()
@@ -70,7 +79,8 @@ async def fetch_rate(
         LOGGER.debug("Could not reach the rate service: %s", err)
 
         raise ExchangeRateUnavailableError(
-            "The rate service could not be reached."
+            "The rate service could not be reached.",
+            code=UNREACHABLE,
         ) from err
 
     return _read(payload, quote)
@@ -85,23 +95,33 @@ def _read(payload: Any, quote: str) -> tuple[int, date]:
     """
 
     if not isinstance(payload, dict):
-        raise ExchangeRateUnavailableError("The rate service answered nonsense.")
+        raise ExchangeRateUnavailableError(
+            "The rate service answered nonsense.",
+            code=UNREACHABLE,
+        )
 
     rates = payload.get("rates")
 
     if not isinstance(rates, dict) or quote not in rates:
-        raise ExchangeRateUnavailableError(f"The rate service knows no {quote}.")
+        raise ExchangeRateUnavailableError(
+            f"The rate service knows no {quote}.",
+            code=UNKNOWN_CURRENCY,
+        )
 
     value = rates[quote]
 
     if not isinstance(value, int | float) or isinstance(value, bool) or value <= 0:
-        raise ExchangeRateUnavailableError(f"This is not a rate: {value!r}")
+        raise ExchangeRateUnavailableError(
+            f"This is not a rate: {value!r}",
+            code=UNREACHABLE,
+        )
 
     try:
         as_of = date.fromisoformat(str(payload.get("date")))
     except (TypeError, ValueError) as err:
         raise ExchangeRateUnavailableError(
-            "The rate service gave no day for its rate."
+            "The rate service gave no day for its rate.",
+            code=UNREACHABLE,
         ) from err
 
     # The wire is JSON, so this arrives as a float whatever anyone wants. It

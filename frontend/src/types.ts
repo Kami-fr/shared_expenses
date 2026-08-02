@@ -325,23 +325,11 @@ export interface Revision {
   at: string;
 }
 
-/** Error codes sent back by the integration. */
-export type ErrorCode =
-  | "group_not_found"
-  | "group_archived"
-  | "member_not_found"
-  | "member_already_in_group"
-  | "category_not_found"
-  | "expense_not_found"
-  | "invalid_expense"
-  | "invalid_expense_shares"
-  | "invalid_split_rule"
-  | "payment_not_found"
-  | "invalid_payment"
-  | "invalid_exchange_rate"
-  | "exchange_rate_unavailable"
-  | "not_loaded"
-  | "unknown_error";
+/* The error codes the integration sends back were listed here too, and nothing
+ * ever read the list. It went stale the first time a `code=` was added to a
+ * raise, which is what a second copy does. `EN` in services/localize.ts is the
+ * one to keep: `errorMessage` looks a code up in it, so a code with no sentence
+ * there falls back to English rather than being quietly accepted. */
 
 /** Minimal shape of the `hass` object handed to the panel. */
 /** A Home Assistant entity, of which we read only a person's photo and account. */

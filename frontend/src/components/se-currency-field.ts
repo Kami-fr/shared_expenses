@@ -287,12 +287,11 @@ export class SeCurrencyField extends LitElement {
       );
     } catch (error) {
       // Nothing known and nothing reachable. Not a dead end: the field below
-      // is open, and what is typed there is kept for the next expense.
+      // is open, and what is typed there is kept for the next expense — which
+      // every message about a missing rate now says for itself, so there is no
+      // longer one code worth singling out here.
       this.fetched = undefined;
-      this.error =
-        (error as { code?: string })?.code === "exchange_rate_unavailable"
-          ? this.localize("rate_unavailable")
-          : errorMessage(error, this.localize);
+      this.error = errorMessage(error, this.localize);
     } finally {
       this.busy = false;
       this.emit();
