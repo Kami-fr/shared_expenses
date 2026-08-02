@@ -54,6 +54,8 @@ async def websocket_list_payments(
         # In millionths. Sent when the panel has shown a rate and had it
         # accepted; left out, the manager finds one itself.
         vol.Optional("exchange_rate"): int,
+        # What it was about, when it was about one expense.
+        vol.Optional("expense_id"): vol.Any(None, cv.string),
     }
 )
 @websocket_api.async_response
@@ -76,6 +78,7 @@ async def websocket_create_payment(
         currency=msg.get("currency"),
         exchange_rate=msg.get("exchange_rate"),
         kind=PaymentKind(msg.get("kind", PaymentKind.REIMBURSEMENT)),
+        expense_id=msg.get("expense_id"),
         actor_user_id=connection.user.id,
     )
 
@@ -94,6 +97,9 @@ async def websocket_create_payment(
         vol.Optional("kind"): vol.In([str(k) for k in PaymentKind]),
         vol.Optional("currency"): cv.string,
         vol.Optional("exchange_rate"): int,
+        # Null on purpose rather than merely absent: absent means "leave it
+        # alone", and taking the link off has to be sayable.
+        vol.Optional("expense_id"): vol.Any(None, cv.string),
     }
 )
 @websocket_api.async_response
@@ -116,6 +122,7 @@ async def websocket_update_payment(
             "amount",
             "currency",
             "description",
+            "expense_id",
         )
         if field in msg
     }

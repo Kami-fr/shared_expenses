@@ -62,6 +62,18 @@ class Payment:
     rate_as_of: date | None = None
     """The day the rate is from, or None when no conversion happened."""
 
+    expense_id: str | None = None
+    """The expense this is about, when it is about one.
+
+    Money handed over at the end of a month answers no single expense, and that
+    is the commonest reimbursement there is — so this stays empty far more often
+    than it is filled, and nothing anywhere requires it.
+
+    Held as a plain id with no foreign key: a deleted expense really leaves its
+    table, and this waits rather than being cut loose. It points at nothing while
+    the expense is away, and reads again the day it is restored.
+    """
+
     created_by_member_id: str | None = None
     """Who wrote it down, which is not always either party to it.
 

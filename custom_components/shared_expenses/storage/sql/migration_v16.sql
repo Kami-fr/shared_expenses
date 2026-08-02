@@ -1,0 +1,32 @@
+-- A reimbursement between two members can name the expense it is about.
+--
+-- This is the column v14 added and v15 took away again, and it comes back for
+-- the reason it left: nothing read it. v15 dropped it on the finding that what
+-- wanted a link was the shop's refund -- an expense with a negative amount --
+-- and that was true, and it shipped. It was not the whole of it. "Antonin gives
+-- me 20,00 for the shopping on the 3rd" is money moving between two members,
+-- which is a payment and never an expense, and the sentence has an expense in
+-- it that the panel could not write down.
+--
+-- What is different this time is the reading: the payment names the expense and
+-- opens it, and that is the whole of the feature. The expense side says nothing
+-- back, deliberately -- so there is no index here, where v14 had one. An index
+-- answers "which payments name this expense", and nothing asks.
+--
+-- Optional, and staying optional: money handed over at the end of a month
+-- answers no single expense, and that is the commonest reimbursement there is.
+-- It is offered on a debt as much as on a reimbursement, both being the same
+-- movement of money with different words on it.
+--
+-- No foreign key, for the reason a deletion gives -- the same reason `refund_of`
+-- has none. A deleted expense really leaves its table, its revision being the
+-- only place it still exists, and a restore brings it back under the same id.
+-- `ON DELETE SET NULL` would cut every payment loose the moment somebody deleted
+-- the expense it was about, and restoring it would not tie them again;
+-- `REFERENCES` with no action would refuse the deletion outright, which is a
+-- rule nobody asked for. Held plainly, the link waits: it points at nothing
+-- while the expense is away, which the panel reads as "not here", and it reads
+-- again the day it comes back.
+ALTER TABLE payments ADD COLUMN expense_id TEXT;
+
+UPDATE schema_version SET version = 16;

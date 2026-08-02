@@ -217,6 +217,14 @@ export interface Payment {
   exchange_rate: number;
   /** The day the rate is from, or null when nothing was converted. */
   rate_as_of: string | null;
+  /**
+   * The expense this was about, when it was about one.
+   *
+   * Null far more often than not: money handed over at the end of a month
+   * answers no single expense. It may also point at an expense that is not
+   * there, which is a deleted one waiting to be restored rather than an error.
+   */
+  expense_id: string | null;
 }
 
 export interface Balance {

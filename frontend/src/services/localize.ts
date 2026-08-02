@@ -212,10 +212,14 @@ const EN = {
   split_remainder_short:
     "The rest is unaccounted for: nobody takes what the percentages leave.",
   refund_of_nothing: "No expense in particular",
+  payment_expense: "What it was for",
+  open_expense: "Open the expense",
+  payment_expense_other_project:
+    "That expense belongs to another project.",
   open_purchase: "Open the purchase",
   confirm_leave: "Leave anyway?",
-  confirm_leave_expense:
-    "Leave this expense to open that one? What has been typed here is not saved.",
+  confirm_leave_entry:
+    "Leave this and open that one? What has been typed here is not saved.",
   split: "Split",
   edit_split: "Change",
   done: "Done",
@@ -540,10 +544,14 @@ const FR: Record<Key, string> = {
   split_remainder_short:
     "Le reste n'est attribué à personne : nul ne prend ce que les pourcentages laissent.",
   refund_of_nothing: "Aucune dépense en particulier",
+  payment_expense: "À quoi il correspond",
+  open_expense: "Ouvrir la dépense",
+  payment_expense_other_project:
+    "Cette dépense appartient à un autre projet.",
   open_purchase: "Ouvrir l'achat",
   confirm_leave: "Quitter quand même ?",
-  confirm_leave_expense:
-    "Quitter cette dépense pour ouvrir celle-là ? Ce qui a été saisi ici n'est pas enregistré.",
+  confirm_leave_entry:
+    "Quitter et ouvrir celle-là ? Ce qui a été saisi ici n'est pas enregistré.",
   split: "Répartition",
   edit_split: "Modifier",
   done: "Terminé",
@@ -866,10 +874,14 @@ const DE: Record<Key, string> = {
   split_remainder_short:
     "Der Rest bleibt offen: niemand übernimmt, was die Prozentsätze übrig lassen.",
   refund_of_nothing: "Keine bestimmte Ausgabe",
+  payment_expense: "Wofür er war",
+  open_expense: "Die Ausgabe öffnen",
+  payment_expense_other_project:
+    "Diese Ausgabe gehört zu einem anderen Projekt.",
   open_purchase: "Den Kauf öffnen",
   confirm_leave: "Trotzdem verlassen?",
-  confirm_leave_expense:
-    "Diese Ausgabe verlassen, um jene zu öffnen? Was hier eingegeben wurde, wird nicht gespeichert.",
+  confirm_leave_entry:
+    "Verlassen und jene öffnen? Was hier eingegeben wurde, wird nicht gespeichert.",
   split: "Aufteilung",
   edit_split: "Ändern",
   done: "Fertig",
@@ -1173,10 +1185,14 @@ const NL: Record<Key, string> = {
   split_remainder_short:
     "De rest blijft open: niemand neemt wat de percentages overlaten.",
   refund_of_nothing: "Geen specifieke uitgave",
+  payment_expense: "Waarvoor het was",
+  open_expense: "De uitgave openen",
+  payment_expense_other_project:
+    "Die uitgave hoort bij een ander project.",
   open_purchase: "De aankoop openen",
   confirm_leave: "Toch weggaan?",
-  confirm_leave_expense:
-    "Deze uitgave verlaten om die te openen? Wat hier is ingevuld, wordt niet bewaard.",
+  confirm_leave_entry:
+    "Weggaan en die openen? Wat hier is ingevuld, wordt niet bewaard.",
   split: "Verdeling",
   edit_split: "Wijzigen",
   done: "Klaar",
@@ -1474,10 +1490,14 @@ const ES: Record<Key, string> = {
   split_remainder_short:
     "El resto queda sin asignar: nadie asume lo que dejan los porcentajes.",
   refund_of_nothing: "Ningún gasto en particular",
+  payment_expense: "A qué corresponde",
+  open_expense: "Abrir el gasto",
+  payment_expense_other_project:
+    "Ese gasto pertenece a otro proyecto.",
   open_purchase: "Abrir la compra",
   confirm_leave: "¿Salir de todos modos?",
-  confirm_leave_expense:
-    "¿Salir de este gasto para abrir aquel? Lo que se ha escrito aquí no se guarda.",
+  confirm_leave_entry:
+    "¿Salir y abrir aquel? Lo que se ha escrito aquí no se guarda.",
   split: "Reparto",
   edit_split: "Modificar",
   done: "Hecho",
@@ -1776,10 +1796,14 @@ const IT: Record<Key, string> = {
   split_remainder_short:
     "Il resto rimane senza destinatario: nessuno prende ciò che le percentuali lasciano.",
   refund_of_nothing: "Nessuna spesa in particolare",
+  payment_expense: "A cosa si riferisce",
+  open_expense: "Apri la spesa",
+  payment_expense_other_project:
+    "Quella spesa appartiene a un altro progetto.",
   open_purchase: "Apri l'acquisto",
   confirm_leave: "Uscire comunque?",
-  confirm_leave_expense:
-    "Lasciare questa spesa per aprire quella? Quanto è stato scritto qui non viene salvato.",
+  confirm_leave_entry:
+    "Uscire e aprire quella? Quanto è stato scritto qui non viene salvato.",
   split: "Ripartizione",
   edit_split: "Modifica",
   done: "Fatto",
@@ -2083,10 +2107,14 @@ const PL: Record<Key, string> = {
   split_remainder_short:
     "Reszta nie jest przypisana: nikt nie bierze tego, co zostawiają udziały procentowe.",
   refund_of_nothing: "Żaden konkretny wydatek",
+  payment_expense: "Czego dotyczy",
+  open_expense: "Otwórz wydatek",
+  payment_expense_other_project:
+    "Ten wydatek należy do innego projektu.",
   open_purchase: "Otwórz zakup",
   confirm_leave: "Wyjść mimo to?",
-  confirm_leave_expense:
-    "Opuścić ten wydatek, aby otworzyć tamten? To, co tu wpisano, nie zostanie zapisane.",
+  confirm_leave_entry:
+    "Wyjść i otworzyć tamten? To, co tu wpisano, nie zostanie zapisane.",
   split: "Podział",
   edit_split: "Zmień",
   done: "Gotowe",
@@ -2389,10 +2417,14 @@ const PT_BR: Record<Key, string> = {
   split_remainder_short:
     "O resto fica sem destino: ninguém assume o que as percentagens deixam.",
   refund_of_nothing: "Nenhuma despesa em particular",
+  payment_expense: "A que se refere",
+  open_expense: "Abrir a despesa",
+  payment_expense_other_project:
+    "Essa despesa pertence a outro projeto.",
   open_purchase: "Abrir a compra",
   confirm_leave: "Sair mesmo assim?",
-  confirm_leave_expense:
-    "Sair desta despesa para abrir aquela? O que foi digitado aqui não é salvo.",
+  confirm_leave_entry:
+    "Sair e abrir aquela? O que foi digitado aqui não é salvo.",
   split: "Divisão",
   edit_split: "Alterar",
   done: "Concluído",

@@ -105,6 +105,13 @@ export interface CreatePaymentInput {
    * finds one itself.
    */
   exchange_rate?: number;
+  /**
+   * The expense this is about, or null for none.
+   *
+   * Null and not left out on an update: leaving it out means "do not touch it",
+   * so taking the link off would be unsayable.
+   */
+  expense_id?: string | null;
 }
 
 export class SharedExpensesApi {

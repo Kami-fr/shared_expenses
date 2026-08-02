@@ -77,6 +77,7 @@ def payment_state(payment: Payment) -> dict[str, Any]:
         "payment_date": payment.payment_date.isoformat(),
         "kind": str(payment.kind),
         "converted_amount": payment.converted_amount,
+        "expense_id": payment.expense_id,
     }
 
 

@@ -152,6 +152,7 @@ def payment_to_dict(payment: Payment) -> dict[str, Any]:
         "payment_date": payment.payment_date.isoformat(),
         "created_at": payment.created_at.isoformat(),
         "kind": str(payment.kind),
+        "expense_id": payment.expense_id,
         "created_by_member_id": payment.created_by_member_id,
         "converted_amount": payment.converted_amount,
         "exchange_rate": payment.exchange_rate,

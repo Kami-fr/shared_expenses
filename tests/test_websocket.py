@@ -812,6 +812,91 @@ async def test_a_payment_carries_a_note(
     assert reloaded.kind is PaymentKind.DEBT
 
 
+async def test_a_payment_names_the_expense_it_is_about(
+    loaded: FakeHass,
+    household: dict[str, Any],
+    manager: SharedExpensesManager,
+):
+    """The link through the whole path the panel takes, and back off again.
+
+    Through the schema on purpose. The column existed once before, in v14, and
+    was dropped in v15 having never been read — a field the door does not know
+    is a field nobody can send, and it dies there with "extra keys not allowed",
+    which names the field and says nothing about why.
+    """
+
+    connection = FakeConnection(MINE)
+    admin = household["my_admin"]
+    other = await manager.create_group_member(
+        group_id=household["mine"].id,
+        name="Antonin",
+    )
+
+    await call(
+        loaded,
+        connection,
+        payments.websocket_create_payment,
+        {
+            "type": "shared_expenses/create_payment",
+            "group_id": household["mine"].id,
+            "from_member_id": other.id,
+            "to_member_id": admin.id,
+            "amount": 4_271,
+            "payment_date": NOW.isoformat(),
+            "expense_id": household["my_expense"].id,
+        },
+    )
+
+    assert connection.errors == {}
+
+    created = connection.results[1]
+
+    assert created["expense_id"] == household["my_expense"].id
+
+    # Null and not merely absent: absent means "leave it alone", so taking the
+    # link off has to be sayable, and the schema has to allow saying it.
+    await call(
+        loaded,
+        connection,
+        payments.websocket_update_payment,
+        {
+            "type": "shared_expenses/update_payment",
+            "payment_id": created["id"],
+            "expense_id": None,
+        },
+        msg_id=2,
+    )
+
+    assert connection.errors == {}
+    assert (await manager.get_payment(created["id"])).expense_id is None
+
+
+async def test_a_payment_cannot_name_another_household_s_expense(
+    loaded: FakeHass,
+    household: dict[str, Any],
+):
+    """An id is enough to ask with, and this is the door it asks through."""
+
+    connection = FakeConnection(MINE)
+
+    await call(
+        loaded,
+        connection,
+        payments.websocket_create_payment,
+        {
+            "type": "shared_expenses/create_payment",
+            "group_id": household["mine"].id,
+            "from_member_id": household["my_admin"].id,
+            "to_member_id": household["my_admin"].id,
+            "amount": 1_000,
+            "payment_date": NOW.isoformat(),
+            "expense_id": household["their_expense"].id,
+        },
+    )
+
+    assert connection.errors != {}
+
+
 async def test_a_debt_becomes_a_reimbursement(
     loaded: FakeHass,
     household: dict[str, Any],

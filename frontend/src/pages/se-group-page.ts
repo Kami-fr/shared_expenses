@@ -1285,10 +1285,14 @@ export class SeGroupPage extends LitElement {
           .members=${this.membersForPayment(this.editedPayment)}
           .payment=${this.editedPayment}
           .settlement=${this.prefill}
+          .expenses=${this.expenses}
+          .categories=${this.categories}
+          .openable=${this.openableExpenses()}
           .language=${this.language}
           @dialog-cancelled=${this.closeDialog}
           @payment-saved=${this.handleChanged}
           @payment-deleted=${this.handleChanged}
+          @open-expense=${this.openRelated}
         ></se-payment-dialog>
       `;
     }

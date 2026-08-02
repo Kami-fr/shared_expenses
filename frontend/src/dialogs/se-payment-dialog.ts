@@ -1,10 +1,11 @@
-import { LitElement, html, nothing } from "lit";
+import { LitElement, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
 import "../components/se-button";
 import "../components/se-currency-field";
 import "../components/se-dialog";
 import "../components/se-entity-history";
+import "../components/se-expense-picker";
 import "../components/se-field";
 import "../components/se-select";
 import type { CreatePaymentInput, SharedExpensesApi } from "../services/api";
@@ -18,12 +19,21 @@ import {
 } from "../services/format";
 import { errorMessage, type Localizer } from "../services/localize";
 import { sharedStyles } from "../styles/shared";
-import type { Group, Member, Payment, PaymentKind, Settlement } from "../types";
+import type {
+  Category,
+  Expense,
+  Group,
+  Member,
+  Payment,
+  PaymentKind,
+  Settlement,
+} from "../types";
 
 /**
  * Dialog recording or correcting a payment.
  *
- * Fires `payment-saved` on success and `payment-deleted` after a deletion.
+ * Fires `payment-saved` on success, `payment-deleted` after a deletion, and
+ * `open-expense` when the reader asks for the expense this payment is about.
  */
 @customElement("se-payment-dialog")
 export class SePaymentDialog extends LitElement {
@@ -37,6 +47,21 @@ export class SePaymentDialog extends LitElement {
 
   /** Set to edit a recorded payment, leave out to record one. */
   @property({ attribute: false }) public payment?: Payment;
+
+  /**
+   * Every expense of the group, so a payment can name what it was about.
+   *
+   * All of them, purchases and refunds alike. A payment is not a share of what
+   * it names — one handover settles a month of them, and "here is your part of
+   * what Decathlon sent back" is a sentence somebody will want to write.
+   */
+  @property({ attribute: false }) public expenses: Expense[] = [];
+
+  /** For the marks on the rows the picker offers. */
+  @property({ attribute: false }) public categories: Category[] = [];
+
+  /** Which expenses this reader may open. The page owns that rule. */
+  @property({ attribute: false }) public openable: string[] = [];
 
   /** Pre-fills the dialog from a suggested reimbursement. */
   @property({ attribute: false }) public settlement?: Settlement;
@@ -80,7 +105,31 @@ export class SePaymentDialog extends LitElement {
   /** The rate to convert at, in millionths. Null: not settled, cannot save. */
   @state() private rate: number | null = null;
 
-  public static styles = sharedStyles;
+  /** The expense this is about, or "" for none. */
+  @state() private expenseId = "";
+
+  /**
+   * Whether the reader has changed anything that leaving would throw away.
+   *
+   * Set by the gestures themselves, as the expense dialog sets its own and for
+   * the same reason: the currency field hands back a rate the moment it mounts,
+   * so a form compared against what is stored looks edited before it is touched.
+   */
+  @state() private touched = false;
+
+  /** The expense a jump is armed on, asked for and not yet confirmed. */
+  @state() private leavingTo?: string;
+
+  public static styles = [
+    sharedStyles,
+    css`
+      /* The way to the expense, under the field that names it, as the expense
+         dialog wears its own and "+ add a description" wears its. */
+      .jump {
+        margin-top: 6px;
+      }
+    `,
+  ];
 
   public connectedCallback(): void {
     super.connectedCallback();
@@ -94,6 +143,7 @@ export class SePaymentDialog extends LitElement {
       this.currency = this.payment.currency;
       this.rate = this.payment.exchange_rate;
       this.description = this.payment.description ?? "";
+      this.expenseId = this.payment.expense_id ?? "";
 
       // Unfolded when there is one: hiding what somebody wrote behind a link
       // saying "add" would read as there being nothing there.
@@ -155,20 +205,14 @@ export class SePaymentDialog extends LitElement {
               .label=${translate(debt ? "debt_who_owes" : "from_member")}
               .value=${debt ? this.toMember : this.fromMember}
               .options=${options}
-              @value-changed=${(e: CustomEvent) =>
-                debt
-                  ? (this.toMember = e.detail.value)
-                  : (this.fromMember = e.detail.value)}
+              @value-changed=${this.pickFirstMember}
             ></se-select>
 
             <se-select
               .label=${translate(debt ? "debt_to_whom" : "to_member")}
               .value=${debt ? this.fromMember : this.toMember}
               .options=${options}
-              @value-changed=${(e: CustomEvent) =>
-                debt
-                  ? (this.fromMember = e.detail.value)
-                  : (this.toMember = e.detail.value)}
+              @value-changed=${this.pickSecondMember}
             ></se-select>
           </div>
 
@@ -178,7 +222,8 @@ export class SePaymentDialog extends LitElement {
               .value=${this.amountInput}
               decimal
               required
-              @value-changed=${(e: CustomEvent) => (this.amountInput = e.detail.value)}
+              @value-changed=${(e: CustomEvent) =>
+                this.typed("amountInput", e.detail.value)}
             >
               <!-- Chosen against the figure it qualifies, as on an expense. -->
               <select
@@ -202,7 +247,7 @@ export class SePaymentDialog extends LitElement {
               .label=${translate("date")}
               type="date"
               .value=${this.date}
-              @value-changed=${(e: CustomEvent) => (this.date = e.detail.value)}
+              @value-changed=${(e: CustomEvent) => this.typed("date", e.detail.value)}
             ></se-field>
           </div>
 
@@ -226,7 +271,7 @@ export class SePaymentDialog extends LitElement {
                   .value=${this.description}
                   placeholder=${translate("description_placeholder")}
                   @value-changed=${(e: CustomEvent) =>
-                    (this.description = e.detail.value)}
+                    this.typed("description", e.detail.value)}
                 ></se-field>
               `
             : html`
@@ -234,6 +279,31 @@ export class SePaymentDialog extends LitElement {
                   + ${translate("add_description")}
                 </button>
               `}
+
+          <!--
+            What the money was about, when it was about one thing. After the
+            description and before the past, which is where the expense dialog
+            keeps the same picker: what a thing is comes first, what it refers
+            to after.
+
+            The placeholder is the refund's own — the same sentence says the
+            same thing on both sides, and a second key holding a synonym is how
+            one screen ends up wording a fact differently from another.
+          -->
+          <div>
+            <se-expense-picker
+              .localize=${this.localize}
+              .label=${translate("payment_expense")}
+              .placeholder=${translate("refund_of_nothing")}
+              .value=${this.expenseId}
+              .expenses=${this.expenses}
+              .members=${this.members}
+              .categories=${this.categories}
+              .language=${this.language}
+              @value-changed=${this.pickExpense}
+            ></se-expense-picker>
+            ${this.renderJump()}
+          </div>
 
           <!-- Only once there is a past to read: a new one has none. -->
           ${this.payment
@@ -258,6 +328,13 @@ export class SePaymentDialog extends LitElement {
                   ? "confirm_delete_debt"
                   : "confirm_delete_payment",
               )}
+            </div>`
+          : nothing}
+
+        <!-- Only while what was armed is still what the link points at. -->
+        ${this.leavingTo !== undefined && this.leavingTo === this.expenseId
+          ? html`<div slot="banner" class="warning">
+              ${translate("confirm_leave_entry")}
             </div>`
           : nothing}
 
@@ -322,12 +399,57 @@ export class SePaymentDialog extends LitElement {
   private pickCurrency = (event: Event) => {
     this.currency = (event.target as HTMLSelectElement).value;
     this.rate = this.currency === this.group.currency ? RATE_ONE : null;
+    this.touched = true;
   };
 
-  /** The currency field settled on something, or on nothing. */
+  /**
+   * The currency field settled on something, or on nothing.
+   *
+   * It says so the moment it mounts, before anybody has touched anything, so
+   * this counts as an edit only when the figure actually moves.
+   */
   private handleRate = (event: CustomEvent) => {
+    if (event.detail.currency !== this.currency || event.detail.rate !== this.rate) {
+      this.touched = true;
+    }
+
     this.currency = event.detail.currency;
     this.rate = event.detail.rate;
+  };
+
+  /** Take what somebody typed into a field, and remember that they typed it. */
+  private typed(
+    field: "amountInput" | "date" | "description",
+    value: string,
+  ): void {
+    this[field] = value;
+    this.touched = true;
+  }
+
+  /**
+   * The first field of the sentence: who owes on a debt, who paid otherwise.
+   *
+   * Which member that is swaps with the kind and the model never does, so the
+   * two handlers read the kind rather than being told which end they are.
+   */
+  private pickFirstMember = (event: CustomEvent) => {
+    if (this.kind === "debt") {
+      this.toMember = event.detail.value;
+    } else {
+      this.fromMember = event.detail.value;
+    }
+
+    this.touched = true;
+  };
+
+  private pickSecondMember = (event: CustomEvent) => {
+    if (this.kind === "debt") {
+      this.fromMember = event.detail.value;
+    } else {
+      this.toMember = event.detail.value;
+    }
+
+    this.touched = true;
   };
 
   /**
@@ -347,8 +469,66 @@ export class SePaymentDialog extends LitElement {
     }
 
     this.kind = kind;
+    this.touched = true;
     [this.fromMember, this.toMember] = [this.toMember, this.fromMember];
   };
+
+  /** Take the expense this is about, or take the link off. */
+  private pickExpense = (event: CustomEvent) => {
+    this.expenseId = event.detail.value;
+    this.touched = true;
+
+    // Whatever was armed was armed on the expense that has just been replaced.
+    this.leavingTo = undefined;
+  };
+
+  /**
+   * The way through to the expense this payment is about.
+   *
+   * Only when there is somewhere to go: an expense since deleted, or one this
+   * reader may not open, gets no link at all. A link that does nothing is worse
+   * than a line of plain text.
+   */
+  private renderJump() {
+    if (this.expenseId === "" || !this.openable.includes(this.expenseId)) {
+      return nothing;
+    }
+
+    const armed = this.leavingTo === this.expenseId;
+
+    return html`
+      <button class="link jump" @click=${() => this.jumpTo(this.expenseId)}>
+        ${this.localize(armed ? "confirm_leave" : "open_expense")}
+      </button>
+    `;
+  }
+
+  /**
+   * Open the expense, closing this on the way.
+   *
+   * Dialog to dialog, as the journal goes and as a refund goes to its purchase.
+   * Asked about first when there is something to lose: cancelling says "leave"
+   * and this says "open that one", and somebody who has just corrected a figure
+   * is not asking for it to be thrown away.
+   */
+  private jumpTo(expenseId: string) {
+    if (this.leavingTo !== expenseId && this.touched) {
+      this.leavingTo = expenseId;
+
+      // One question at a time: both speak in the banner.
+      this.confirmingDelete = false;
+
+      return;
+    }
+
+    this.dispatchEvent(
+      new CustomEvent("open-expense", {
+        detail: { expenseId },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
 
   private cancel = () => {
     this.dispatchEvent(new CustomEvent("dialog-cancelled", { bubbles: true, composed: true }));
@@ -376,6 +556,9 @@ export class SePaymentDialog extends LitElement {
       ...(this.rate !== null && this.rate !== RATE_ONE
         ? { exchange_rate: this.rate }
         : {}),
+      // Null and not omitted: on an update, leaving it out would keep a link
+      // the reader has just taken off.
+      expense_id: this.expenseId || null,
     };
 
     // Everything the create sends, minus the group a payment cannot move
@@ -411,6 +594,7 @@ export class SePaymentDialog extends LitElement {
 
     if (!this.confirmingDelete) {
       this.confirmingDelete = true;
+      this.leavingTo = undefined;
       return;
     }
 

@@ -1011,6 +1011,7 @@ class SharedExpensesManager:
         exchange_rate: int | None = None,
         description: str | None = None,
         kind: PaymentKind = PaymentKind.REIMBURSEMENT,
+        expense_id: str | None = None,
         actor_user_id: str | None = None,
     ) -> Payment:
         """Create a payment.
@@ -1022,6 +1023,8 @@ class SharedExpensesManager:
         `currency` is what was handed over, the group's unless said otherwise.
         It converts on the way in, once, exactly as an expense does: 100 USD paid
         back does not clear 100 EUR owed.
+
+        `expense_id` is what it was about, when it was about one thing.
         """
 
         group = await self._get_active_group(group_id)
@@ -1059,6 +1062,7 @@ class SharedExpensesManager:
             converted_amount=converted,
             exchange_rate=rate,
             rate_as_of=rate_as_of,
+            expense_id=await self._settled_expense(expense_id, group_id),
             created_by_member_id=await self._member_of(actor_user_id),
         )
 
@@ -1076,6 +1080,42 @@ class SharedExpensesManager:
             )
 
         return payment
+
+    async def _settled_expense(
+        self,
+        expense_id: str | None,
+        group_id: str,
+    ) -> str | None:
+        """Return the expense a payment names, refusing one it cannot name.
+
+        One way it cannot: an expense of another project. An id is enough to ask
+        with, and without this the answer would come back — the same door the
+        refund side keeps shut, and the same reason.
+
+        Nothing else is refused, and the restraint is deliberate. A payment is
+        not a share of the expense it names: it can be more, because one handover
+        settles a month of them, and it can be less, because somebody paid half
+        of what they owed. It can even name a refund — "I am giving you your part
+        of what Decathlon sent back" is a real sentence. The link says what the
+        money was about, and what money is about is not the manager's to judge.
+
+        Refused rather than quietly dropped, as the refund's is: a link that does
+        not appear reads as a save that did not take, and somebody would only try
+        again.
+        """
+
+        if expense_id is None:
+            return None
+
+        expense = await self.get_expense(expense_id)
+
+        if expense.group_id != group_id:
+            raise InvalidPaymentError(
+                "An expense of another project cannot be settled here.",
+                code="payment_expense_other_project",
+            )
+
+        return expense_id
 
     async def get_payment(self, payment_id: str) -> Payment:
         """Return a payment."""
@@ -1129,6 +1169,13 @@ class SharedExpensesManager:
             converted_amount=converted,
             exchange_rate=rate,
             rate_as_of=rate_as_of,
+            # Checked here as well as on the way in. An update carries the whole
+            # payment, so a link this group has no business holding would
+            # otherwise arrive by the back door.
+            expense_id=await self._settled_expense(
+                payment.expense_id,
+                payment.group_id,
+            ),
         )
 
         changes = revisions.diff(
@@ -1645,6 +1692,11 @@ class SharedExpensesManager:
             converted_amount=converted,
             exchange_rate=rate,
             rate_as_of=rate_as_of,
+            # Straight from the snapshot and not checked again: it was checked
+            # when it was written, and what it names may well be away too — a
+            # month's tidying up deletes an expense and the payment about it, and
+            # bringing either back must not depend on the order.
+            expense_id=state.get("expense_id"),
             created_by_member_id=state.get("created_by_member_id"),
         )
 

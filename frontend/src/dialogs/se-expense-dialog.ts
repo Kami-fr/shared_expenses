@@ -620,7 +620,7 @@ export class SeExpenseDialog extends LitElement {
         ${this.leavingTo !== undefined &&
         this.visibleTargets(refund).includes(this.leavingTo)
           ? html`<div slot="banner" class="warning">
-              ${translate("confirm_leave_expense")}
+              ${translate("confirm_leave_entry")}
             </div>`
           : nothing}
 
