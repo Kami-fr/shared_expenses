@@ -18,6 +18,7 @@ import type {
   HaUser,
   HomeAssistant,
   Member,
+  Permission,
 } from "../types";
 
 /**
@@ -43,14 +44,11 @@ export class SeMemberDialog extends LitElement {
 
   @property({ type: String }) public groupId!: string;
 
-  /** What the reader is here. Handing the project on is the admin's alone. */
-  @property({ attribute: false }) public role: GroupRole | null = null;
-
   /** Which member the reader is, if any. Yourself is always yours to change. */
   @property({ type: String }) public meId: string | null = null;
 
-  /** Whether the project lets the reader touch anybody but themselves. */
-  @property({ type: Boolean }) public mayManage = false;
+  /** What an ordinary member of this project may do: the project's own rule. */
+  @property({ attribute: false }) public permissions: Permission[] = [];
 
   @state() private haUsers: HaUser[] = [];
 
@@ -217,7 +215,12 @@ export class SeMemberDialog extends LitElement {
     const translate = this.localize;
 
     return html`
-      <se-dialog open heading=${translate("members")} @dialog-closed=${this.close}>
+      <se-dialog
+        open
+        heading=${translate("members")}
+        .localize=${this.localize}
+        @dialog-closed=${this.close}
+      >
         ${this.loading
           ? html`<div class="empty">${translate("loading")}</div>`
           : html`
@@ -256,7 +259,7 @@ export class SeMemberDialog extends LitElement {
     // Ticking somebody in or out is managing the members — unless the somebody
     // is you, on your way out.
     const isMe = member !== undefined && member.id === this.meId;
-    const mayToggle = this.mayManage || isMe;
+    const mayToggle = this.mayManage() || isMe;
 
     return html`
       <div class="row">
@@ -312,7 +315,7 @@ export class SeMemberDialog extends LitElement {
    * become an ordinary member, and only the new admin can hand it on again.
    */
   private renderHandOver(member: Member | undefined, admin: boolean) {
-    if (this.role !== "admin" || !member || admin) {
+    if (this.myRole() !== "admin" || !member || admin) {
       return nothing;
     }
 
@@ -382,7 +385,7 @@ export class SeMemberDialog extends LitElement {
     seed: string,
   ) {
     const avatar = renderAvatar(member, name, seed);
-    const mayEdit = member && (member.id === this.meId || this.mayManage);
+    const mayEdit = member && (member.id === this.meId || this.mayManage());
 
     if (!member || !mayEdit) {
       return avatar;
@@ -440,9 +443,16 @@ export class SeMemberDialog extends LitElement {
         ${member.use_ha_avatar && photo
           ? nothing
           : html`
+              <!--
+                live(), for the same reason as the box above: the picker writes
+                its own value before it tells anybody, so a save the backend
+                refuses leaves it showing a colour nobody stored — next to an
+                avatar still drawn in the old one, with nothing saying which is
+                true. Compared against the DOM, the stored colour comes back.
+              -->
               <se-color-picker
                 .localize=${this.localize}
-                .value=${member.color}
+                .value=${live(member.color)}
                 .fallback=${colorFor(member.id)}
                 @value-changed=${(e: CustomEvent) => this.tint(member, e.detail.value)}
               ></se-color-picker>
@@ -511,7 +521,7 @@ export class SeMemberDialog extends LitElement {
                 A guest has no account, so they are never you: removing one is
                 always managing the members, and the project has to allow it.
               -->
-              ${this.mayManage
+              ${this.mayManage()
                 ? html`<button
                     class=${`remove ${this.confirming === member.id ? "danger" : ""}`}
                     ?disabled=${this.busy !== undefined}
@@ -531,7 +541,7 @@ export class SeMemberDialog extends LitElement {
             <div class="row gone">
               ${renderAvatar(member, member.name, member.id)}
               <span class="name">${member.name}</span>
-              ${this.mayManage
+              ${this.mayManage()
                 ? html`<se-button
                     variant="text"
                     ?disabled=${this.busy !== undefined}
@@ -543,7 +553,7 @@ export class SeMemberDialog extends LitElement {
             </div>
           `,
         )}
-        ${this.mayManage
+        ${this.mayManage()
           ? html`<div class="add">
               <se-field
                 .label=${translate("member_name")}
@@ -584,6 +594,39 @@ export class SeMemberDialog extends LitElement {
         membership.left_at === null &&
         membership.role === "admin",
     );
+  }
+
+  /**
+   * What the reader is here, read from the memberships this dialog has loaded.
+   *
+   * Not inherited from the page, and that is the point: handing the project on
+   * makes you an ordinary member while the dialog is still open, and the page
+   * only hears about it on close. Kept stale, the panel goes on offering the
+   * admin's buttons to somebody the backend now refuses — and a button that
+   * always errors is worse than no button.
+   */
+  private myRole(): GroupRole | null {
+    if (this.meId === null) {
+      return null;
+    }
+
+    return (
+      this.memberships.find(
+        (membership) =>
+          membership.member_id === this.meId && membership.left_at === null,
+      )?.role ?? null
+    );
+  }
+
+  /**
+   * Whether the project lets the reader touch anybody but themselves.
+   *
+   * The same rule the page applies, on the standing this dialog just read: the
+   * admin passes through everything, everybody else only what the project
+   * allows. Handing the project on therefore takes the guests away with it.
+   */
+  private mayManage(): boolean {
+    return this.myRole() === "admin" || this.permissions.includes("manage_members");
   }
 
   private async load() {
@@ -633,6 +676,17 @@ export class SeMemberDialog extends LitElement {
     try {
       if (member) {
         await this.api.removeMemberFromGroup(this.groupId, member.id);
+
+        // On your own way out, stop here. Every command this dialog issues is
+        // scoped to the project, and the project is no longer yours to read:
+        // reloading would come back "this group no longer exists" and paint a
+        // failure over a departure that worked. Close instead, and let the page
+        // find out — it reloads on `members-changed` and takes the reader away.
+        if (member.id === this.meId) {
+          this.dirty = true;
+          this.close();
+          return;
+        }
       } else {
         // Attaches the account, reusing the member it already has elsewhere.
         await this.api.createMember({

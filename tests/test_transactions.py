@@ -20,13 +20,20 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import aiosqlite
 import pytest
 
-from custom_components.shared_expenses.const import DATABASE_NAME
+from custom_components.shared_expenses.const import (
+    DATABASE_NAME,
+    DATABASE_VERSION,
+    EVENT_CHANGED,
+)
 from custom_components.shared_expenses.exceptions import DatabaseNotReadyError
+from custom_components.shared_expenses.manager import SharedExpensesManager
 from custom_components.shared_expenses.models import Member
+from custom_components.shared_expenses.storage import migrations
 from custom_components.shared_expenses.storage.database import Database
 from tests.conftest import FakeHass
 
@@ -234,10 +241,11 @@ async def test_what_is_announced_can_already_be_read(
 async def test_an_announcement_outside_a_transaction_is_sent_at_once(
     database: Database,
 ) -> None:
-    """`delete_group` is the one write that journals nothing and speaks anyway.
+    """With no transaction of this task's own there is nothing to wait for.
 
-    It never opens a transaction, so there is nothing to wait for: the
-    connection runs in autocommit, and its statement has already landed.
+    The connection runs in autocommit, so a lone statement has already landed by
+    the time anyone could ask. Every announcing write does open a transaction —
+    this holds the door's own fall-through, not a caller that relies on it.
     """
 
     said: list[str] = []
@@ -245,6 +253,60 @@ async def test_an_announcement_outside_a_transaction_is_sent_at_once(
     database.after_commit(lambda: said.append("moved"))
 
     assert said == ["moved"]
+
+
+async def test_deleting_a_group_waits_its_turn_like_every_other_write(
+    hass: FakeHass,
+    manager: SharedExpensesManager,
+    project: dict[str, Any],
+) -> None:
+    """The one write that used to skip the transaction, and what that cost.
+
+    It issued a bare `DELETE`, which takes no lock: on the one connection the
+    statement — and the cascade over the group's expenses, shares, payments,
+    memberships and revisions — landed inside whatever `BEGIN` another task had
+    open. `after_commit` then saw that task rather than this one and spoke at
+    once, so the house heard a project was gone; the other task rolled back, and
+    the group came back with everything in it.
+    """
+
+    group_id = project["group"].id
+
+    hass.bus.events.clear()
+
+    held = asyncio.Event()
+    release = asyncio.Event()
+
+    async def doomed() -> None:
+        async with manager.database.transaction():
+            await manager.database.member_repository.create(a_member("doomed"))
+
+            held.set()
+            await release.wait()
+
+            raise RuntimeError("no")
+
+    other = asyncio.ensure_future(doomed())
+    await held.wait()
+
+    deleting = asyncio.ensure_future(manager.delete_group(group_id))
+
+    # Real time rather than a yield: the driver runs its statements on a thread,
+    # and a delete free of the lock would have got all the way through in this.
+    await asyncio.sleep(0.05)
+
+    assert not deleting.done(), "the delete did not wait for the writer before it"
+    assert hass.bus.events == [], "announced a deletion that had not happened"
+
+    release.set()
+
+    with pytest.raises(RuntimeError):
+        await other
+
+    await deleting
+
+    assert await manager.database.group_repository.get(group_id) is None
+    assert [name for name, _ in hass.bus.events] == [EVENT_CHANGED]
 
 
 async def test_a_listener_that_throws_does_not_stop_the_others(
@@ -272,6 +334,61 @@ async def test_a_listener_that_throws_does_not_stop_the_others(
 
 
 #
+# A migration is all or nothing
+#
+
+
+async def test_a_failed_migration_leaves_the_database_where_it_was(
+    hass: FakeHass,
+    database: Database,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A half-applied migration used to be the end of the integration.
+
+    The connection runs in autocommit, so every statement of a script landed on
+    its own. A failure between the first `ALTER TABLE` and the
+    `UPDATE schema_version` on the last line — a full disk, a container stopped
+    mid-write — left the column added and the version behind, and the retry at
+    the next start died on `duplicate column name`, at that start and at every
+    one after it.
+    """
+
+    monkeypatch.setattr(migrations, "SQL_PATH", tmp_path)
+
+    script = tmp_path / "migration_v99.sql"
+    script.write_text(
+        "ALTER TABLE members ADD COLUMN nickname TEXT;\n"
+        "UPDATE members SET nickname = no_such_column;\n"
+        "UPDATE schema_version SET version = 99;\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(aiosqlite.Error):
+        await migrations._run_script(
+            database.connection, hass, "migration_v99.sql"
+        )
+
+    cursor = await database.connection.execute("PRAGMA table_info(members)")
+    names = {row["name"] for row in await cursor.fetchall()}
+    await cursor.close()
+
+    assert "nickname" not in names, "the migration left half of itself behind"
+    assert await migrations._current_version(database.connection) == (
+        DATABASE_VERSION
+    )
+
+    # So the retry fails where it failed the first time, on the statement that
+    # went wrong, rather than on a column the last attempt had already added.
+    with pytest.raises(aiosqlite.Error) as failed:
+        await migrations._run_script(
+            database.connection, hass, "migration_v99.sql"
+        )
+
+    assert "no_such_column" in str(failed.value)
+
+
+#
 # What a closed database says
 #
 
@@ -290,3 +407,19 @@ async def test_a_closed_database_says_so_in_every_build(
 
     with pytest.raises(DatabaseNotReadyError):
         _ = database.connection
+
+
+async def test_a_read_after_close_says_it_too(database: Database) -> None:
+    """The moment it was written for is a read, and the read went round it.
+
+    Every repository was handed the connection object at `initialize` and kept
+    it, so `close` emptied the database and left them holding a shut file. The
+    coordinator's re-read then died on the driver's own
+    `ValueError("Connection closed")` — not a `SharedExpensesError`, so not one
+    lost cycle but a full traceback in the log.
+    """
+
+    await database.close()
+
+    with pytest.raises(DatabaseNotReadyError):
+        await database.member_repository.list_all()

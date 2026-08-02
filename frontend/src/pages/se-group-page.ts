@@ -22,6 +22,7 @@ import {
   formatDayDate,
   formatMoney,
   moneyNeedles,
+  sortByName,
 } from "../services/format";
 import { errorMessage, type Localizer } from "../services/localize";
 import { sharedStyles } from "../styles/shared";
@@ -593,12 +594,32 @@ export class SeGroupPage extends LitElement {
    * showing the one it first loaded, which read as the switcher being broken.
    * The initial group is already loaded in `connectedCallback`, so this fires
    * only on a real change, where `changed.get` holds the group left behind.
+   *
+   * What is on screen goes first. `load` fills these in only when it succeeds,
+   * so a switch that fails — the integration reloading, a dropped connection —
+   * would leave the group left behind on the page while `groupId` already names
+   * another: one group in the header and its expenses in the list, another one
+   * in the address and in the member dialog. Cleared here, the page holds on
+   * the error until a load goes through and everything on it is one group's.
    */
   protected updated(changed: Map<string, unknown>): void {
     if (changed.has("groupId") && changed.get("groupId")) {
       this.loading = true;
+      this.forget();
       void this.load();
     }
+  }
+
+  /** Drop what is on screen: none of it belongs to the group being opened. */
+  private forget() {
+    this.group = undefined;
+    this.members = [];
+    this.pastMembers = [];
+    this.memberships = [];
+    this.categories = [];
+    this.expenses = [];
+    this.payments = [];
+    this.result = undefined;
   }
 
   protected render() {
@@ -819,6 +840,10 @@ export class SeGroupPage extends LitElement {
   }
 
   private deleteGroup = async () => {
+    if (!this.group) {
+      return;
+    }
+
     // Deleting takes every expense with it: ask once, in place.
     if (!this.confirmingDelete) {
       this.confirmingDelete = true;
@@ -828,7 +853,9 @@ export class SeGroupPage extends LitElement {
     this.busy = true;
 
     try {
-      await this.api.deleteGroup(this.groupId);
+      // The group on screen, never `groupId`: they are the same one only once a
+      // load has gone through, and this is the one action nothing undoes.
+      await this.api.deleteGroup(this.group.id);
 
       this.menu = undefined;
       this.goBack();
@@ -1024,7 +1051,7 @@ export class SeGroupPage extends LitElement {
             ${payment.description || this.localize(debt ? "a_debt" : "a_settlement")}
           </div>
           <div class="muted">
-            ${formatDayDate(payment.payment_date, this.language)}
+            ${formatDayDate(payment.payment_date, this.language, "UTC")}
           </div>
         </div>
         <div class="tail">
@@ -1161,7 +1188,7 @@ export class SeGroupPage extends LitElement {
           -->
           ${category ? html`<div class="muted">${category.name}</div>` : nothing}
           <div class="muted">
-            ${formatDayDate(expense.expense_date, this.language)}
+            ${formatDayDate(expense.expense_date, this.language, "UTC")}
           </div>
         </div>
         <div class="tail">
@@ -1322,6 +1349,9 @@ export class SeGroupPage extends LitElement {
           .categories=${this.categories}
           .expenses=${this.expenses}
           .payments=${this.payments}
+          .openable=${this.openableEntries()}
+          .meId=${this.meId()}
+          .mayEditOthers=${this.may("edit_others")}
           .language=${this.language}
           @dialog-cancelled=${this.closeDialog}
           @revision-picked=${this.openFromHistory}
@@ -1350,6 +1380,7 @@ export class SeGroupPage extends LitElement {
           .api=${this.api}
           .localize=${this.localize}
           .group=${this.group}
+          .mayManageGroup=${this.may("manage_group")}
           .members=${this.members}
           .language=${this.language}
           @dialog-cancelled=${this.closeDialog}
@@ -1363,10 +1394,9 @@ export class SeGroupPage extends LitElement {
         .api=${this.api}
         .hass=${this.hass}
         .localize=${this.localize}
-        .groupId=${this.groupId}
-        .role=${this.myRole()}
+        .groupId=${this.group.id}
         .meId=${this.meId()}
-        .mayManage=${this.may("manage_members")}
+        .permissions=${this.group.permissions}
         @dialog-cancelled=${this.closeDialog}
         @members-changed=${this.handleChanged}
       ></se-member-dialog>
@@ -1479,6 +1509,22 @@ export class SeGroupPage extends LitElement {
   }
 
   /**
+   * The same, for everything the journal points at.
+   *
+   * The journal lists expenses and payments side by side, so it needs both:
+   * an entry whose thing this reader may not open gets no chevron, and pressing
+   * it opens nothing. Ids are unique across the two, so one list serves.
+   */
+  private openableEntries(): string[] {
+    return [
+      ...this.openableExpenses(),
+      ...this.payments
+        .filter((payment) => this.mayEdit(payment))
+        .map((payment) => payment.id),
+    ];
+  }
+
+  /**
    * Who the expense dialog may offer.
    *
    * The active members, plus anyone this very expense already involves. Someone
@@ -1562,7 +1608,7 @@ export class SeGroupPage extends LitElement {
       this.members = withAvatars(members, this.hass);
       this.pastMembers = withAvatars(pastMembers, this.hass);
       this.memberships = memberships;
-      this.categories = categories;
+      this.categories = sortByName(categories, this.language);
       this.expenses = expenses;
       this.payments = payments;
       this.result = result;
@@ -1689,7 +1735,8 @@ export class SeGroupPage extends LitElement {
       const payment = entry.payment;
 
       return [
-        this.localize("a_settlement"),
+        // The word the row itself shows, which is not the same one for a debt.
+        this.localize(payment.kind === "debt" ? "a_debt" : "a_settlement"),
         payment.description ?? "",
         nameOf(payment.from_member_id),
         nameOf(payment.to_member_id),
@@ -1755,6 +1802,12 @@ export class SeGroupPage extends LitElement {
    *
    * The journal closes on the way: two stacked dialogs would leave no way back
    * that is not a guess, and the history you wanted is inside the one opening.
+   *
+   * Checked again here rather than trusted, exactly as `openRelated` does: the
+   * journal was handed what may be opened, and this is where that is decided.
+   * Somebody else's expense is a row you may not press in the list, and the
+   * journal is not a way round it — the dialog has no reading-only shape, so it
+   * would offer a Save the backend then refuses.
    */
   private openFromHistory = (event: CustomEvent) => {
     const { entityType, entityId } = event.detail;
@@ -1762,7 +1815,7 @@ export class SeGroupPage extends LitElement {
     if (entityType === "expense") {
       const expense = this.expenses.find((item) => item.id === entityId);
 
-      if (expense) {
+      if (expense && this.mayEdit(expense)) {
         this.openExpense(expense);
       }
 
@@ -1771,7 +1824,7 @@ export class SeGroupPage extends LitElement {
 
     const payment = this.payments.find((item) => item.id === entityId);
 
-    if (payment) {
+    if (payment && this.mayEdit(payment)) {
       this.openPayment(undefined, payment);
     }
   };
@@ -1872,7 +1925,16 @@ export class SeGroupPage extends LitElement {
     this.error = undefined;
 
     try {
-      this.group = await this.api.archiveGroup(this.group.id, !this.group.archived);
+      const group = await this.api.archiveGroup(this.group.id, !this.group.archived);
+
+      this.group = group;
+
+      // The switcher reads its own list, filled in by `load` and by nothing
+      // else: left alone it would go on showing the tag this group has just
+      // dropped, next to groups that do wear theirs. A new array, or Lit sees
+      // the same one and draws the same thing.
+      this.groups = this.groups.map((item) => (item.id === group.id ? group : item));
+
       this.menu = undefined;
     } catch (error) {
       this.error = errorMessage(error, this.localize);

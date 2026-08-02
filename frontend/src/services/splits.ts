@@ -156,16 +156,23 @@ function resolveRemainder(
     return null;
   }
 
+  // Kept in the order the rule declares them, not the order the members come
+  // in: the cents that flooring loses are handed out by position further down,
+  // and the backend comprehends over `remainder.percent` itself. A rule whose
+  // percentages are typed in another order than its members would otherwise
+  // give that cent to somebody else here than the backend gave it to.
   const fixed: Record<string, number> = {};
   const percent: Record<string, number> = {};
 
-  for (const memberId of members) {
-    if (memberId in declaredFixed) {
-      fixed[memberId] = declaredFixed[memberId];
+  for (const [memberId, value] of Object.entries(declaredFixed)) {
+    if (members.includes(memberId)) {
+      fixed[memberId] = value;
     }
+  }
 
-    if (memberId in declaredPercent) {
-      percent[memberId] = declaredPercent[memberId];
+  for (const [memberId, value] of Object.entries(declaredPercent)) {
+    if (members.includes(memberId)) {
+      percent[memberId] = value;
     }
   }
 

@@ -16,7 +16,14 @@ from ..exceptions import InvalidExchangeRateError
 RATE_ONE = 1_000_000
 
 #: The most a rate can be, so a typo cannot turn 5 EUR into a fortune.
-RATE_MAX = RATE_ONE * 10_000
+#:
+#: A hundred thousand units per unit. Wide enough for every pair the panel
+#: offers — a group counting in rupiah asks some twenty thousand of them for a
+#: pound, and a ceiling under that would leave that group unable to record a
+#: foreign expense at all, by hand or by fetched rate. Narrow enough to still
+#: catch the typo it is here for: a rate pasted in millionths, 876810 for
+#: 0,87681, is refused as it always was.
+RATE_MAX = RATE_ONE * 100_000
 
 
 def validate_rate(rate: int) -> int:
@@ -89,10 +96,12 @@ def apportion(amounts: Mapping[str, int], total: int) -> dict[str, int]:
     A refund makes the whole trip the other way, shares and total together. What
     is refused is the two disagreeing: a share pulling against its own total is
     not a rounding question, it is a caller that has lost track of which way the
-    money went.
+    money went. A refund too small to convert to a cent still went that way: a
+    zero total between negative shares comes back as a zero share each, exactly
+    as the same sum spent does, since what can be handed over can be given back.
     """
 
-    if total < 0:
+    if total < 0 or (total == 0 and any(value < 0 for value in amounts.values())):
         if any(value > 0 for value in amounts.values()):
             raise InvalidExchangeRateError("Cannot apportion a refund into a debt.")
 

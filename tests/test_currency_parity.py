@@ -86,6 +86,11 @@ TYPED = (
     "0.1234567",
     "0",
     "-1",
+    # Either side of the ceiling, so the two mirrors cannot drift apart on where
+    # a rate stops being plausible: twenty-one thousand rupiah to the pound is a
+    # rate a group really asks for, and ten times that is a typo.
+    "21000",
+    "200000",
 )
 
 

@@ -1,5 +1,5 @@
 import { LitElement, css, html, nothing } from "lit";
-import { customElement, property } from "lit/decorators.js";
+import { customElement, property, query } from "lit/decorators.js";
 
 export interface SelectOption {
   value: string;
@@ -22,6 +22,8 @@ export class SeSelect extends LitElement {
   @property({ type: String }) public placeholder?: string;
 
   @property({ type: Boolean }) public disabled = false;
+
+  @query("select") private box?: HTMLSelectElement;
 
   public static styles = css`
     :host {
@@ -67,6 +69,23 @@ export class SeSelect extends LitElement {
       color: var(--primary-text-color);
     }
   `;
+
+  /**
+   * Say again what is selected, now that there is something to select.
+   *
+   * The `.value` below is set while the box is still empty — the options are
+   * inserted after it — so on the first render it lands on nothing and the
+   * browser picks the first option for want of anything better. A value naming
+   * no option has to show as no choice at all rather than quietly take up
+   * somebody's name: a member field reading a whole sentence over an empty
+   * model is how a greyed-out button ends up with nothing on screen explaining
+   * itself.
+   */
+  protected updated(): void {
+    if (this.box && this.box.value !== this.value) {
+      this.box.value = this.value;
+    }
+  }
 
   protected render() {
     return html`

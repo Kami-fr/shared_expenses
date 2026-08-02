@@ -33,6 +33,15 @@ import type { Localizer } from "./services/localize";
 import { sharedStyles } from "./styles/shared";
 import type { Balance, HomeAssistant, Member, Settlement } from "./types";
 
+/**
+ * How long a card that could not load waits before asking again, in ms.
+ *
+ * Long enough that a card left broken on a wall is not a poll worth counting,
+ * short enough that an integration reloaded from the settings page is back on
+ * the tablet before anybody has walked to it.
+ */
+const RETRY_DELAY = 30000;
+
 export interface CardConfig {
   type: string;
   group_id?: string;
@@ -58,6 +67,18 @@ export class SharedExpensesCard extends LitElement {
 
   /** How to stop listening, once we are. */
   private unsubscribe?: () => Promise<void>;
+
+  /**
+   * Which `start` is the current one.
+   *
+   * A start is three round trips long, and the card can be taken off the view
+   * or pointed at another project in the middle of one. Whatever comes back
+   * after that belongs to nobody, and is told apart by this.
+   */
+  private generation = 0;
+
+  /** A load that failed, waiting to be tried again. */
+  private retryTimer?: number;
 
   /** The project this card is already showing, so it is not reloaded forever. */
   private loadedFor?: string;
@@ -151,6 +172,8 @@ export class SharedExpensesCard extends LitElement {
   }
 
   private async start(groupId: string): Promise<void> {
+    const generation = ++this.generation;
+
     await this.stop();
     await this.load(groupId);
 
@@ -158,19 +181,60 @@ export class SharedExpensesCard extends LitElement {
     // is opened and closed. Without this the card would sit on the balances as
     // they were when the page was loaded, and look perfectly current doing it.
     try {
-      this.unsubscribe = await this.api!.subscribeGroup(groupId, () => {
+      const unsubscribe = await this.api!.subscribeGroup(groupId, () => {
         void this.load(groupId);
       });
+
+      // Everything above took a while, and the card may be off the view or on
+      // another project by now. Kept, this would go on listening for an element
+      // nobody can reach, and there would be nothing left holding the handle
+      // that closes it.
+      if (!this.isConnected || generation !== this.generation) {
+        await unsubscribe().catch(() => undefined);
+
+        return;
+      }
+
+      this.unsubscribe = unsubscribe;
     } catch {
       // The load above already said what is wrong, in words. A card that could
       // not listen still shows what it read.
     }
+
+    if (this.error && this.isConnected && generation === this.generation) {
+      this.retryLater(groupId, generation);
+    }
+  }
+
+  /**
+   * Ask again, later, when the ask failed.
+   *
+   * Nothing else will. `loadedFor` is set, so the constant stream of `hass`
+   * updates goes past without a word, and a load that failed usually took its
+   * subscription down with it — an integration still starting refuses both — so
+   * there is no ping coming either. Without this the card says "The integration
+   * is not loaded." until somebody reloads the browser, long after it is.
+   */
+  private retryLater(groupId: string, generation: number): void {
+    this.retryTimer = window.setTimeout(() => {
+      this.retryTimer = undefined;
+
+      if (this.isConnected && generation === this.generation) {
+        void this.start(groupId);
+      }
+    }, RETRY_DELAY);
   }
 
   private async stop(): Promise<void> {
     const unsubscribe = this.unsubscribe;
 
     this.unsubscribe = undefined;
+
+    if (this.retryTimer !== undefined) {
+      window.clearTimeout(this.retryTimer);
+
+      this.retryTimer = undefined;
+    }
 
     // The socket is often already gone: it going is what tore the card down.
     await unsubscribe?.().catch(() => undefined);

@@ -669,6 +669,48 @@ async def test_an_expense_can_change_currency(
     assert reloaded.converted_amount != reloaded.amount
 
 
+async def test_an_expense_edit_answers_with_what_was_saved(
+    loaded: FakeHass,
+    household: dict[str, Any],
+    manager: SharedExpensesManager,
+):
+    """The reply is the stored expense, not the message that asked for it.
+
+    The handler used to serialise the expense it had built from the message,
+    which knows nothing of the converted amount, the rate and the split rule the
+    manager works out — so the same payload announced 100 USD = 100 EUR next to
+    shares read from the database that said otherwise.
+    """
+
+    connection = FakeConnection(MINE)
+
+    await call(
+        loaded,
+        connection,
+        expenses.websocket_update_expense,
+        {
+            "type": "shared_expenses/update_expense",
+            "expense_id": household["my_expense"].id,
+            "currency": "USD",
+            "exchange_rate": 876_810,
+        },
+    )
+
+    assert connection.errors == {}
+
+    reloaded = await manager.get_expense(household["my_expense"].id)
+    expense = connection.results[1]
+
+    assert expense["currency"] == reloaded.currency
+    assert expense["converted_amount"] == reloaded.converted_amount
+    assert expense["exchange_rate"] == reloaded.exchange_rate
+
+    # And the shares beside it add up to the amount it announces.
+    shared = sum(share["amount"] for share in expense["shares"])
+
+    assert shared == reloaded.converted_amount
+
+
 async def test_a_group_can_be_renamed_without_touching_its_currency(
     loaded: FakeHass,
     household: dict[str, Any],
@@ -1042,6 +1084,56 @@ async def test_a_payment_in_another_currency_goes_through(
     balances = await manager.get_balances(household["mine"].id)
 
     assert balances.balances[other.id] == -4_384
+
+
+async def test_a_payment_edit_answers_with_what_was_saved(
+    loaded: FakeHass,
+    household: dict[str, Any],
+    manager: SharedExpensesManager,
+):
+    """The reply is the stored payment, not the message that asked for it.
+
+    The handler used to serialise the payment it had built from the message,
+    which knows nothing of the converted amount and the rate the manager works
+    out — so a handover corrected to 50 USD came back announcing the euros of
+    the state before the edit, while the balances counted the new ones.
+    """
+
+    connection = FakeConnection(MINE)
+    admin = household["my_admin"]
+    other = await manager.create_group_member(
+        group_id=household["mine"].id,
+        name="Antonin",
+    )
+
+    reimbursement = await manager.create_payment(
+        group_id=household["mine"].id,
+        from_member_id=admin.id,
+        to_member_id=other.id,
+        amount=5_000,
+        payment_date=NOW,
+    )
+
+    await call(
+        loaded,
+        connection,
+        payments.websocket_update_payment,
+        {
+            "type": "shared_expenses/update_payment",
+            "payment_id": reimbursement.id,
+            "currency": "USD",
+            "exchange_rate": 876_810,
+        },
+    )
+
+    assert connection.errors == {}
+
+    reloaded = await manager.get_payment(reimbursement.id)
+    payment = connection.results[1]
+
+    assert payment["currency"] == reloaded.currency
+    assert payment["converted_amount"] == reloaded.converted_amount
+    assert payment["exchange_rate"] == reloaded.exchange_rate
 
 
 #

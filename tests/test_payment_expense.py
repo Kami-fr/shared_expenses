@@ -281,6 +281,39 @@ async def test_the_link_waits_while_the_expense_is_away(
     assert (await manager.get_payment(payment.id)).expense_id == expense.id
 
 
+async def test_a_payment_is_still_editable_while_its_expense_is_away(
+    manager: SharedExpensesManager,
+):
+    """The other half of the link waiting, and the half that was missing.
+
+    The dialog resends the link it was handed, so every save of such a payment
+    asked after an expense that is deliberately not there — and was refused.
+    The amount was never corrected, and the only way out was cutting a link the
+    product says should go on waiting.
+    """
+
+    group, stephane, antonin, expense = await a_group(manager)
+
+    payment = await a_payment(
+        manager,
+        group.id,
+        antonin.id,
+        stephane.id,
+        expense_id=expense.id,
+    )
+
+    await manager.delete_expense(expense.id)
+
+    await manager.update_payment(replace(payment, amount=4_500))
+
+    stored = await manager.get_payment(payment.id)
+
+    assert stored.amount == 4_500
+
+    # Still waiting, and still saying what it always said.
+    assert stored.expense_id == expense.id
+
+
 async def test_the_link_is_in_the_history(manager: SharedExpensesManager):
     """Putting one on is a change somebody made, and the journal says so."""
 

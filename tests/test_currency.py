@@ -64,10 +64,29 @@ def test_a_rate_must_be_positive(rate: int):
 
 
 def test_an_absurd_rate_is_refused():
-    """A typo turning 5 EUR into a fortune is worth a visible error."""
+    """A typo turning 5 EUR into a fortune is worth a visible error.
+
+    A rate pasted in millionths is the typo in question: 876810 where 0,87681
+    was meant.
+    """
 
     with pytest.raises(InvalidExchangeRateError):
-        validate_rate(RATE_ONE * 100_000)
+        validate_rate(RATE_ONE * 1_000_000)
+
+    with pytest.raises(InvalidExchangeRateError):
+        rate_from_decimal("876810")
+
+
+def test_the_widest_pair_on_offer_is_a_rate():
+    """A group counting in rupiah is a group like any other.
+
+    Rates are fetched as the currency paid in against the group's own, so an
+    IDR group asks some twenty thousand rupiah for a pound. A ceiling under
+    that would refuse the fetched rate and the hand-typed one alike, and every
+    foreign expense of that group would be unsaveable.
+    """
+
+    assert validate_rate(rate_from_decimal("21000")) == 21_000 * RATE_ONE
 
 
 def test_a_boolean_is_not_a_rate():
@@ -193,6 +212,22 @@ def test_apportion_takes_a_refund_the_whole_way_round():
     """Shares and total make the same trip, in whichever direction."""
 
     assert apportion({"a": -2_000, "b": -8_000}, -8_768) == {"a": -1_754, "b": -7_014}
+
+
+def test_apportion_gives_back_what_converts_to_nothing():
+    """A refund of half a cent is still a refund.
+
+    Five ore given back, at the rate the krona really trades at, converts to
+    nothing at all -- and the same five ore spent apportions to a zero share
+    each without a word. What can be handed over can be given back, so the
+    refund answers the same way rather than blaming a rate that is perfectly
+    good.
+    """
+
+    assert convert(-5, 87_000) == 0
+
+    assert apportion({"a": -3, "b": -2}, 0) == {"a": 0, "b": 0}
+    assert apportion({"a": 3, "b": 2}, 0) == {"a": 0, "b": 0}
 
 
 def test_apportion_refuses_a_share_pulling_against_its_total():

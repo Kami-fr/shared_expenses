@@ -19,6 +19,7 @@ import { css } from "lit";
 import "./se-icon";
 import { renderAvatar } from "./avatar";
 import { colorOf, formatDayDate, formatMoney } from "../services/format";
+import type { Localizer } from "../services/localize";
 import type { Category, Expense, Member } from "../types";
 
 /** What the row needs to name the people and the marks it draws. */
@@ -26,6 +27,7 @@ export interface ExpenseRowContext {
   members: Member[];
   categories: Category[];
   language: string;
+  localize: Localizer;
 }
 
 export function renderExpenseRow(
@@ -37,9 +39,23 @@ export function renderExpenseRow(
   );
   const category = context.categories.find((item) => item.id === expense.category_id);
 
+  // Money a shop gave back. The group page's own reading of a negative amount,
+  // and it belongs on the row rather than around it: the payment dialog offers
+  // every expense of the group in one list, purchases and refunds alike, so a
+  // purchase and the refund answering it arrive here with the same face, the
+  // same mark, the same words and the same size. Which way the money went is
+  // the only thing left to tell them apart, and the row has to say it itself.
+  const refund = expense.amount < 0;
+
   return html`
     <span class="face">
-      ${renderAvatar(payer, payer?.name ?? "?", expense.paid_by_member_id)}
+      ${renderAvatar(
+        payer,
+        payer?.name ?? "?",
+        expense.paid_by_member_id,
+        "",
+        `${context.localize(refund ? "refunded_to" : "paid_by")} ${payer?.name ?? "?"}`,
+      )}
       ${category
         ? html`<se-icon
             class="pip"
@@ -68,16 +84,17 @@ export function renderExpenseRow(
           ? html`<span class="note">${expense.description}</span>`
           : nothing}
       </span>
-      <span class="when">${formatDayDate(expense.expense_date, context.language)}</span>
+      <span class="when">${formatDayDate(expense.expense_date, context.language, "UTC")}</span>
     </span>
     <!--
-      The size, never the sign. A refund's minus is dropped here as it is on the
-      group page: these rows are read in a place that has already said which way
-      the money went — a picker offering purchases, a section headed "refunds" —
-      so a minus would be the one thing on the row saying nothing new, in the
-      one place a figure is read for how big it is.
+      The size, and the group page's green on the money that came back. Still
+      no minus, for the reason the group page has none either: the sign says
+      what the colour has already said, in the one place a figure is read for
+      how big it is. Nothing on a purchase, because a purchase is what a list
+      of expenses is made of — red on every row of one would be a decoration
+      rather than a fact, and the green would stop standing out of it.
     -->
-    <span class="figure">
+    <span class=${`figure ${refund ? "positive" : ""}`}>
       ${formatMoney(Math.abs(expense.amount), expense.currency, context.language)}
     </span>
   `;

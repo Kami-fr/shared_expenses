@@ -71,13 +71,19 @@ export function parseMoney(value: string): number | null {
  *
  * Which day of the week it was is what tells a Saturday shop from a Monday one
  * at a glance, and no amount of staring at "15 juil." gives you that.
+ *
+ * `timeZone` is left out for a moment something happened — a revision is read
+ * in the reader's own zone, as ADR-009 asks. A day somebody picked is passed
+ * `"UTC"` instead, because that is the zone `dateToIso` wrote it in and the one
+ * the backend counts it in.
  */
-export function formatDayDate(iso: string, language: string): string {
+export function formatDayDate(iso: string, language: string, timeZone?: string): string {
   const formatted = new Intl.DateTimeFormat(language, {
     weekday: "short",
     day: "numeric",
     month: "short",
     year: "numeric",
+    timeZone,
   }).format(new Date(iso));
 
   // French yields a lowercase "lun." mid-sentence; this one opens a line.
@@ -111,18 +117,32 @@ export function today(): string {
   return `${now.getFullYear()}-${month}-${day}`;
 }
 
-/** Turn a `YYYY-MM-DD` input value into an ISO timestamp for the backend. */
+/**
+ * Turn a `YYYY-MM-DD` input value into an ISO timestamp for the backend.
+ *
+ * Noon, and noon in UTC. The backend reads the calendar day straight off the
+ * timestamp it stores — which month a statistic counts the expense in, which
+ * day the exchange rate is asked for — so that day has to be the day that was
+ * typed, wherever the household lives. Noon in local time carries an offset of
+ * up to ±11:59 without changing day and then falls off the end: at UTC+13 an
+ * Auckland household typing the 1st of January files it in December.
+ */
 export function dateToIso(value: string): string {
-  return new Date(`${value}T12:00:00`).toISOString();
+  return new Date(`${value}T12:00:00Z`).toISOString();
 }
 
-/** Turn an ISO timestamp from the backend into a `YYYY-MM-DD` input value. */
+/**
+ * Turn an ISO timestamp from the backend into a `YYYY-MM-DD` input value.
+ *
+ * Read in UTC, the zone `dateToIso` wrote the day in, so that reopening a
+ * dialog offers back the day that was typed rather than the one after it.
+ */
 export function isoToDateInput(iso: string): string {
   const date = new Date(iso);
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getDate()}`.padStart(2, "0");
+  const month = `${date.getUTCMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getUTCDate()}`.padStart(2, "0");
 
-  return `${date.getFullYear()}-${month}-${day}`;
+  return `${date.getUTCFullYear()}-${month}-${day}`;
 }
 
 /** Turn an amount in cents into a value for a money input. */
@@ -155,6 +175,29 @@ export function initials(name: string): string {
   }
 
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+/**
+ * Order things by name, the way the reader's own alphabet does.
+ *
+ * The backend hands its lists back `ORDER BY name`, which SQLite reads as raw
+ * UTF-8 bytes: every lowercase name lands after every uppercase one, and every
+ * accented name after both. A French household typing "Alimentation", "Zoo",
+ * "restaurant" and "Épicerie" gets the last two filed below "Zoo", which is not
+ * the alphabetical list the order claims to be — and six of the eight languages
+ * the panel speaks produce accented names as a matter of course.
+ *
+ * `Intl.Collator` in the panel's language puts them back where they are looked
+ * for. Sorted here rather than in SQL because SQLite has no locale-aware
+ * collation to offer: `COLLATE NOCASE` folds ASCII and nothing else.
+ */
+export function sortByName<T extends { name: string }>(
+  items: readonly T[],
+  language: string,
+): T[] {
+  const collator = new Intl.Collator(language);
+
+  return [...items].sort((left, right) => collator.compare(left.name, right.name));
 }
 
 /**

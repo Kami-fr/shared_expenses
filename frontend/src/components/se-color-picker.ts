@@ -96,6 +96,35 @@ export class SeColorPicker extends LitElement {
     return found ? this.localize(found.key) : color;
   }
 
+  /**
+   * What the search leaves standing, in the order the menu shows it: automatic
+   * first, then none, then the colours. One list for both the rows and Enter,
+   * so the key takes the item at the top rather than the first colour under it.
+   */
+  private choices(): { value: string | null; name: string }[] {
+    const translate = this.localize;
+    const needle = this.query.trim().toLowerCase();
+    const kept = (name: string) => !needle || name.toLowerCase().includes(needle);
+
+    const items: { value: string | null; name: string }[] = [];
+
+    if (kept(translate("color_auto"))) {
+      items.push({ value: null, name: translate("color_auto") });
+    }
+
+    if (this.allowNone && kept(translate("color_none"))) {
+      items.push({ value: NO_COLOR, name: translate("color_none") });
+    }
+
+    for (const entry of COLORS) {
+      if (kept(translate(entry.key))) {
+        items.push({ value: entry.value, name: translate(entry.key) });
+      }
+    }
+
+    return items;
+  }
+
   protected render() {
     const translate = this.localize;
 
@@ -106,15 +135,7 @@ export class SeColorPicker extends LitElement {
           ? translate("color_none")
           : this.name(this.value);
 
-    const needle = this.query.trim().toLowerCase();
-    const matches = COLORS.filter(
-      (entry) => !needle || translate(entry.key).toLowerCase().includes(needle),
-    );
-    const showAuto = !needle || translate("color_auto").toLowerCase().includes(needle);
-    const showNone =
-      this.allowNone &&
-      (!needle || translate("color_none").toLowerCase().includes(needle));
-    const empty = matches.length === 0 && !showAuto && !showNone;
+    const items = this.choices();
 
     return html`
       ${this.label ? html`<label @click=${this.toggle}>${this.label}</label>` : nothing}
@@ -141,12 +162,10 @@ export class SeColorPicker extends LitElement {
                 @keydown=${this.onKey}
               />
               <div class="list">
-                ${showAuto ? this.renderItem(null, translate("color_auto")) : nothing}
-                ${showNone ? this.renderItem(NO_COLOR, translate("color_none")) : nothing}
-                ${matches.map((entry) =>
-                  this.renderItem(entry.value, translate(entry.key)),
-                )}
-                ${empty ? html`<div class="none">${translate("no_match")}</div>` : nothing}
+                ${items.map((item) => this.renderItem(item.value, item.name))}
+                ${items.length === 0
+                  ? html`<div class="none">${translate("no_match")}</div>`
+                  : nothing}
               </div>
             </div>
           `
@@ -209,25 +228,16 @@ export class SeColorPicker extends LitElement {
     if (event.key === "Enter") {
       event.preventDefault();
 
-      const needle = this.query.trim().toLowerCase();
-
-      if (!needle) {
+      // Without a word typed, every item still stands: there is no first one
+      // to mean, so Enter leaves the menu as it is.
+      if (!this.query.trim()) {
         return;
       }
 
-      const first = COLORS.find((entry) =>
-        this.localize(entry.key).toLowerCase().includes(needle),
-      );
+      const first = this.choices()[0];
 
       if (first) {
         this.pick(first.value);
-      } else if (this.localize("color_auto").toLowerCase().includes(needle)) {
-        this.pick(null);
-      } else if (
-        this.allowNone &&
-        this.localize("color_none").toLowerCase().includes(needle)
-      ) {
-        this.pick(NO_COLOR);
       }
     }
   };

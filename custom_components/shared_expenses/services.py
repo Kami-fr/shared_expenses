@@ -27,6 +27,8 @@ exactly this.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime
 from typing import Any
 
@@ -37,6 +39,7 @@ from homeassistant.util import dt as dt_util
 import voluptuous as vol
 
 from .const import DOMAIN
+from .exceptions import SharedExpensesError
 from .manager import SharedExpensesManager
 
 SERVICE_ADD_EXPENSE = "add_expense"
@@ -85,20 +88,21 @@ def async_setup_services(hass: HomeAssistant) -> None:
         manager = _manager(hass)
         actor = call.context.user_id
 
-        if actor is not None:
-            await manager.ensure_group_member(call.data["group_id"], actor)
+        with _as_sentence():
+            if actor is not None:
+                await manager.ensure_group_member(call.data["group_id"], actor)
 
-        await manager.create_expense(
-            group_id=call.data["group_id"],
-            title=call.data["title"],
-            amount=_cents(call.data["amount"]),
-            paid_by_member_id=call.data["paid_by_member_id"],
-            expense_date=_when(call.data.get("expense_date")),
-            currency=call.data.get("currency"),
-            category_id=call.data.get("category_id"),
-            description=call.data.get("description"),
-            actor_user_id=actor,
-        )
+            await manager.create_expense(
+                group_id=call.data["group_id"],
+                title=call.data["title"],
+                amount=_cents(call.data["amount"]),
+                paid_by_member_id=call.data["paid_by_member_id"],
+                expense_date=_when(call.data.get("expense_date")),
+                currency=call.data.get("currency"),
+                category_id=call.data.get("category_id"),
+                description=call.data.get("description"),
+                actor_user_id=actor,
+            )
 
     async def _settle_up(call: ServiceCall) -> None:
         """Record a reimbursement between two members."""
@@ -106,19 +110,20 @@ def async_setup_services(hass: HomeAssistant) -> None:
         manager = _manager(hass)
         actor = call.context.user_id
 
-        if actor is not None:
-            await manager.ensure_group_member(call.data["group_id"], actor)
+        with _as_sentence():
+            if actor is not None:
+                await manager.ensure_group_member(call.data["group_id"], actor)
 
-        await manager.create_payment(
-            group_id=call.data["group_id"],
-            from_member_id=call.data["from_member_id"],
-            to_member_id=call.data["to_member_id"],
-            amount=_cents(call.data["amount"]),
-            payment_date=_when(call.data.get("payment_date")),
-            currency=call.data.get("currency"),
-            description=call.data.get("description"),
-            actor_user_id=actor,
-        )
+            await manager.create_payment(
+                group_id=call.data["group_id"],
+                from_member_id=call.data["from_member_id"],
+                to_member_id=call.data["to_member_id"],
+                amount=_cents(call.data["amount"]),
+                payment_date=_when(call.data.get("payment_date")),
+                currency=call.data.get("currency"),
+                description=call.data.get("description"),
+                actor_user_id=actor,
+            )
 
     hass.services.async_register(
         DOMAIN,
@@ -159,6 +164,24 @@ def _manager(hass: HomeAssistant) -> SharedExpensesManager:
     return next(iter(entries.values()))["manager"]
 
 
+@contextmanager
+def _as_sentence() -> Iterator[None]:
+    """Let a business error reach the caller as its reason.
+
+    Guarded for the same reason `_manager` is, and the rest of the way: a
+    mistyped identifier is an ordinary mistake, and a `SharedExpensesError` is a
+    plain `Exception`, so Home Assistant answered "Unknown error" and wrote a
+    stack trace for it. `HomeAssistantError` is what a call that failed for a
+    reason raises, and the reason is what the action then reports. Anything else
+    still escapes untouched: a bug is not somebody's mistake.
+    """
+
+    try:
+        yield
+    except SharedExpensesError as err:
+        raise HomeAssistantError(str(err) or type(err).__name__) from err
+
+
 def _cents(amount: float) -> int:
     """Turn money into cents.
 
@@ -175,6 +198,11 @@ def _when(given: datetime | None) -> datetime:
 
     A tag scanned on the way out of a shop is about that moment, and asking an
     automation to say so would be asking it to repeat itself.
+
+    Always aware and always UTC, like every other way in — ADR-009. The
+    `datetime:` selector hands over a wall clock with no zone, which is the house
+    clock, so `dt_util.as_utc` reads it as the local time it is and not as UTC.
+    Stored naive, the same instant sorted and counted as another one.
     """
 
-    return given if given is not None else dt_util.utcnow()
+    return dt_util.as_utc(given) if given is not None else dt_util.utcnow()

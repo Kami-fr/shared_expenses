@@ -241,7 +241,7 @@ def test_the_pool_itself_can_be_refused() -> None:
         (".", "rate_not_a_rate"),
         ("0", "rate_not_positive"),
         ("-1", "rate_not_positive"),
-        ("20000", "rate_implausible"),
+        ("200000", "rate_implausible"),
         ("1.1234567", "rate_too_precise"),
     ],
 )

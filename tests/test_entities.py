@@ -559,6 +559,35 @@ async def test_the_coordinator_knows_the_projects_it_does_not_show(
     assert probe.known_group_ids == {project["group"].id}
 
 
+async def test_deleting_a_project_nobody_could_see_still_says_so(
+    manager: SharedExpensesManager,
+    project: dict[str, Any],
+) -> None:
+    """The cycle where a project goes without the snapshots moving at all.
+
+    A project that closed its switch is already out of the snapshots, so
+    deleting it hands back the very same dict — and `always_update=False` means
+    Home Assistant tells the listeners nothing when the data has not moved. The
+    sensors' `_forget` is a listener, and the only thing that takes a deleted
+    project's device down: unheard, the device and its entities sat in the
+    registry, permanently unavailable, until a restart.
+    """
+
+    probe = Probe(manager)
+
+    assert await probe._async_update_data() == {}
+    assert probe.always_update is False, "nothing moved, and nothing had to"
+
+    await manager.delete_group(project["group"].id)
+
+    assert await probe._async_update_data() == {}
+    assert probe.known_group_ids == frozenset()
+    assert probe.always_update is True, "or nobody would have told the sensors"
+
+    assert await probe._async_update_data() == {}
+    assert probe.always_update is False, "one cycle, not from here on"
+
+
 async def test_a_project_deleted_mid_read_does_not_take_the_others_down(
     manager: SharedExpensesManager,
     project: dict[str, Any],

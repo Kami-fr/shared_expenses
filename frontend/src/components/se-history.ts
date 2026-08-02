@@ -76,6 +76,17 @@ export class SeHistory extends LitElement {
 
   @property({ type: String }) public currency = "EUR";
 
+  /**
+   * What the entries here were paid in, when the list is one thing's own.
+   *
+   * `currency` above is the group's: what the shares and the default split are
+   * counted in. An amount is what was handed over, in whatever it was handed
+   * over — not always the same. The group journal reads that off the expense
+   * itself, since it holds them all; one expense's own history holds nothing
+   * but its revisions, so it is told.
+   */
+  @property({ type: String }) public paidIn = "";
+
   @property({ type: String }) public language = "en";
 
   /** Show what each revision is about. Off inside one expense's own history. */
@@ -96,13 +107,26 @@ export class SeHistory extends LitElement {
   @property({ attribute: false }) public payments: Payment[] = [];
 
   /**
-   * Whether to offer bringing a deleted entry back.
+   * Which of them this reader may open, by id. Left out, nothing is clickable.
    *
-   * Off inside one expense's own history: you got there from the expense, so it
-   * exists, so nothing on that page was ever deleted. On in the group journal,
-   * which is the only place a deleted expense can still be seen at all.
+   * Still being there is not enough: somebody else's expense, in a project that
+   * does not let its members touch what is not theirs, is a row the list below
+   * refuses to open — and the journal is not a way round it. Whose rule that is
+   * stays with the page, which knows the group's permissions and your role.
    */
-  @property({ type: Boolean }) public restorable = false;
+  @property({ attribute: false }) public openable: string[] = [];
+
+  /**
+   * Which deleted entries this reader may bring back, by id.
+   *
+   * Empty inside one expense's own history: you got there from the expense, so
+   * it exists, so nothing on that page was ever deleted. Filled in the group
+   * journal, which is the only place a deleted expense can still be seen at
+   * all — and filled with what this reader may undo rather than with all of it,
+   * since the backend asks of a restore exactly what it asks of an edit. Whose
+   * rule that is stays with whoever holds the deletions, like `openable`.
+   */
+  @property({ attribute: false }) public restorable: string[] = [];
 
   public static styles = [
     sharedStyles,
@@ -265,7 +289,9 @@ export class SeHistory extends LitElement {
   private renderEntry(revision: Revision) {
     const actor = this.actorOf(revision);
     const name = actor?.name ?? this.localize("someone");
-    const canOpen = this.stillThere(revision) !== undefined;
+    const canOpen =
+      this.stillThere(revision) !== undefined &&
+      this.openable.includes(revision.entity_id);
     const facts = this.withSubject ? this.subjectOf(revision) : null;
 
     const mark = ACTIONS[revision.action];
@@ -343,7 +369,8 @@ export class SeHistory extends LitElement {
   /**
    * Bring back what this line took away.
    *
-   * Offered on a deletion, and only while the thing is still gone.
+   * Offered on a deletion, only while the thing is still gone, and only to
+   * somebody the backend would let do it.
    */
   private renderRestore(revision: Revision) {
     // Only what can be brought back. A member who left and a deleted category
@@ -354,7 +381,10 @@ export class SeHistory extends LitElement {
       return nothing;
     }
 
-    if (revision.action !== "deleted" || !this.restorable) {
+    if (
+      revision.action !== "deleted" ||
+      !this.restorable.includes(revision.entity_id)
+    ) {
       return nothing;
     }
 
@@ -442,28 +472,19 @@ export class SeHistory extends LitElement {
   /**
    * The same facts, for something the group no longer holds.
    *
-   * Its own deletion froze them, and this list has it: every revision of the
-   * group is here, so the deletion of the thing this entry is about is a few
-   * rows down. An entry from before there were snapshots may be missing the
-   * amount, in which case there is nothing honest to show and nothing is shown.
+   * Its own deletion froze them, and this list has it. An entry from before
+   * there were snapshots may be missing the amount, in which case there is
+   * nothing honest to show and nothing is shown.
    */
   private subjectFromDeletion(
     revision: Revision,
   ): { money: string; whose: string } | null {
-    if (revision.entity_type !== "expense" && revision.entity_type !== "payment") {
+    const frozen = this.frozenOf(revision);
+
+    if (!frozen) {
       return null;
     }
 
-    const deletion = this.revisions.find(
-      (candidate) =>
-        candidate.entity_id === revision.entity_id && candidate.action === "deleted",
-    );
-
-    if (!deletion) {
-      return null;
-    }
-
-    const frozen = new Map(deletion.changes.map((change) => [change.field, change.before]));
     const amount = frozen.get("amount");
 
     if (typeof amount !== "number") {
@@ -481,6 +502,35 @@ export class SeHistory extends LitElement {
           )}`;
 
     return { money: formatMoney(amount, currency, this.language), whose };
+  }
+
+  /**
+   * What the deletion of this entry's thing froze, field by field.
+   *
+   * The only place a thing the group no longer holds is still written down, and
+   * this list has it: every revision of the group is here, so the deletion of
+   * whatever an entry is about is a few rows down. Newest first, so the first
+   * one found is the last one — a thing brought back and deleted again froze
+   * itself twice, and only the later state is the one that is gone now.
+   *
+   * Null when nothing here can be frozen that way: an entry about the project,
+   * a category or a member, or a thing that was never deleted.
+   */
+  private frozenOf(revision: Revision): Map<string, unknown> | null {
+    if (revision.entity_type !== "expense" && revision.entity_type !== "payment") {
+      return null;
+    }
+
+    const deletion = this.revisions.find(
+      (candidate) =>
+        candidate.entity_id === revision.entity_id && candidate.action === "deleted",
+    );
+
+    if (!deletion) {
+      return null;
+    }
+
+    return new Map(deletion.changes.map((change) => [change.field, change.before]));
   }
 
   /** What a member goes by, or "?" rather than a ULID leaking into a column. */
@@ -530,6 +580,7 @@ export class SeHistory extends LitElement {
       members: this.members,
       categories: this.categories,
       currency: this.currency,
+      amountCurrency: this.amountCurrencyOf(revision),
       language: this.language,
     };
 
@@ -553,6 +604,41 @@ export class SeHistory extends LitElement {
         `,
       )}
     `;
+  }
+
+  /**
+   * What an amount on this entry is counted in, on each side of the arrow.
+   *
+   * The group's currency is what the shares and the balances are in; the amount
+   * is what was handed over, in whatever was handed over. Asked of the expense
+   * itself, the way the stamp on the right of the same row is — a line reading
+   * "50,00 € → 60,00 €" beside a stamp reading "$60.00" is the same figure in
+   * two currencies, and the euro one was never owed. Where the list does not
+   * hold the thing to ask, `paidIn` was told it.
+   *
+   * When the revision moved the currency too, it froze both, and each side is
+   * read in its own. What is gone is asked of its own deletion, exactly as the
+   * stamp is — anything else states one currency in the line and another two
+   * centimetres to its right, on the same row, about the same figure.
+   *
+   * A deletion froze the currency as it stood at the end, so an update older
+   * than a later currency move still reads in the final one. Strictly it is the
+   * `before` of that move that this wants; it is a change of a change of a
+   * currency, and the deletion is right in every other case.
+   */
+  private amountCurrencyOf(revision: Revision): { before: string; after: string } {
+    const moved = revision.changes.find((change) => change.field === "currency");
+    const frozen = this.frozenOf(revision)?.get("currency");
+    const own =
+      this.stillThere(revision)?.currency ||
+      (typeof frozen === "string" ? frozen : "") ||
+      this.paidIn ||
+      this.currency;
+
+    return {
+      before: typeof moved?.before === "string" ? moved.before : own,
+      after: typeof moved?.after === "string" ? moved.after : own,
+    };
   }
 
   /** The member behind the account that made the change, if we can place them. */

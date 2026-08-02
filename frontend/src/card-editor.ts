@@ -55,11 +55,11 @@ export class SharedExpensesCardEditor extends LitElement {
       return;
     }
 
-    // Only the account's own groups, false for "not archived": the picker
-    // offers what the card could actually show.
-    this.groups = await new SharedExpensesApi(this.hass)
-      .listGroups(false)
-      .catch(() => []);
+    // The whole list, archived ones included: the card reads an archived group
+    // as happily as a live one — only writing to it is refused — and a card
+    // whose group was archived after the fact must still find its own name in
+    // the picker, or the dropdown would show somebody else's group as chosen.
+    this.groups = await new SharedExpensesApi(this.hass).listGroups().catch(() => []);
   }
 
   private get language(): string {
@@ -80,7 +80,10 @@ export class SharedExpensesCardEditor extends LitElement {
           .value=${this.config.group_id ?? ""}
           .options=${this.groups.map((group) => ({
             value: group.id,
-            label: group.name,
+            // A dropdown has no room for the tag the group list carries, so
+            // the word goes in the name itself: an archived group is a fine
+            // thing to show balances for, but not one to pick unknowingly.
+            label: group.archived ? `${group.name} (${translate("archived")})` : group.name,
           }))}
           @value-changed=${this.pickGroup}
         ></se-select>

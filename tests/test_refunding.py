@@ -310,6 +310,55 @@ async def test_the_link_waits_out_the_purchase_being_deleted(
     assert (await manager.get_expense(purchase.id)).id == purchase.id
 
 
+async def test_a_refund_is_still_editable_while_its_purchase_is_away(
+    manager: SharedExpensesManager,
+):
+    """A link that waits has to be a link a save can carry.
+
+    The dialog resends the id it was handed, and re-asking after a purchase that
+    is deliberately not there refused the save outright — the refund could not be
+    corrected at all until somebody cut a link that was only waiting.
+    """
+
+    group, stephane, _, purchase = await a_group(manager)
+
+    refund = await a_refund(manager, group, stephane, refund_of=purchase.id)
+
+    await manager.delete_expense(purchase.id, actor_user_id=ADMIN)
+
+    await manager.update_expense(replace(refund, title="Restaurant, rendu (2)"))
+
+    stored = await manager.get_expense(refund.id)
+
+    assert stored.title == "Restaurant, rendu (2)"
+    assert stored.refund_of == purchase.id
+
+
+async def test_a_waiting_link_still_cannot_be_carried_by_a_purchase(
+    manager: SharedExpensesManager,
+):
+    """What waits is the question the purchase answers, not every question.
+
+    The dialog resends the id it was handed and the handler keeps whatever it is
+    not given, so a refund turned back into an ordinary expense arrives still
+    carrying its link. Whether this is a refund at all is answered by the figure
+    being saved, with nothing asked of the purchase -- so it is asked while the
+    purchase is away too, or the save would store what `create_expense` refuses.
+    """
+
+    group, stephane, _, purchase = await a_group(manager)
+
+    refund = await a_refund(manager, group, stephane, refund_of=purchase.id)
+
+    await manager.delete_expense(purchase.id, actor_user_id=ADMIN)
+
+    with pytest.raises(InvalidExpenseError) as refusal:
+        await manager.update_expense(replace(refund, amount=2_000))
+
+    assert refusal.value.code == "refund_only"
+    assert (await manager.get_expense(refund.id)).amount == -2_000
+
+
 #
 # The split the panel opens on
 #

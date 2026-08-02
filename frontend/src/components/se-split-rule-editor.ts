@@ -47,7 +47,8 @@ const LASTING: Mode[] = ["equal", "exact", "partial", "custom"];
  * Editor for a split rule.
  *
  * Fires `rule-changed` with `event.detail.rule`, a SplitRule or null when the
- * expense should simply be split equally.
+ * expense should simply be split equally, and `event.detail.byUser` saying
+ * whether a gesture in this panel is what wrote it.
  */
 @customElement("se-split-rule-editor")
 export class SeSplitRuleEditor extends LitElement {
@@ -268,13 +269,13 @@ export class SeSplitRuleEditor extends LitElement {
   protected firstUpdated(): void {
     // Announce the rule straight away: a caller showing a summary of it has
     // nothing to show until the user touches something otherwise.
-    this.emit();
+    this.emit(false);
   }
 
   protected updated(changed: PropertyValues): void {
     // Emitting from willUpdate would fight the render in progress.
     if (changed.has("payerId")) {
-      this.emit();
+      this.emit(false);
     }
   }
 
@@ -498,8 +499,15 @@ export class SeSplitRuleEditor extends LitElement {
   private renderPartial(shares: Record<string, number> | null) {
     const translate = this.localize;
     const envelope = parseMoney(this.envelopeInput);
-    const left =
-      envelope === null ? null : Math.max(this.previewAmount - envelope, 0);
+    // Taken off the way the resolver takes it off, nobody ticked included:
+    // there it shares nothing and the whole expense falls to the rest. A figure
+    // worked out any other way is the one line of this panel arguing with the
+    // shares printed next to it.
+    const shared =
+      envelope === null || this.participants.size === 0
+        ? 0
+        : Math.min(envelope, this.previewAmount);
+    const left = envelope === null ? null : this.previewAmount - shared;
 
     return html`
       <div>
@@ -772,11 +780,19 @@ export class SeSplitRuleEditor extends LitElement {
     if (next.has(memberId)) {
       next.delete(memberId);
 
-      const { [memberId]: _dropped, ...rest } = this.amounts;
-      this.amounts = rest;
+      // Only in `exact`, where these ticks are the takers and the figure beside
+      // each one is theirs. In `custom` the takers are the second list below,
+      // with fields of their own: this list only says who shares the amount put
+      // in, and taking somebody out of it must not rub out what they are down
+      // for on what is left — least of all a share, which `ruleFor` promises to
+      // write back untouched.
+      if (this.mode === "exact") {
+        const { [memberId]: _dropped, ...rest } = this.amounts;
+        this.amounts = rest;
 
-      const { [memberId]: _share, ...others } = this.percents;
-      this.percents = others;
+        const { [memberId]: _share, ...others } = this.percents;
+        this.percents = others;
+      }
     } else {
       next.add(memberId);
     }
@@ -790,10 +806,19 @@ export class SeSplitRuleEditor extends LitElement {
     this.emit();
   }
 
-  private emit() {
+  /**
+   * Report the rule, saying whether somebody chose it.
+   *
+   * The two announcements this editor makes on its own — the one on mounting and
+   * the one that follows the payer — carry `byUser` false. They are the same
+   * rule in the editor's own words, not a decision, and a caller that treats
+   * them as one would take a panel nobody has touched for a panel somebody has
+   * filled in.
+   */
+  private emit(byUser = true) {
     this.dispatchEvent(
       new CustomEvent("rule-changed", {
-        detail: { rule: this.build() },
+        detail: { rule: this.build(), byUser },
         bubbles: true,
         composed: true,
       }),

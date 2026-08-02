@@ -325,8 +325,15 @@ class ExpenseRepository(BaseRepository):
             # Older rows predate the column; the migration filled them in, and
             # this is the belt to that pair of braces. An expense whose
             # converted amount went missing would silently weigh nothing in
-            # every balance it appears in.
-            converted_amount=row["converted_amount"] or row["amount"],
+            # every balance it appears in. Only a missing one, though: zero is
+            # a legal converted amount — a little money in a weak currency is
+            # worth nothing here — and reading it back as `amount` would credit
+            # the payer a figure in somebody else's currency.
+            converted_amount=(
+                row["amount"]
+                if row["converted_amount"] is None
+                else row["converted_amount"]
+            ),
             exchange_rate=row["exchange_rate"] or RATE_ONE,
             rate_as_of=(
                 None

@@ -12,8 +12,17 @@
 /** A rate of one, in millionths. 0.87681 is 876_810. */
 export const RATE_ONE = 1_000_000;
 
-/** The most a rate can be, so a typo cannot turn 5 EUR into a fortune. */
-export const RATE_MAX = RATE_ONE * 10_000;
+/**
+ * The most a rate can be, so a typo cannot turn 5 EUR into a fortune.
+ *
+ * A hundred thousand units per unit. Wide enough for every pair the list below
+ * offers — a group counting in rupiah asks some twenty thousand of them for a
+ * pound, and a ceiling under that would leave that group unable to record a
+ * foreign expense at all, by hand or by fetched rate. Narrow enough to still
+ * catch the typo it is here for: a rate pasted in millionths, 876810 for
+ * 0,87681, is refused as it always was.
+ */
+export const RATE_MAX = RATE_ONE * 100_000;
 
 /**
  * The currencies the European Central Bank publishes, which is what the rate
@@ -89,8 +98,9 @@ export function apportion(
 
   // A refund makes the whole trip the other way, shares and total together. Two
   // pulling against each other is a caller that has lost track of which way the
-  // money went, not a rounding question.
-  if (total < 0) {
+  // money went, not a rounding question. A refund too small to convert to a cent
+  // still went that way, so a zero total between negative shares goes round too.
+  if (total < 0 || (total === 0 && entries.some(([, value]) => value < 0))) {
     if (entries.some(([, value]) => value > 0)) {
       return null;
     }

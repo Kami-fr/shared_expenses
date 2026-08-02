@@ -212,10 +212,13 @@ const EN = {
   split_remainder_short:
     "The rest is unaccounted for: nobody takes what the percentages leave.",
   refund_of_nothing: "No expense in particular",
+  refund_of_missing: "The expense named here is not on the list",
+  refund_of_unlink: "Remove the link",
   payment_expense: "What it was for",
   open_expense: "Open the expense",
   payment_expense_other_project:
     "That expense belongs to another project.",
+  payment_member_other_project: "One of those two is not in this project.",
   open_purchase: "Open the purchase",
   confirm_leave: "Leave anyway?",
   confirm_leave_entry:
@@ -546,10 +549,14 @@ const FR: Record<Key, string> = {
   split_remainder_short:
     "Le reste n'est attribué à personne : nul ne prend ce que les pourcentages laissent.",
   refund_of_nothing: "Aucune dépense en particulier",
+  refund_of_missing: "La dépense nommée ici n'est pas dans la liste",
+  refund_of_unlink: "Retirer le lien",
   payment_expense: "À quoi il correspond",
   open_expense: "Ouvrir la dépense",
   payment_expense_other_project:
     "Cette dépense appartient à un autre projet.",
+  payment_member_other_project:
+    "L'un des deux ne fait pas partie de ce projet.",
   open_purchase: "Ouvrir l'achat",
   confirm_leave: "Quitter quand même ?",
   confirm_leave_entry:
@@ -878,10 +885,14 @@ const DE: Record<Key, string> = {
   split_remainder_short:
     "Der Rest bleibt offen: niemand übernimmt, was die Prozentsätze übrig lassen.",
   refund_of_nothing: "Keine bestimmte Ausgabe",
+  refund_of_missing: "Die hier genannte Ausgabe steht nicht auf der Liste",
+  refund_of_unlink: "Verknüpfung entfernen",
   payment_expense: "Wofür er war",
   open_expense: "Die Ausgabe öffnen",
   payment_expense_other_project:
     "Diese Ausgabe gehört zu einem anderen Projekt.",
+  payment_member_other_project:
+    "Eine dieser beiden Personen gehört nicht zu diesem Projekt.",
   open_purchase: "Den Kauf öffnen",
   confirm_leave: "Trotzdem verlassen?",
   confirm_leave_entry:
@@ -1191,10 +1202,13 @@ const NL: Record<Key, string> = {
   split_remainder_short:
     "De rest blijft open: niemand neemt wat de percentages overlaten.",
   refund_of_nothing: "Geen specifieke uitgave",
+  refund_of_missing: "De hier genoemde uitgave staat niet in de lijst",
+  refund_of_unlink: "De koppeling verwijderen",
   payment_expense: "Waarvoor het was",
   open_expense: "De uitgave openen",
   payment_expense_other_project:
     "Die uitgave hoort bij een ander project.",
+  payment_member_other_project: "Een van die twee hoort niet bij dit project.",
   open_purchase: "De aankoop openen",
   confirm_leave: "Toch weggaan?",
   confirm_leave_entry:
@@ -1498,10 +1512,14 @@ const ES: Record<Key, string> = {
   split_remainder_short:
     "El resto queda sin asignar: nadie asume lo que dejan los porcentajes.",
   refund_of_nothing: "Ningún gasto en particular",
+  refund_of_missing: "El gasto indicado aquí no está en la lista",
+  refund_of_unlink: "Quitar el vínculo",
   payment_expense: "A qué corresponde",
   open_expense: "Abrir el gasto",
   payment_expense_other_project:
     "Ese gasto pertenece a otro proyecto.",
+  payment_member_other_project:
+    "Una de esas dos personas no está en este proyecto.",
   open_purchase: "Abrir la compra",
   confirm_leave: "¿Salir de todos modos?",
   confirm_leave_entry:
@@ -1806,10 +1824,14 @@ const IT: Record<Key, string> = {
   split_remainder_short:
     "Il resto rimane senza destinatario: nessuno prende ciò che le percentuali lasciano.",
   refund_of_nothing: "Nessuna spesa in particolare",
+  refund_of_missing: "La spesa indicata qui non è nell'elenco",
+  refund_of_unlink: "Rimuovi il collegamento",
   payment_expense: "A cosa si riferisce",
   open_expense: "Apri la spesa",
   payment_expense_other_project:
     "Quella spesa appartiene a un altro progetto.",
+  payment_member_other_project:
+    "Una di quelle due persone non fa parte di questo progetto.",
   open_purchase: "Apri l'acquisto",
   confirm_leave: "Uscire comunque?",
   confirm_leave_entry:
@@ -2119,10 +2141,14 @@ const PL: Record<Key, string> = {
   split_remainder_short:
     "Reszta nie jest przypisana: nikt nie bierze tego, co zostawiają udziały procentowe.",
   refund_of_nothing: "Żaden konkretny wydatek",
+  refund_of_missing: "Wskazanego tu wydatku nie ma na liście",
+  refund_of_unlink: "Usuń powiązanie",
   payment_expense: "Czego dotyczy",
   open_expense: "Otwórz wydatek",
   payment_expense_other_project:
     "Ten wydatek należy do innego projektu.",
+  payment_member_other_project:
+    "Jedna z tych dwóch osób nie należy do tego projektu.",
   open_purchase: "Otwórz zakup",
   confirm_leave: "Wyjść mimo to?",
   confirm_leave_entry:
@@ -2147,7 +2173,7 @@ const PL: Record<Key, string> = {
   add: "Dodaj",
   close: "Zamknij",
   ha_accounts: "Konta Home Assistant",
-  ha_accounts_hint: "Zaznaczone konta biorą udział w tym projekcie i mogą go otworzyć.",
+  ha_accounts_hint: "Zaznaczone konta biorą udział w tej grupie i mogą ją otworzyć.",
   no_ha_accounts: "Nie znaleziono konta.",
   admin_locked: "Administrator nie może odejść. Najpierw przekaż grupę albo ją zarchiwizuj.",
   cannot_remove_admin: "Administrator nie może odejść. Najpierw przekaż grupę albo ją zarchiwizuj.",
@@ -2160,7 +2186,7 @@ const PL: Record<Key, string> = {
   dashboard_on: "Umieść tę grupę na pulpicie",
   dashboard_on_hint: "Jeden czujnik na członka i jeden mówiący, czy coś jest jeszcze do oddania. Widoczne dla każdego konta w domu — nie tylko dla osób z tej grupy. Karta salda tego nie potrzebuje.",
   permissions: "Co członkowie mogą robić",
-  permissions_hint: "Takie same dla wszystkich w projekcie. Ty i administratorzy jesteście zawsze ponad nimi.",
+  permissions_hint: "Takie same dla wszystkich w grupie. Ty i administratorzy jesteście zawsze ponad nimi.",
   perm_manage_members: "Zarządzaj członkami",
   perm_manage_members_hint: "Dodawaj, usuwaj i zmieniaj nazwy osób. Nigdy tego, kto jest administratorem.",
   perm_manage_categories: "Zarządzaj kategoriami",
@@ -2219,7 +2245,7 @@ const PL: Record<Key, string> = {
   group_not_found: "Ta grupa już nie istnieje.",
   group_archived: "Ta grupa jest zarchiwizowana.",
   member_not_found: "Ten członek już nie istnieje.",
-  member_already_in_group: "Ten członek już jest w projekcie.",
+  member_already_in_group: "Ten członek już jest w grupie.",
   category_not_found: "Ta kategoria już nie istnieje.",
   expense_not_found: "Ten wydatek już nie istnieje.",
   invalid_expense: "Ten wydatek jest nieprawidłowy.",
@@ -2431,10 +2457,14 @@ const PT_BR: Record<Key, string> = {
   split_remainder_short:
     "O resto fica sem destino: ninguém assume o que as percentagens deixam.",
   refund_of_nothing: "Nenhuma despesa em particular",
+  refund_of_missing: "A despesa indicada aqui não está na lista",
+  refund_of_unlink: "Remover a ligação",
   payment_expense: "A que se refere",
   open_expense: "Abrir a despesa",
   payment_expense_other_project:
     "Essa despesa pertence a outro projeto.",
+  payment_member_other_project:
+    "Uma dessas duas pessoas não pertence a este projeto.",
   open_purchase: "Abrir a compra",
   confirm_leave: "Sair mesmo assim?",
   confirm_leave_entry:

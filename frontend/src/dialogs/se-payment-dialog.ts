@@ -181,7 +181,12 @@ export class SePaymentDialog extends LitElement {
       : translate(debt ? "new_debt" : "new_payment");
 
     return html`
-      <se-dialog open heading=${heading} @dialog-closed=${this.cancel}>
+      <se-dialog
+        open
+        heading=${heading}
+        .localize=${this.localize}
+        @dialog-closed=${this.cancel}
+      >
         <div class="stack">
           ${this.error ? html`<div class="error">${this.error}</div>` : nothing}
 
@@ -261,6 +266,7 @@ export class SePaymentDialog extends LitElement {
             .currency=${this.currency}
             .on=${this.date}
             .amount=${amount}
+            .initialRate=${this.payment?.exchange_rate ?? null}
             .language=${this.language}
             @rate-changed=${this.handleRate}
           ></se-currency-field>
@@ -316,6 +322,7 @@ export class SePaymentDialog extends LitElement {
                   .entityId=${this.payment.id}
                   .members=${this.members}
                   .currency=${this.group.currency}
+                  .paidIn=${this.payment.currency}
                   .language=${this.language}
                 ></se-entity-history>
               `
@@ -554,7 +561,14 @@ export class SePaymentDialog extends LitElement {
       description: this.description.trim() || null,
       currency: this.currency || this.group.currency,
       kind: this.kind,
-      ...(this.rate !== null && this.rate !== RATE_ONE
+      // The rate the panel showed and had accepted, whatever it comes to — one
+      // included, a shop or a friend quoting 1:1 being a rate somebody typed.
+      // Left out, the backend fetches its own on a create and keeps the one
+      // already stored on an edit, so the correction does nothing at all. Sent
+      // only for foreign money, since the group's own currency converts by
+      // nothing.
+      ...(this.rate !== null &&
+      (this.currency || this.group.currency) !== this.group.currency
         ? { exchange_rate: this.rate }
         : {}),
       // Null and not omitted: on an update, leaving it out would keep a link

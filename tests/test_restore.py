@@ -9,7 +9,7 @@ a different debt from the one that was deleted, and nothing would say so.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -205,6 +205,39 @@ async def test_a_restored_expense_keeps_its_rule(
 
     assert back.split_rule is not None
     assert back.split_rule.envelope == 500
+
+
+async def test_a_restored_expense_whose_category_has_gone_comes_back_uncategorised(
+    manager: SharedExpensesManager,
+    project: dict[str, Any],
+):
+    """The one link on this path the database holds tightly.
+
+    `refund_of` and a payment's `expense_id` may point at nothing and wait;
+    `category_id` is a foreign key, so writing the row back against a category
+    that has since been deleted is refused outright and the expense could never
+    come back at all. Deleting a category leaves the expenses on it with none,
+    and this is that same answer for the one that was not there to be left.
+    """
+
+    category = await manager.create_category(
+        group_id=project["group"].id,
+        name="Courses",
+    )
+
+    expense = await an_expense(manager, project, category_id=category.id)
+
+    await manager.delete_expense(expense.id, actor_user_id=ADMIN)
+    await manager.delete_category(category.id, actor_user_id=ADMIN)
+
+    back = await manager.restore_expense(
+        project["group"].id,
+        expense.id,
+        actor_user_id=ADMIN,
+    )
+
+    assert back.category_id is None
+    assert (await manager.get_expense(expense.id)).category_id is None
 
 
 async def test_the_balances_come_back_with_it(
@@ -513,7 +546,11 @@ async def test_an_old_deletion_still_restores(
             action=deletion.action,
             actor_user_id=deletion.actor_user_id,
             changes=old,
-            at=datetime(2026, 7, 15, 12, 0, tzinfo=UTC),
+            # After the deletion just written, so this is the one the restore
+            # reads: the newest deletion is what a restore is built from. Taken
+            # from the clock rather than named as a day, which would fall behind
+            # it and quietly hand the test back to the snapshot it strips.
+            at=datetime.now(UTC) + timedelta(days=1),
         )
     )
 

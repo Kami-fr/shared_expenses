@@ -36,7 +36,8 @@ for (const item of cases) {
     got = `threw: ${error.message}`;
   }
 
-  const mine = JSON.stringify(normalise(got));
+  // A throw is reported as it reads: normalise sorts shares, not sentences.
+  const mine = JSON.stringify(typeof got === "string" ? got : normalise(got));
   const theirs = JSON.stringify(normalise(item.expected));
 
   if (mine !== theirs) {

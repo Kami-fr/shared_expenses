@@ -212,9 +212,15 @@ async def websocket_update_expense(
         actor_user_id=connection.user.id,
     )
 
-    shares = await manager.get_expense_shares(updated.id)
+    # Read back rather than reply with what was asked for: the manager stores an
+    # expense of its own making — the currency in upper case, the converted
+    # amount, the rate it used and the split rule it resolved — and none of that
+    # is in `updated`. The shares below come from the database; the expense
+    # beside them has to come from there too.
+    saved = await manager.get_expense(updated.id)
+    shares = await manager.get_expense_shares(saved.id)
 
-    connection.send_result(msg["id"], expense_to_dict(updated, shares))
+    connection.send_result(msg["id"], expense_to_dict(saved, shares))
 
 
 @websocket_api.websocket_command(

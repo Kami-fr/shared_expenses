@@ -101,7 +101,10 @@ class SharedExpensesCoordinator(DataUpdateCoordinator[dict[str, GroupSnapshot]])
             ),
             # A clock waking every entity every ten minutes would fill the
             # recorder with a figure that had not moved. A snapshot is frozen
-            # and compares by value, so "has anything changed" is exact here.
+            # and compares by value, so "has anything changed" is exact here —
+            # for everything the data holds. The one change it cannot see is a
+            # group disappearing that was not on the dashboard anyway, and
+            # `_async_update_data` lifts the flag for that cycle alone.
             always_update=False,
         )
 
@@ -178,7 +181,19 @@ class SharedExpensesCoordinator(DataUpdateCoordinator[dict[str, GroupSnapshot]])
 
         # Every group, not only the ones on the dashboard: this is what tells a
         # group that closed its switch from one that no longer exists.
-        self.known_group_ids = frozenset(group.id for group in groups)
+        known = frozenset(group.id for group in groups)
+
+        # A group deleted while its switch was already closed changes nothing
+        # here — it was filtered out of the snapshots before it went, so the
+        # dict comes back equal to the last one and `always_update=False` means
+        # Home Assistant tells nobody. Which is exactly the cycle the sensors
+        # had to hear: `_forget` is a listener, and it is the only thing that
+        # takes a deleted project's device down. So the one cycle that loses an
+        # id asks to be announced anyway — the flag is read after this returns —
+        # and every other cycle goes back to saying nothing when nothing moved.
+        self.always_update = bool(self.known_group_ids - known)
+
+        self.known_group_ids = known
 
         return snapshots
 

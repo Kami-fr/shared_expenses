@@ -122,7 +122,12 @@ export class SeGroupDialog extends LitElement {
       : translate("new_group");
 
     return html`
-      <se-dialog open heading=${heading} @dialog-closed=${this.cancel}>
+      <se-dialog
+        open
+        heading=${heading}
+        .localize=${this.localize}
+        @dialog-closed=${this.cancel}
+      >
         <div class="stack">
           ${this.error ? html`<div class="error">${this.error}</div>` : nothing}
           ${editable

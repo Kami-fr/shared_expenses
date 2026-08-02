@@ -190,16 +190,27 @@ export function stateOf(
   payerId: string | null,
 ): ModeState {
   const mode = modeOf(rule);
+  const pool = new Set(memberIds);
 
   // In `exact`, the ticks are who takes the remainder — which is the whole
   // expense here. An unset remainder does not mean nobody: it means whoever
   // paid, and reading it as an empty list would take the expense off them and
   // leave it on no one at all.
-  const takers =
-    rule?.remainder?.members ?? (payerId ? [payerId] : []);
+  const takers = (rule?.remainder?.members ?? (payerId ? [payerId] : [])).filter(
+    (memberId) => pool.has(memberId),
+  );
 
+  // Only ever people the editor can show. A rule written before somebody left
+  // still names them, and there is no tick to take them off with: kept, they
+  // would count in a list nobody can see — and a named few counting as many as
+  // the group is how `ruleFor` reads "everybody", which would draw in whoever
+  // happens to be standing next to them.
   const participants =
-    mode === "exact" ? new Set(takers) : new Set(rule?.participants ?? memberIds);
+    mode === "exact"
+      ? new Set(takers)
+      : new Set(
+          (rule?.participants ?? memberIds).filter((memberId) => pool.has(memberId)),
+        );
 
   return {
     participants,
@@ -219,10 +230,7 @@ export function stateOf(
     ),
     // One taker is a person to name. Several is a shape this editor has no room
     // for, so the rest falls back to whoever paid — as `partial` reads it.
-    restTo:
-      mode === "partial" && rule?.remainder?.members?.length === 1
-        ? rule.remainder.members[0]
-        : payerId ?? "",
+    restTo: mode === "partial" && takers.length === 1 ? takers[0] : payerId ?? "",
     // Whichever the rule was written in. A rule with neither is an equal split
     // dressed as `exact`, and money is the one to offer first.
     unit: Object.keys(rule?.remainder?.percent ?? {}).length > 0 ? "percent" : "money",

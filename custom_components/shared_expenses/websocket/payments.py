@@ -141,7 +141,12 @@ async def websocket_update_payment(
         actor_user_id=connection.user.id,
     )
 
-    connection.send_result(msg["id"], payment_to_dict(updated))
+    # Read back rather than reply with what was asked for: the manager stores a
+    # payment of its own making — the currency in upper case, the converted
+    # amount and the rate it used — and none of that is in `updated`.
+    saved = await manager.get_payment(updated.id)
+
+    connection.send_result(msg["id"], payment_to_dict(saved))
 
 
 @websocket_api.websocket_command(

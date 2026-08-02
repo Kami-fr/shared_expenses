@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import UTC, datetime
+from pathlib import Path
 
+import aiosqlite
 import pytest
 
-from custom_components.shared_expenses.const import DATABASE_VERSION
+from custom_components.shared_expenses.const import DATABASE_NAME, DATABASE_VERSION
 from custom_components.shared_expenses.exceptions import (
     CannotRemoveAdminError,
     CategoryNotFoundError,
@@ -18,6 +20,7 @@ from custom_components.shared_expenses.exceptions import (
     InvalidExpenseError,
     InvalidExpenseSharesError,
     InvalidPaymentError,
+    InvalidSplitRuleError,
     MemberAlreadyInGroupError,
 )
 from custom_components.shared_expenses.manager import SharedExpensesManager
@@ -29,6 +32,7 @@ from custom_components.shared_expenses.models import (
     SplitRule,
 )
 from custom_components.shared_expenses.storage.database import Database
+from tests.conftest import FakeHass
 
 NOW = datetime(2026, 7, 14, 12, 0, tzinfo=UTC)
 
@@ -101,20 +105,28 @@ async def test_creating_a_group_is_atomic(
 
 
 async def test_writes_outside_a_transaction_are_committed(
+    hass: FakeHass,
     manager: SharedExpensesManager,
-    database: Database,
 ):
-    """A single-statement write must survive a reconnect, not sit uncommitted."""
+    """A single-statement write must survive a reconnect, not sit uncommitted.
+
+    Read back over a second connection, which sees only what is on disk. The
+    integration's own connection would have shown its own uncommitted rows and
+    proved nothing at all.
+    """
 
     member = await manager.create_member(name="Antonin")
 
-    cursor = await database.connection.execute("PRAGMA journal_mode")
-    await cursor.fetchone()
-    await cursor.close()
+    path = Path(hass.config.path(".storage")) / DATABASE_NAME
 
-    reloaded = await manager.get_member(member.id)
+    async with aiosqlite.connect(path) as other:
+        cursor = await other.execute(
+            "SELECT name FROM members WHERE id = ?",
+            (member.id,),
+        )
+        names = [row[0] for row in await cursor.fetchall()]
 
-    assert reloaded.name == "Antonin"
+    assert names == ["Antonin"]
 
 
 async def test_an_unknown_group_is_refused(manager: SharedExpensesManager):
@@ -350,6 +362,93 @@ async def test_shares_that_do_not_add_up_are_refused(manager: SharedExpensesMana
             expense_date=NOW,
             shares=[share_input(admin.id, 1000)],
         )
+
+
+async def test_explicit_shares_stay_inside_the_project(
+    manager: SharedExpensesManager,
+):
+    """The check the rule path has always had, asked of the other path too.
+
+    A rule is resolved against the group's own members, so it cannot name
+    anybody else. Shares arrive already worked out and went round that
+    entirely — and the balances count whatever id they meet, so a project's
+    money could be split onto somebody its own panel cannot name.
+    """
+
+    group = await make_group(manager)
+    admin = await admin_of(manager, group.id)
+
+    other = await make_group(manager, group_name="Vacances")
+    stranger = await manager.create_group_member(group_id=other.id, name="Marc")
+
+    with pytest.raises(InvalidSplitRuleError) as refusal:
+        await manager.create_expense(
+            group_id=group.id,
+            title="Cinema",
+            amount=3000,
+            paid_by_member_id=admin.id,
+            expense_date=NOW,
+            shares=[share_input(admin.id, 1000), share_input(stranger.id, 2000)],
+        )
+
+    assert refusal.value.code == "split_unknown_member"
+
+
+async def test_a_payer_from_another_project_cannot_carry_explicit_shares(
+    manager: SharedExpensesManager,
+):
+    """`get_member` proves somebody is somebody, never whose."""
+
+    group = await make_group(manager)
+
+    other = await make_group(manager, group_name="Vacances")
+    stranger = await manager.create_group_member(group_id=other.id, name="Marc")
+
+    with pytest.raises(InvalidSplitRuleError) as refusal:
+        await manager.create_expense(
+            group_id=group.id,
+            title="Cinema",
+            amount=3000,
+            paid_by_member_id=stranger.id,
+            expense_date=NOW,
+            shares=[share_input(stranger.id, 3000)],
+        )
+
+    assert refusal.value.code == "split_payer_not_member"
+
+
+async def test_somebody_who_left_can_still_be_given_a_share(
+    manager: SharedExpensesManager,
+):
+    """What they owed did not leave with them, so an old expense stays editable."""
+
+    group = await make_group(manager)
+    antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
+    admin = await admin_of(manager, group.id)
+
+    expense = await manager.create_expense(
+        group_id=group.id,
+        title="Cinema",
+        amount=3000,
+        paid_by_member_id=admin.id,
+        expense_date=NOW,
+        shares=[share_input(admin.id, 1000), share_input(antonin.id, 2000)],
+    )
+
+    membership = next(
+        m
+        for m in await manager.list_group_memberships(group.id)
+        if m.member_id == antonin.id
+    )
+
+    await manager.remove_member_from_group(membership)
+
+    await manager.update_expense(
+        replace(expense, title="Cinema Pathe"),
+        [share_input(admin.id, 1500), share_input(antonin.id, 1500)],
+    )
+
+    assert await shares_of(manager, expense.id) == {admin.id: 1500, antonin.id: 1500}
 
 
 async def test_an_expense_of_nothing_is_refused(manager: SharedExpensesManager):
@@ -839,6 +938,48 @@ async def test_explicit_shares_still_carry_their_rule(manager: SharedExpensesMan
     assert await shares_of(manager, expense.id) == {admin.id: 8042, antonin.id: 500}
 
 
+async def test_a_rule_changed_to_the_same_shares_is_still_saved(
+    manager: SharedExpensesManager,
+):
+    """The rule is not in the state the history reads, so it is not the guard.
+
+    "Split it equally" and "each of them owes exactly 5,00" come to the same
+    two shares on a 10,00 expense and are two different rules. Comparing only
+    what the journal shows found nothing moved, threw the save away and reported
+    success — and the next amount edit re-resolved against the rule nobody meant
+    to keep.
+    """
+
+    group = await make_group(manager)
+    antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
+    admin = await admin_of(manager, group.id)
+
+    expense = await manager.create_expense(
+        group_id=group.id,
+        title="Restaurant",
+        amount=1000,
+        paid_by_member_id=admin.id,
+        expense_date=NOW,
+        shares=[share_input(admin.id, 500), share_input(antonin.id, 500)],
+        split_rule=SplitRule(),
+    )
+
+    await manager.update_expense(
+        expense,
+        [share_input(admin.id, 500), share_input(antonin.id, 500)],
+        split_rule=SplitRule(
+            envelope=0,
+            remainder=Remainder(members=[admin.id, antonin.id], fixed={admin.id: 500}),
+        ),
+    )
+
+    rule = (await manager.get_expense(expense.id)).split_rule
+
+    assert rule is not None
+    assert rule.envelope == 0
+    assert rule.remainder.fixed == {admin.id: 500}
+
+
 async def test_expenses_of_one_day_come_back_newest_entered_first(
     manager: SharedExpensesManager,
 ):
@@ -947,6 +1088,49 @@ async def test_a_non_positive_payment_is_refused(manager: SharedExpensesManager)
             amount=-100,
             payment_date=NOW,
         )
+
+
+async def test_a_payment_cannot_involve_another_project(
+    manager: SharedExpensesManager,
+):
+    """A member exists across the whole house; a project's money does not.
+
+    Both doors, because an update carries the whole payment: the balances count
+    whatever id they meet, so a stranger on either side would be credited or
+    debited in a project that has never held them, and its own figures would
+    stop adding up to nothing.
+    """
+
+    group = await make_group(manager)
+    antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
+    admin = await admin_of(manager, group.id)
+
+    other = await make_group(manager, group_name="Vacances")
+    stranger = await manager.create_group_member(group_id=other.id, name="Marc")
+
+    with pytest.raises(InvalidPaymentError) as refusal:
+        await manager.create_payment(
+            group_id=group.id,
+            from_member_id=admin.id,
+            to_member_id=stranger.id,
+            amount=5000,
+            payment_date=NOW,
+        )
+
+    assert refusal.value.code == "payment_member_other_project"
+
+    payment = await manager.create_payment(
+        group_id=group.id,
+        from_member_id=antonin.id,
+        to_member_id=admin.id,
+        amount=5000,
+        payment_date=NOW,
+    )
+
+    with pytest.raises(InvalidPaymentError) as smuggled:
+        await manager.update_payment(replace(payment, to_member_id=stranger.id))
+
+    assert smuggled.value.code == "payment_member_other_project"
 
 
 async def test_the_group_currency_is_what_an_expense_gets(
@@ -1288,6 +1472,37 @@ async def test_an_empty_group_can_still_change_currency(
     assert (await manager.get_group(group.id)).currency == "USD"
 
 
+async def test_deleting_everything_does_not_unlock_the_currency(
+    manager: SharedExpensesManager,
+):
+    """Deleted is not gone: the deletion froze the figures, already converted.
+
+    `_restored_money` keeps them rather than working them out again, so a group
+    emptied and then switched would read a hundred euros back as a hundred
+    dollars the day somebody pressed Restore.
+    """
+
+    group = await make_group(manager, currency="EUR")
+    admin = await admin_of(manager, group.id)
+
+    expense = await manager.create_expense(
+        group_id=group.id,
+        title="Courses",
+        amount=10000,
+        paid_by_member_id=admin.id,
+        expense_date=NOW,
+    )
+
+    await manager.delete_expense(expense.id)
+
+    assert await manager.list_expenses(group.id) == []
+
+    with pytest.raises(CurrencyLockedError):
+        await manager.update_group(replace(group, currency="USD"))
+
+    assert (await manager.get_group(group.id)).currency == "EUR"
+
+
 async def test_a_group_with_expenses_can_still_be_renamed(
     manager: SharedExpensesManager,
 ):
@@ -1463,6 +1678,44 @@ async def test_an_amount_edited_is_reconverted_at_the_same_rate(
 
     assert reloaded.converted_amount == 17_536
     assert reloaded.exchange_rate == 876_810
+
+
+async def test_an_expense_worth_nothing_is_read_back_as_nothing(
+    manager: SharedExpensesManager,
+):
+    """Zero is a converted amount like any other.
+
+    A little money in a weak currency comes to nothing in the group's own, and
+    nothing is what it has to weigh on the way back out of the database. Read
+    as the amount handed over instead, it would credit the payer a figure in
+    somebody else's currency and the balances would stop summing to zero.
+    """
+
+    group = await make_group(manager, currency="EUR")
+    antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
+    admin = await admin_of(manager, group.id)
+
+    # 1000 roupies at 0,000058 EUR each: 5,8 centimes, which is not a centime.
+    expense = await manager.create_expense(
+        group_id=group.id,
+        title="Un cafe a Jakarta",
+        amount=1_000,
+        currency="IDR",
+        paid_by_member_id=admin.id,
+        expense_date=NOW,
+        exchange_rate=58,
+    )
+
+    assert expense.converted_amount == 0
+
+    reloaded = await manager.get_expense(expense.id)
+
+    assert reloaded.amount == 1_000
+    assert reloaded.converted_amount == 0
+
+    result = await manager.get_balances(group.id)
+
+    assert result.balances == {admin.id: 0, antonin.id: 0}
 
 
 async def test_an_implausible_rate_is_refused(manager: SharedExpensesManager):
@@ -1841,3 +2094,43 @@ async def test_the_rate_of_a_payment_is_frozen(manager: SharedExpensesManager):
 
     assert reloaded.exchange_rate == 876_810
     assert reloaded.converted_amount == 4_384
+
+
+async def test_a_rate_corrected_to_the_same_cents_is_still_saved(
+    manager: SharedExpensesManager,
+):
+    """The rate is not in the state the history reads, so it is not the guard.
+
+    0,9 and 0,9004 both turn 10,00 USD into 9,00 €, so comparing only what the
+    journal shows found nothing moved, threw the save away and reported success.
+    The correction was not merely lost: the rate that stayed is what the next
+    amount edit re-prices against, and the balances come out a cent short.
+    """
+
+    group = await make_group(manager, currency="EUR")
+    antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
+    admin = await admin_of(manager, group.id)
+
+    payment = await manager.create_payment(
+        group_id=group.id,
+        from_member_id=antonin.id,
+        to_member_id=admin.id,
+        amount=1_000,
+        currency="USD",
+        exchange_rate=900_000,
+        payment_date=NOW,
+    )
+
+    assert payment.converted_amount == 900
+
+    await manager.update_payment(payment, exchange_rate=900_400)
+
+    reloaded = await manager.get_payment(payment.id)
+
+    assert reloaded.exchange_rate == 900_400
+    assert reloaded.converted_amount == 900
+
+    # 20,00 USD at the rate that was accepted, not at the one it replaced.
+    await manager.update_payment(replace(reloaded, amount=2_000))
+
+    assert (await manager.get_payment(payment.id)).converted_amount == 1_801

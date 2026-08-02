@@ -81,11 +81,36 @@ async def _run_script(
     hass: HomeAssistant,
     filename: str,
 ) -> None:
-    """Execute a SQL script shipped with the integration."""
+    """Execute a SQL script shipped with the integration, all or nothing.
+
+    A migration changes the schema and then, on its last line, says so by
+    bumping `schema_version`. Between the two the database is neither version,
+    and the connection runs with `isolation_level=None`, so every statement was
+    landing on its own: a write that died halfway — a full disk, a container
+    stopped mid-migration — left the columns added and the version behind, and
+    the retry at the next start hit `duplicate column name` on the first
+    statement and could never get past it. So the whole script goes in one
+    transaction, and a failure leaves the database exactly where it was.
+
+    The BEGIN is written into the script rather than issued on the connection
+    because `executescript` commits whatever is pending before it starts: a
+    transaction opened around the call would already be gone by the first
+    statement. What is left open by a failure is closed here, since the script's
+    own COMMIT is the line that never ran.
+
+    `schema_v1.sql` opens with `PRAGMA foreign_keys = ON`, which is a no-op
+    inside a transaction — harmless, as `Database.initialize` sets it on the
+    connection anyway.
+    """
 
     script = await hass.async_add_executor_job(_read_script, filename)
 
-    await connection.executescript(script)
+    try:
+        await connection.executescript(f"BEGIN;\n{script}\nCOMMIT;")
+    except BaseException:
+        await connection.rollback()
+
+        raise
 
 
 def _read_script(filename: str) -> str:

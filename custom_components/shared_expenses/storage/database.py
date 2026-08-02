@@ -157,14 +157,17 @@ class Database:
 
         await initialize_database(self._connection, self._hass)
 
-        self._group_repository = GroupRepository(self.connection)
-        self._member_repository = MemberRepository(self.connection)
-        self._group_member_repository = GroupMemberRepository(self.connection)
-        self._category_repository = CategoryRepository(self.connection)
-        self._expense_repository = ExpenseRepository(self.connection)
-        self._payment_repository = PaymentRepository(self.connection)
-        self._revision_repository = RevisionRepository(self.connection)
-        self._exchange_rate_repository = ExchangeRateRepository(self.connection)
+        # The database rather than the connection: a repository given the object
+        # would still hold it after `close`, and read on a shut file. Asking here
+        # each time is what makes a read after unload a `DatabaseNotReadyError`.
+        self._group_repository = GroupRepository(self)
+        self._member_repository = MemberRepository(self)
+        self._group_member_repository = GroupMemberRepository(self)
+        self._category_repository = CategoryRepository(self)
+        self._expense_repository = ExpenseRepository(self)
+        self._payment_repository = PaymentRepository(self)
+        self._revision_repository = RevisionRepository(self)
+        self._exchange_rate_repository = ExchangeRateRepository(self)
 
     def after_commit(self, action: Callable[[], None]) -> None:
         """Run this once the write it belongs to is really on disk.

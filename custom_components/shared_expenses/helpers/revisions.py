@@ -62,10 +62,12 @@ def expense_state(
 def payment_state(payment: Payment) -> dict[str, Any]:
     """Return a payment as plain values.
 
-    Every field that can be edited belongs here, and not only so the history can
-    read it: `update_payment` asks this what moved, and returns early when the
-    answer is nothing. A field left out is a field that cannot be changed at all
-    — the save is skipped, and the caller is told it went fine.
+    What the history reads, which is less than the row holds: the rate is not
+    here, being no news to anybody, and neither is who entered it. A field left
+    out is a field no journal line will mention, and nothing more — the save
+    itself goes ahead either way, so a rate corrected to the same number of
+    cents is still written. `update_payment` asks this whether there is anything
+    worth recording, never whether to write.
     """
 
     return {

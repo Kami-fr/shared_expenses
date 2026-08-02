@@ -1,6 +1,8 @@
 import { LitElement, css, html } from "lit";
 import { customElement, property } from "lit/decorators.js";
 
+import type { Localizer } from "../services/localize";
+
 /** How long a phone keyboard takes to come up, near enough. */
 const KEYBOARD_DELAY = 300;
 
@@ -12,9 +14,14 @@ const KEYBOARD_DELAY = 300;
  */
 @customElement("se-dialog")
 export class SeDialog extends LitElement {
+  @property({ attribute: false }) public localize!: Localizer;
+
   @property({ type: String }) public heading = "";
 
   @property({ type: Boolean, reflect: true }) public open = false;
+
+  /** The press that the next click comes from started on the scrim itself. */
+  private pressedOnScrim = false;
 
   public static styles = css`
     :host {
@@ -144,11 +151,15 @@ export class SeDialog extends LitElement {
 
   protected render() {
     return html`
-      <div class="scrim" @click=${this.handleScrimClick}>
+      <div
+        class="scrim"
+        @pointerdown=${this.handleScrimPointerDown}
+        @click=${this.handleScrimClick}
+      >
         <div class="surface" role="dialog" aria-modal="true" @click=${this.stop}>
           <header>
             <h2>${this.heading}</h2>
-            <button class="close" @click=${this.close} aria-label="Fermer">×</button>
+            <button class="close" @click=${this.close} aria-label=${this.localize("close")}>×</button>
           </header>
           <div class="content"><slot></slot></div>
           <slot name="banner"></slot>
@@ -219,8 +230,28 @@ export class SeDialog extends LitElement {
     }
   };
 
-  private handleScrimClick = () => {
-    this.close();
+  /**
+   * Dismiss on the scrim, but only for a gesture that stayed on the scrim.
+   *
+   * A click is dispatched on the nearest ancestor the press and the release
+   * have in common, so dragging across a field and letting go a few pixels
+   * past the edge of the card lands a click on the scrim itself — the surface
+   * is not on the path, `stop` never runs, and the dialog closed on someone
+   * merely re-selecting the text they had just typed. Where the press started
+   * is what says whether the scrim was really the thing being clicked.
+   */
+  private handleScrimPointerDown = (event: PointerEvent) => {
+    this.pressedOnScrim = event.target === event.currentTarget;
+  };
+
+  private handleScrimClick = (event: Event) => {
+    const fromScrim = this.pressedOnScrim;
+
+    this.pressedOnScrim = false;
+
+    if (fromScrim && event.target === event.currentTarget) {
+      this.close();
+    }
   };
 
   private stop(event: Event) {

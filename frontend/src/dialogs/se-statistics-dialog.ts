@@ -39,7 +39,12 @@ export class SeStatisticsDialog extends LitElement {
     const translate = this.localize;
 
     return html`
-      <se-dialog open heading=${translate("statistics")} @dialog-closed=${this.close}>
+      <se-dialog
+        open
+        heading=${translate("statistics")}
+        .localize=${this.localize}
+        @dialog-closed=${this.close}
+      >
         <se-statistics
           .api=${this.api}
           .localize=${this.localize}

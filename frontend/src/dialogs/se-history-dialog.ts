@@ -10,6 +10,20 @@ import { sharedStyles } from "../styles/shared";
 import type { Category, Expense, Group, Member, Payment, Revision } from "../types";
 
 /**
+ * The names a deletion froze that can make what it took away yours.
+ *
+ * The keys of an expense and of a payment do not overlap, so asking for all
+ * four and taking what is there says the right thing without a branch. The
+ * same four `ensure_may_restore` asks of the same frozen state.
+ */
+const RESTORE_FIELDS = [
+  "created_by_member_id",
+  "paid_by_member_id",
+  "from_member_id",
+  "to_member_id",
+];
+
+/**
  * Everything that happened in the group, newest first.
  *
  * The one place a deletion can be read: an expense's own history goes with it,
@@ -40,6 +54,21 @@ export class SeHistoryDialog extends LitElement {
 
   @property({ attribute: false }) public payments: Payment[] = [];
 
+  /** Which of them this reader may open rather than only read. The page's rule. */
+  @property({ attribute: false }) public openable: string[] = [];
+
+  /**
+   * Who is reading, and whether the project lets them touch what is not theirs.
+   *
+   * The two halves of the same rule `openable` was built from, handed in raw
+   * because the page cannot apply it here: it holds what the project still has,
+   * and a restore is about what it no longer has. Only the revisions know that,
+   * and they are loaded here.
+   */
+  @property({ type: String }) public meId: string | null = null;
+
+  @property({ type: Boolean }) public mayEditOthers = false;
+
   @property({ type: String }) public language = "en";
 
   @state() private revisions?: Revision[];
@@ -57,7 +86,12 @@ export class SeHistoryDialog extends LitElement {
     const translate = this.localize;
 
     return html`
-      <se-dialog open heading=${translate("group_history")} @dialog-closed=${this.close}>
+      <se-dialog
+        open
+        heading=${translate("group_history")}
+        .localize=${this.localize}
+        @dialog-closed=${this.close}
+      >
         ${this.error ? html`<div class="error">${this.error}</div>` : nothing}
         ${this.renderBody()}
 
@@ -69,29 +103,84 @@ export class SeHistoryDialog extends LitElement {
   }
 
   private renderBody() {
-    if (this.error) {
-      return nothing;
-    }
-
+    // Keyed on what arrived, not on the error above it: a restore that was
+    // refused sets the same field as a journal that never loaded, and blanking
+    // the body on both took away the very entry that was being read — with no
+    // way back short of closing the dialog. A load that failed shows the error
+    // line alone rather than a "loading" that will never end.
     if (!this.revisions) {
-      return html`<div class="muted">${this.localize("loading")}</div>`;
+      return this.error
+        ? nothing
+        : html`<div class="muted">${this.localize("loading")}</div>`;
     }
 
     return html`
       <se-history
         withSubject
-        restorable
+        .restorable=${this.restorable()}
         .localize=${this.localize}
         .revisions=${this.revisions}
         .members=${this.members}
         .categories=${this.categories}
         .expenses=${this.expenses}
         .payments=${this.payments}
+        .openable=${this.openable}
         .currency=${this.group.currency}
         .language=${this.language}
         @revision-restored=${this.restore}
       ></se-history>
     `;
+  }
+
+  /**
+   * Which deleted entries this reader may bring back, by id.
+   *
+   * The same rule as editing one, which is what the backend applies to a
+   * restore: yours when you entered it or it was about you, anybody's when the
+   * project lets its members touch what is not theirs. Asked of the deletion,
+   * because there is no row left to ask — it froze exactly these names, the way
+   * se-history reads the amount off it.
+   *
+   * A deletion from before there were snapshots does not say who entered it, so
+   * it only reads as yours when the money was. The backend reads the very same
+   * frozen state, so the two say the same thing rather than nearly the same.
+   */
+  private restorable(): string[] {
+    const ids: string[] = [];
+    // Newest first, and only the latest deletion of a thing decides: one
+    // brought back, changed hands and deleted again has an older deletion still
+    // naming somebody the restore no longer belongs to. The backend asks the
+    // latest too.
+    const asked = new Set<string>();
+
+    for (const revision of this.revisions ?? []) {
+      if (revision.action !== "deleted" || asked.has(revision.entity_id)) {
+        continue;
+      }
+
+      asked.add(revision.entity_id);
+
+      if (this.mayRestore(revision)) {
+        ids.push(revision.entity_id);
+      }
+    }
+
+    return ids;
+  }
+
+  /** Whether the state a deletion froze names this reader. */
+  private mayRestore(revision: Revision): boolean {
+    if (this.mayEditOthers) {
+      return true;
+    }
+
+    if (this.meId === null) {
+      return false;
+    }
+
+    const frozen = new Map(revision.changes.map((change) => [change.field, change.before]));
+
+    return RESTORE_FIELDS.some((field) => frozen.get(field) === this.meId);
   }
 
   /**

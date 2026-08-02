@@ -124,11 +124,33 @@ export class SeExpensePicker extends LitElement {
       .none {
         color: var(--secondary-text-color);
       }
+
+      /*
+       * A link that is held over a purchase the list does not offer. Never the
+       * placeholder's grey: grey says there is nothing here, and there is
+       * something here — the id is still the value, and still goes out on the
+       * next save. The colour a warning is written in, for the same reason.
+       */
+      .gone {
+        color: var(--error-color, #db4437);
+      }
+
+      /* Under the field, where the way through to the purchase also sits. */
+      .cut {
+        margin-top: 6px;
+      }
     `,
   ];
 
   protected render() {
     const chosen = this.expenses.find((expense) => expense.id === this.value);
+
+    // Held, and not on offer: the purchase has been turned into a refund since,
+    // or deleted, or belongs to a project this reader cannot see. Drawn as
+    // itself and not as "nothing chosen" — the two are not the same fact, and
+    // the second one leaves the reader with an error about an expense over a
+    // field saying there is no expense, and no field to clear.
+    const gone = chosen === undefined && this.value !== "";
 
     return html`
       ${this.label ? html`<label>${this.label}</label>` : nothing}
@@ -141,7 +163,9 @@ export class SeExpensePicker extends LitElement {
       >
         ${chosen
           ? renderExpenseRow(chosen, this)
-          : html`<span class="none">${this.placeholder}</span>`}
+          : html`<span class=${gone ? "gone" : "none"}>
+              ${gone ? this.localize("refund_of_missing") : this.placeholder}
+            </span>`}
       </button>
 
       ${this.open
@@ -164,6 +188,22 @@ export class SeExpensePicker extends LitElement {
                 `,
               )}
             </div>
+          `
+        : nothing}
+
+      <!--
+        The way to cut a link nothing else can reach. Opening the list and
+        picking "no expense in particular" does the same thing, but a reader
+        told the purchase is not there has no reason to go looking through a
+        list of purchases for the way to say so. The value is left alone until
+        they press it: a deleted purchase that gets restored is meant to find
+        its refund still naming it.
+      -->
+      ${gone
+        ? html`
+            <button class="link cut" @click=${() => this.choose("")}>
+              ${this.localize("refund_of_unlink")}
+            </button>
           `
         : nothing}
     `;

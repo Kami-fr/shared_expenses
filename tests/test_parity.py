@@ -73,6 +73,16 @@ RULES: list[dict | None] = [
         "envelope": 0,
         "remainder": {"members": [A, B, C], "percent": {A: 3333, B: 3333, C: 3334}},
     },
+    # Percentages declared in another order than the members. The cents that
+    # flooring loses are handed out by position, so both sides have to read the
+    # shares in the same order — the panel writes them in the order they were
+    # typed, which is rarely the order the group comes in.
+    {"envelope": 0, "remainder": {"members": [A, B], "percent": {B: 5000, A: 5000}}},
+    {"envelope": 0, "remainder": {"members": [A, B], "percent": {B: 6667, A: 3333}}},
+    {
+        "envelope": 0,
+        "remainder": {"members": [A, B, C], "percent": {C: 3334, A: 3333, B: 3333}},
+    },
     # Short of the whole: the last member takes what nobody claimed.
     {"envelope": 0, "remainder": {"members": [A, B], "percent": {A: 6000}}},
     # Short of the whole with nobody left: refused on both sides, or neither.

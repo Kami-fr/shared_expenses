@@ -57,6 +57,9 @@ export class SeStatistics extends LitElement {
 
   @state() private period: string = ALL;
 
+  /** The period the figures on screen are for — not one that failed on the way. */
+  private loaded: string = ALL;
+
   @state() private error?: string;
 
   /** Whether "where it went" is drawn as a disc rather than a run of bars. */
@@ -471,11 +474,12 @@ export class SeStatistics extends LitElement {
   protected render() {
     const translate = this.localize;
 
-    if (this.error) {
-      return html`<div class="error">${this.error}</div>`;
-    }
-
+    // Nothing has ever come through: the error is all there is to show.
     if (!this.result) {
+      if (this.error) {
+        return html`<div class="error">${this.error}</div>`;
+      }
+
       return html`<div class="panel"><div class="empty">${translate("loading")}</div></div>`;
     }
 
@@ -483,7 +487,12 @@ export class SeStatistics extends LitElement {
       return html`<div class="panel"><div class="empty">${translate("no_expenses")}</div></div>`;
     }
 
+    // A period that failed to load takes the error and nothing else: the figures
+    // of the period that did load are still worth reading, and the picker above
+    // them is the only way to ask for another one — dropping it would leave the
+    // screen with no way forward but closing the dialog.
     return html`
+      ${this.error ? html`<div class="error">${this.error}</div>` : nothing}
       ${this.renderPeriod()} ${this.renderHero()} ${this.renderInsight()}
       ${this.renderCategories()} ${this.renderMonths()} ${this.renderMembers()}
     `;
@@ -652,10 +661,11 @@ export class SeStatistics extends LitElement {
 
   /** Biggest first, each against the biggest, so the ranking is the shape. */
   private renderBars() {
+    const result = this.result!;
     const biggest = this.biggestCategory();
 
-    return html`${this.result!.by_category.map((item) =>
-      this.renderCategoryRow(item, biggest),
+    return html`${result.by_category.map((item) =>
+      this.renderCategoryRow(item, biggest, result.total),
     )}`;
   }
 
@@ -687,6 +697,9 @@ export class SeStatistics extends LitElement {
     // The disc adds up to what it draws, not to what the group spent. Refunds
     // pull the total under the sum of the categories still standing, and the
     // wedges would then run past the full turn and lie on top of each other.
+    // The rows below are the legend of this disc, so they are written against
+    // this same total: a legend that disagrees with the thing it explains is
+    // worse than either figure alone.
     const total = slices.reduce((sum, item) => sum + item.total, 0) || 1;
     let cursor = 0;
 
@@ -720,7 +733,7 @@ export class SeStatistics extends LitElement {
           `;
         })}
       </svg>
-      ${result.by_category.map((item) => this.renderCategoryRow(item, biggest))}
+      ${result.by_category.map((item) => this.renderCategoryRow(item, biggest, total))}
     `;
   }
 
@@ -735,9 +748,12 @@ export class SeStatistics extends LitElement {
    * a colour and nothing else. And a row that gains and loses a part of itself
    * depending on the chart above it makes the two lists read as two different
    * lists, which they are not.
+   *
+   * The share is taken against a total handed in rather than one read here: the
+   * bars are read against what the group spent, and the disc's legend against
+   * what the disc draws, which refunds pull apart.
    */
-  private renderCategoryRow(item: CategoryTotal, biggest: number) {
-    const result = this.result!;
+  private renderCategoryRow(item: CategoryTotal, biggest: number, total: number) {
     const category = this.category(item.category_id);
     const colour = this.categoryColour(item.category_id);
 
@@ -766,13 +782,16 @@ export class SeStatistics extends LitElement {
           </div>
         </div>
         <!--
-          Never below nothing. A category refunded past what it cost comes out
-          negative, and a share of what the group spent cannot be: "-12 %" is not
-          a fact about anything. Nothing is hidden by flooring it — the bar beside
-          it is drawn on the size, and the figure on the row carries its own minus.
+          Never below nothing, and never a share of nothing. A category refunded
+          past what it cost comes out negative, and a share of what the group
+          spent cannot be: "-12 %" is not a fact about anything. A period that
+          came out refunded to the last cent has no total to take a share of at
+          all, and dividing by it would print "Infinity%" or "NaN%" on the row.
+          Nothing is hidden by flooring either — the bar beside it is drawn on
+          the size, and the figure on the row carries its own minus.
         -->
         <div class="pc">
-          ${Math.max(0, Math.round((item.total / result.total) * 100))}%
+          ${total > 0 ? Math.max(0, Math.round((item.total / total) * 100)) : 0}%
         </div>
       </div>
     `;
@@ -929,15 +948,23 @@ export class SeStatistics extends LitElement {
   }
 
   private async load() {
+    const asked = this.period;
+
     this.error = undefined;
 
     try {
       this.result = await this.api.getStatistics(
         this.groupId,
-        this.period === ALL ? null : Number(this.period),
+        asked === ALL ? null : Number(asked),
       );
+      this.loaded = asked;
     } catch (error) {
       this.error = errorMessage(error, this.localize);
+
+      // Back to the period still on screen. The picker would otherwise point at
+      // figures it never got, and pick() — which ignores a period already
+      // chosen — would refuse the tap that asks for it again.
+      this.period = this.loaded;
     }
   }
 }

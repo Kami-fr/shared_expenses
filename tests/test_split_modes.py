@@ -30,6 +30,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MODES_TS = ROOT / "frontend" / "src" / "services" / "split-modes.ts"
 SPLITS_TS = ROOT / "frontend" / "src" / "services" / "splits.ts"
 CHECK_JS = Path(__file__).parent / "parity" / "roundtrip.mjs"
+DEPARTED_JS = Path(__file__).parent / "parity" / "departed.mjs"
 
 A, B, C = "mA", "mB", "mC"
 
@@ -151,6 +152,91 @@ def run(tmp_path: Path, cases: list[dict], modes_source: str) -> dict:
     assert result.stdout, f"the harness said nothing.\n{result.stderr}"
 
     return json.loads(result.stdout)
+
+
+def reopen(tmp_path: Path, cases: list[dict]) -> list[dict]:
+    """Read each rule back as a mode and write it out again, as the editor does."""
+
+    modes = tmp_path / "split-modes.mjs"
+    modes.write_text(
+        modes_to_javascript(MODES_TS.read_text(encoding="utf-8")),
+        encoding="utf-8",
+    )
+
+    payload = tmp_path / "cases.json"
+    payload.write_text(json.dumps(cases), encoding="utf-8")
+
+    result = subprocess.run(
+        [shutil.which("node"), str(DEPARTED_JS), str(modes), str(payload)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.stdout, f"the harness said nothing.\n{result.stderr}"
+
+    return json.loads(result.stdout)
+
+
+def test_a_rule_naming_somebody_gone_is_never_read_as_one_about_everybody(
+    tmp_path: Path,
+):
+    """A member who has left leaves the rule; nobody else is drawn into it."""
+
+    if shutil.which("node") is None:
+        pytest.skip("node is needed to run the frontend modules")
+
+    # C has left the group everywhere below: the panel shows A and B, and has no
+    # tick for C at all.
+    cases = [
+        # Equal shares between A and C. Two names over two members is exactly
+        # how the rule for "everybody" is written, so B would be signed up for
+        # every expense of the category without a box of theirs ever being
+        # ticked.
+        {
+            "rule": {"envelope": None, "participants": [A, C], "remainder": {}},
+            "member_ids": [A, B],
+            "payer_id": A,
+        },
+        # An amount shared by everybody, the rest on C alone.
+        {
+            "rule": {
+                "envelope": 1000,
+                "participants": None,
+                "remainder": {"members": [C]},
+            },
+            "member_ids": [A, B],
+            "payer_id": A,
+        },
+        # Hand-typed amounts, one of them C's.
+        {
+            "rule": {
+                "envelope": 0,
+                "remainder": {"members": [A, C], "fixed": {A: 3000, C: 1000}},
+            },
+            "member_ids": [A, B],
+            "payer_id": A,
+        },
+    ]
+
+    rewritten = reopen(tmp_path, cases)
+
+    for case, written in zip(cases, rewritten, strict=True):
+        rule = written["rule"]
+
+        assert rule is not None
+        assert not _names_outsiders(rule, case["member_ids"]), (
+            f"{written['mode']} rewrote {case['rule']} as {rule}, "
+            "which still names somebody who has left"
+        )
+
+    # The one still here keeps the split to themselves rather than sharing it
+    # with whoever the rule never mentioned.
+    assert rewritten[0]["rule"]["participants"] == [A]
+
+    # Nobody named takes the rest, so it falls to whoever paid — as a rule with
+    # no taker at all says it.
+    assert rewritten[1]["rule"]["remainder"]["members"] == [A]
 
 
 def test_reopening_an_expense_leaves_every_share_where_it_was(tmp_path: Path):
