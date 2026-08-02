@@ -114,14 +114,23 @@ export class SeExpenseDialog extends LitElement {
   @state() private description = "";
 
   /**
-   * The amount as typed, minus sign and all.
+   * The amount as typed, always a size and never a direction.
    *
-   * A minus is how a refund from a shop is entered: the same expense with the
-   * money going the other way, and no second control saying so. The dialog
-   * reads the sign as it is typed — the heading, who it is down to, and the
-   * shares underneath all turn round with it.
+   * Which way the money went is `refunding` and nothing else. It used to be the
+   * minus sign in this field, which worked and could not be discovered: nothing
+   * on screen said a shop's refund was enterable at all, and the one figure a
+   * reader checks twice was carrying a second meaning.
    */
   @state() private amountInput = "";
+
+  /**
+   * Whether this is money a shop gave back rather than money it took.
+   *
+   * The whole of the direction, and the model still stores it as the sign of
+   * the amount — a refund is the same expense with the money going the other
+   * way, which is what lets one resolver serve both.
+   */
+  @state() private refunding = false;
 
   @state() private paidBy = "";
 
@@ -309,7 +318,12 @@ export class SeExpenseDialog extends LitElement {
 
     this.expenseTitle = this.expense.title;
     this.description = this.expense.description ?? "";
-    this.amountInput = centsToInput(this.expense.amount);
+
+    // The stored sign is read once, here, and turned back into the two things
+    // it stands for: a size in the field and a direction in the selector.
+    this.refunding = this.expense.amount < 0;
+    this.amountInput = centsToInput(Math.abs(this.expense.amount));
+
     this.refundOf = this.expense.refund_of ?? "";
     this.paidBy = this.expense.paid_by_member_id;
     this.date = isoToDateInput(this.expense.expense_date);
@@ -396,11 +410,29 @@ export class SeExpenseDialog extends LitElement {
     });
   }
 
+  /**
+   * What is being saved: the size typed, pointed by the selector.
+   *
+   * The one place the two are put back together, because everything downstream
+   * — the split, the summary, what the backend stores — works on a signed
+   * figure. `Math.abs` on the way in as well: a size pasted with a minus still
+   * on it is a size.
+   */
+  private signedAmount(): number | null {
+    const size = parseMoney(this.amountInput);
+
+    if (size === null) {
+      return null;
+    }
+
+    return this.refunding ? -Math.abs(size) : Math.abs(size);
+  }
+
   protected render() {
     const translate = this.localize;
 
-    const amount = parseMoney(this.amountInput);
-    const refund = amount !== null && amount < 0;
+    const amount = this.signedAmount();
+    const refund = this.refunding;
 
     const heading = this.expense
       ? translate(refund ? "edit_refund" : "edit_expense")
@@ -410,6 +442,24 @@ export class SeExpenseDialog extends LitElement {
       <se-dialog open heading=${heading} @dialog-closed=${this.cancel}>
         <div class="stack">
           ${this.error ? html`<div class="error">${this.error}</div>` : nothing}
+
+          <!--
+            Which way the money went, asked outright and first, the way the
+            payment dialog asks what it is looking at. It was the minus sign on
+            the amount and nothing else: it worked, and there was no way to find
+            out it worked — a shop's refund is a thing this panel does, and
+            nothing on screen said so. Typing one still does it; it now moves
+            this instead of hiding in the figure.
+          -->
+          <se-select
+            .label=${translate("kind_label")}
+            .value=${this.refunding ? "refund" : "expense"}
+            .options=${[
+              { value: "expense", label: translate("kind_expense") },
+              { value: "refund", label: translate("kind_shop_refund") },
+            ]}
+            @value-changed=${this.pickWay}
+          ></se-select>
 
           <se-field
             .label=${translate("expense_title")}
@@ -512,15 +562,21 @@ export class SeExpenseDialog extends LitElement {
           <div class="rule"></div>
 
           <!--
-            Only once the figure has turned round. A purchase answers no other
-            purchase, so there is nothing to ask until the amount says money is
-            coming back — and asking before then would put a field nobody can use
-            on every expense anybody ever enters.
+            Only on a refund. A purchase answers no other purchase, so there is
+            nothing to ask on one — and asking anyway would put a field nobody
+            can use on every expense anybody ever enters.
+
+            It used to wait for a figure as well, because the figure was the only
+            thing that said which way the money went. The selector says it now,
+            so the field comes with the intention rather than after it: pick the
+            purchase first and its words, its category and its split arrive
+            before the amount is typed, which is the order somebody refunding
+            something actually works in.
 
             Purchases only, and never this expense itself: a refund of a refund
             says nothing anybody means, and the backend refuses both.
           -->
-          ${amount !== null && amount < 0
+          ${this.refunding
             ? html`
                 <div>
                   <se-expense-picker
@@ -851,9 +907,44 @@ export class SeExpenseDialog extends LitElement {
    * choosing a 40 expense is the ordinary way round, not the exception.
    */
   private setAmount = (event: CustomEvent) => {
-    this.amountInput = event.detail.value;
+    const typed = event.detail.value as string;
+
+    // A minus was how a refund was entered before there was anything else, and
+    // it stays a way of entering one: whoever has the habit keeps it, and the
+    // gesture now shows up in the selector rather than living in the figure.
+    // The sign is taken out of the field, so the two never say different things.
+    this.refunding = this.refunding || typed.includes("-");
+    this.amountInput = typed.replace(/-/g, "");
+
     this.touched = true;
     this.applyRefundSplit();
+  };
+
+  /**
+   * Change which way the money went.
+   *
+   * Turning a refund back into an expense lets its purchase go, and the split
+   * with it. The rule on screen is the purchase's own, borrowed when it was
+   * named; keeping it on an expense that no longer answers anything would leave
+   * somebody's shopping split by a rule they never chose and cannot see the
+   * reason for. Null is what `pickCategory` leaves too, and it means "open on
+   * the category's rule again".
+   */
+  private pickWay = (event: CustomEvent) => {
+    const refunding = event.detail.value === "refund";
+
+    if (refunding === this.refunding) {
+      return;
+    }
+
+    this.refunding = refunding;
+    this.touched = true;
+
+    if (!refunding) {
+      this.refundOf = "";
+      this.leavingTo = undefined;
+      this.rule = null;
+    }
   };
 
   /** Take a purchase to give money back on, and open on the way it was borne. */
@@ -905,7 +996,9 @@ export class SeExpenseDialog extends LitElement {
       const typed = parseMoney(this.amountInput);
 
       if (typed === null || Math.abs(typed) > purchase.amount) {
-        this.amountInput = centsToInput(-purchase.amount);
+        // The size of it. The selector already says which way it goes, and it
+        // says "refund" or this picker would not be on screen.
+        this.amountInput = centsToInput(purchase.amount);
         this.currency = purchase.currency;
         this.rate =
           purchase.currency === this.group.currency ? RATE_ONE : null;
@@ -945,7 +1038,7 @@ export class SeExpenseDialog extends LitElement {
    */
   private applyRefundSplit(): void {
     const purchase = this.expenses.find((item) => item.id === this.refundOf);
-    const amount = parseMoney(this.amountInput);
+    const amount = this.signedAmount();
 
     if (purchase === undefined || amount === null || amount >= 0) {
       return;
@@ -1147,7 +1240,7 @@ export class SeExpenseDialog extends LitElement {
    */
   private takeRule = (event: CustomEvent) => {
     const rule = event.detail.rule as SplitRule | null;
-    const amount = parseMoney(this.amountInput);
+    const amount = this.signedAmount();
 
     if (
       !sameShares(
@@ -1168,7 +1261,7 @@ export class SeExpenseDialog extends LitElement {
   };
 
   private submit = async () => {
-    const amount = parseMoney(this.amountInput);
+    const amount = this.signedAmount();
 
     // Send the shares shown rather than the rule behind them: what you see is
     // what gets stored, and the resolver agrees with the backend on every cent.
