@@ -738,6 +738,48 @@ async def test_you_may_always_rename_yourself(
     assert connection.errors == {}
 
 
+async def test_renaming_yourself_still_needs_the_group_asking_to_be_yours(
+    loaded: FakeHass,
+    manager: SharedExpensesManager,
+    project: dict[str, Any],
+):
+    """The self shortcut is not a way round the wall.
+
+    `group_id` is the journal the rename lands in and the group told about it.
+    Sharing *a* group with somebody is what gets the caller this far; being in
+    *this* one is what lets them write into it — so a project they used to
+    belong to, whose id they still know, must refuse them like any stranger.
+    """
+
+    other = await manager.create_group(
+        group_name="Ski",
+        admin_name="Marc",
+        admin_user_id="ha-stranger",
+    )
+
+    connection = FakeConnection(PLAIN)
+
+    await send(
+        loaded,
+        connection,
+        members.websocket_update_member,
+        {
+            "member_id": project["plain"].id,
+            "group_id": other.id,
+            "name": "Antonin R.",
+        },
+    )
+
+    assert connection.errors[1][0] == "group_not_found"
+
+    # Nothing written into a household the caller is not part of.
+    assert [
+        revision
+        for revision in await manager.list_revisions(other.id)
+        if revision.entity_label == "Antonin R."
+    ] == []
+
+
 async def test_renaming_somebody_else_needs_the_permission(
     loaded: FakeHass,
     manager: SharedExpensesManager,
@@ -759,6 +801,47 @@ async def test_renaming_somebody_else_needs_the_permission(
     )
 
     assert connection.errors[1][0] == "not_allowed"
+
+
+async def test_renaming_somebody_else_is_not_a_group_you_bring_along(
+    loaded: FakeHass,
+    manager: SharedExpensesManager,
+    project: dict[str, Any],
+):
+    """The group asking has to be the one that holds them.
+
+    Otherwise the guard falls in half: sharing *a* group with somebody is what
+    gets the caller this far, and a group of their own — where they are the
+    admin, above every switch — would answer for a member it has never held. A
+    member is global, so the rename would land everywhere, and the journal of
+    the household whose leave was needed would show nothing.
+    """
+
+    await close_project(manager, project["group"].id)
+
+    mine = await manager.create_group(
+        group_name="Solo",
+        admin_name="Antonin",
+        admin_user_id=PLAIN,
+    )
+
+    connection = FakeConnection(PLAIN)
+
+    await send(
+        loaded,
+        connection,
+        members.websocket_update_member,
+        {
+            "member_id": project["guest"].id,
+            "group_id": mine.id,
+            "name": "Vole",
+        },
+    )
+
+    assert connection.errors[1][0] == "member_not_found"
+
+    guest = await manager.get_member(project["guest"].id)
+    assert guest.name == "Marc"
 
 
 async def test_you_may_always_leave(

@@ -35,11 +35,11 @@
         },
         "amount": {
           "name": "Kwota",
-          "description": "W pełnej walucie, nie w groszach. 85,42, a nie 8542."
+          "description": "W pełnej walucie, nie w groszach. 85,42, a nie 8542. Kwota ujemna to zwrot ze sklepu: -12,90 oddaje grupie 12,90."
         },
         "paid_by_member_id": {
           "name": "Zapłacone przez",
-          "description": "Identyfikator osoby, która zapłaciła."
+          "description": "Identyfikator osoby, która zapłaciła. Przy zwrocie — osoby, która odzyskała pieniądze."
         },
         "expense_date": {
           "name": "Data",

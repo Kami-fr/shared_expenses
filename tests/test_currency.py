@@ -48,9 +48,13 @@ def test_nothing_converts_to_nothing():
     assert convert(0, rate_from_decimal("0.87681")) == 0
 
 
-def test_a_negative_amount_is_refused():
-    with pytest.raises(InvalidExchangeRateError):
-        convert(-100, RATE_ONE)
+def test_a_refund_converts_to_exactly_what_it_undoes():
+    """Otherwise a shop refunding what it charged would leave a cent behind."""
+
+    rate = rate_from_decimal("0.87681")
+
+    for amount in range(1, 500):
+        assert convert(-amount, rate) == -convert(amount, rate)
 
 
 @pytest.mark.parametrize("rate", [0, -1])
@@ -60,10 +64,29 @@ def test_a_rate_must_be_positive(rate: int):
 
 
 def test_an_absurd_rate_is_refused():
-    """A typo turning 5 EUR into a fortune is worth a visible error."""
+    """A typo turning 5 EUR into a fortune is worth a visible error.
+
+    A rate pasted in millionths is the typo in question: 876810 where 0,87681
+    was meant.
+    """
 
     with pytest.raises(InvalidExchangeRateError):
-        validate_rate(RATE_ONE * 100_000)
+        validate_rate(RATE_ONE * 1_000_000)
+
+    with pytest.raises(InvalidExchangeRateError):
+        rate_from_decimal("876810")
+
+
+def test_the_widest_pair_on_offer_is_a_rate():
+    """A group counting in rupiah is a group like any other.
+
+    Rates are fetched as the currency paid in against the group's own, so an
+    IDR group asks some twenty thousand rupiah for a pound. A ceiling under
+    that would refuse the fetched rate and the hand-typed one alike, and every
+    foreign expense of that group would be unsaveable.
+    """
+
+    assert validate_rate(rate_from_decimal("21000")) == 21_000 * RATE_ONE
 
 
 def test_a_boolean_is_not_a_rate():
@@ -154,11 +177,24 @@ def test_apportion_survives_what_converting_one_by_one_would_lose():
     assert shares == {"a": 1, "b": 0, "c": 0}
 
 
-def test_apportion_is_deterministic_on_a_tie():
-    """Two shares wanting the same half-cent: the first one asked gets it."""
+def test_apportion_turns_which_share_takes_the_odd_cent():
+    """Two shares wanting the same half-cent: not always the same one.
 
-    assert apportion({"a": 1, "b": 1}, 3) == {"a": 2, "b": 1}
-    assert apportion({"b": 1, "a": 1}, 3) == {"b": 2, "a": 1}
+    An equal split ties everywhere, so serving the first of the list would hand
+    it the odd cent of every conversion the group ever made. Which one is served
+    first turns with the total -- and turns the same way every time, so the same
+    expense still resolves to the same shares.
+    """
+
+    assert apportion({"a": 1, "b": 1}, 3) == {"a": 1, "b": 2}
+    assert apportion({"a": 1, "b": 1}, 5) == {"a": 3, "b": 2}
+
+    # Twice, to say it is the total that decides and not the clock.
+    assert apportion({"a": 1, "b": 1}, 3) == {"a": 1, "b": 2}
+
+    # The order they came in still decides who is where; only the starting point
+    # moved. Swap them and the cent swaps with them.
+    assert apportion({"b": 1, "a": 1}, 3) == {"b": 1, "a": 2}
 
 
 def test_apportion_refuses_what_cannot_be_divided():
@@ -170,3 +206,32 @@ def test_apportion_refuses_what_cannot_be_divided():
 
     with pytest.raises(InvalidExchangeRateError):
         apportion({"a": 1}, -1)
+
+
+def test_apportion_takes_a_refund_the_whole_way_round():
+    """Shares and total make the same trip, in whichever direction."""
+
+    assert apportion({"a": -2_000, "b": -8_000}, -8_768) == {"a": -1_754, "b": -7_014}
+
+
+def test_apportion_gives_back_what_converts_to_nothing():
+    """A refund of half a cent is still a refund.
+
+    Five ore given back, at the rate the krona really trades at, converts to
+    nothing at all -- and the same five ore spent apportions to a zero share
+    each without a word. What can be handed over can be given back, so the
+    refund answers the same way rather than blaming a rate that is perfectly
+    good.
+    """
+
+    assert convert(-5, 87_000) == 0
+
+    assert apportion({"a": -3, "b": -2}, 0) == {"a": 0, "b": 0}
+    assert apportion({"a": 3, "b": 2}, 0) == {"a": 0, "b": 0}
+
+
+def test_apportion_refuses_a_share_pulling_against_its_total():
+    """A member owing money because a shop gave some back means nothing."""
+
+    with pytest.raises(InvalidExchangeRateError):
+        apportion({"a": -100, "b": 20}, -80)

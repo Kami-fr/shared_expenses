@@ -93,7 +93,17 @@ export interface Member {
   user_id: string | null;
   name: string;
   color: string | null;
+  /** Whether they wear their Home Assistant photo rather than the initials. */
+  use_ha_avatar: boolean;
   created_at: string;
+  /**
+   * Their Home Assistant photo, resolved on the client from `hass.states`.
+   *
+   * Never sent by the backend: it is filled in where the members are loaded and
+   * `hass` is at hand. Null when they keep the initials, have no account, or set
+   * no picture — the panel reads its absence as "show the coloured initials".
+   */
+  picture?: string | null;
 }
 
 /** A Home Assistant account, as offered by the member picker. */
@@ -149,6 +159,14 @@ export interface Expense {
   exchange_rate: number;
   /** The day the rate is from, or null when nothing was converted. */
   rate_as_of: string | null;
+  /**
+   * The purchase this refund gives money back on, or null.
+   *
+   * Only ever set on a refund — an expense with a negative `amount`. Read, never
+   * counted: the shares are the money. It may name an expense that is not here,
+   * a deleted one keeping its id while the link waits for it.
+   */
+  refund_of: string | null;
   paid_by_member_id: string;
   /**
    * Who entered it, which is not always who paid it.
@@ -199,6 +217,14 @@ export interface Payment {
   exchange_rate: number;
   /** The day the rate is from, or null when nothing was converted. */
   rate_as_of: string | null;
+  /**
+   * The expense this was about, when it was about one.
+   *
+   * Null far more often than not: money handed over at the end of a month
+   * answers no single expense. It may also point at an expense that is not
+   * there, which is a deleted one waiting to be restored rather than an error.
+   */
+  expense_id: string | null;
 }
 
 export interface Balance {
@@ -307,28 +333,30 @@ export interface Revision {
   at: string;
 }
 
-/** Error codes sent back by the integration. */
-export type ErrorCode =
-  | "group_not_found"
-  | "group_archived"
-  | "member_not_found"
-  | "member_already_in_group"
-  | "category_not_found"
-  | "expense_not_found"
-  | "invalid_expense"
-  | "invalid_expense_shares"
-  | "invalid_split_rule"
-  | "payment_not_found"
-  | "invalid_payment"
-  | "invalid_exchange_rate"
-  | "exchange_rate_unavailable"
-  | "not_loaded"
-  | "unknown_error";
+/* The error codes the integration sends back were listed here too, and nothing
+ * ever read the list. It went stale the first time a `code=` was added to a
+ * raise, which is what a second copy does. `EN` in services/localize.ts is the
+ * one to keep: `errorMessage` looks a code up in it, so a code with no sentence
+ * there falls back to English rather than being quietly accepted. */
 
 /** Minimal shape of the `hass` object handed to the panel. */
+/** A Home Assistant entity, of which we read only a person's photo and account. */
+export interface HassEntity {
+  entity_id: string;
+  attributes: {
+    user_id?: string;
+    entity_picture?: string;
+    [key: string]: unknown;
+  };
+}
+
 export interface HomeAssistant {
   language: string;
   locale?: { language: string };
+  /** The house's own settings, of which we read only the currency. */
+  config?: { currency?: string };
+  /** Every entity's current state, where the person photos are found. */
+  states?: Record<string, HassEntity>;
   themes?: unknown;
   user?: { id: string; name: string; is_admin: boolean };
   callWS<T>(message: object): Promise<T>;

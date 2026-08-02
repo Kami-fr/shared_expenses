@@ -55,6 +55,12 @@ class GroupStatistics:
     #: How many expenses the total is made of, over the same period. The average
     #: expense is `total / count`, and the panel says so; a reimbursement is not
     #: one of them, exactly as it is not in the total.
+    #:
+    #: A refund from a shop is not one either, though it *is* in the total. It
+    #: comes off what the period cost, which is the whole point of entering it,
+    #: but nobody went shopping: counting it would put the average of two trips
+    #: over three, and a household that returned everything it bought would have
+    #: spent nothing on an ever-growing number of expenses.
     count: int
 
     by_category: Sequence[CategoryTotal]
@@ -110,9 +116,10 @@ def compute_statistics(
 
     return GroupStatistics(
         total=sum(expense.converted_amount for expense in kept),
-        # The expenses of the period, counted as the total counts them: off
-        # `kept`, so a reimbursement is no more a count than it is a euro.
-        count=len(kept),
+        # What was actually bought over the period. A reimbursement is no more a
+        # count than it is a euro; a refund is a euro back, and still not a
+        # shopping trip.
+        count=sum(1 for expense in kept if expense.converted_amount > 0),
         # Biggest first: a ranking is the question being asked of a breakdown.
         by_category=tuple(
             CategoryTotal(category_id=category_id, total=total)

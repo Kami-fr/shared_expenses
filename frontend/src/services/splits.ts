@@ -2,9 +2,9 @@
  * Split resolution, mirroring `helpers/splits.py`.
  *
  * The panel needs the resolved shares live, as the user types, so this has to
- * exist client side. It is a faithful port: the leftover cents go to the first
- * members, exactly like the backend, so what the dialog shows is what gets
- * stored. The parity harness checks both against the same cases.
+ * exist client side. It is a faithful port down to which member bears the cents
+ * that will not divide, so what the dialog shows is what gets stored. The parity
+ * harness checks both against the same cases.
  */
 
 import type { Remainder, SplitRule } from "../types";
@@ -28,8 +28,28 @@ export interface ResolveInput {
 export function resolveShares(input: ResolveInput): Record<string, number> | null {
   const { amount, payerId, memberIds } = input;
 
-  if (!Number.isInteger(amount) || amount <= 0) {
+  if (!Number.isInteger(amount) || amount === 0) {
     return null;
+  }
+
+  // A refund from a shop is the purchase it undoes, run backwards. The rule is
+  // read on what came back, and every share it resolves to is then owed the
+  // other way round — exactly what the backend does, and for the same reason:
+  // whatever a rule does to a purchase it must do to what gives it back.
+  if (amount < 0) {
+    const refunded = resolveShares({ ...input, amount: -amount });
+
+    if (refunded === null) {
+      return null;
+    }
+
+    const owed: Record<string, number> = {};
+
+    for (const [memberId, value] of Object.entries(refunded)) {
+      owed[memberId] = -value;
+    }
+
+    return owed;
   }
 
   const pool = [...new Set(memberIds)];
@@ -136,16 +156,23 @@ function resolveRemainder(
     return null;
   }
 
+  // Kept in the order the rule declares them, not the order the members come
+  // in: the cents that flooring loses are handed out by position further down,
+  // and the backend comprehends over `remainder.percent` itself. A rule whose
+  // percentages are typed in another order than its members would otherwise
+  // give that cent to somebody else here than the backend gave it to.
   const fixed: Record<string, number> = {};
   const percent: Record<string, number> = {};
 
-  for (const memberId of members) {
-    if (memberId in declaredFixed) {
-      fixed[memberId] = declaredFixed[memberId];
+  for (const [memberId, value] of Object.entries(declaredFixed)) {
+    if (members.includes(memberId)) {
+      fixed[memberId] = value;
     }
+  }
 
-    if (memberId in declaredPercent) {
-      percent[memberId] = declaredPercent[memberId];
+  for (const [memberId, value] of Object.entries(declaredPercent)) {
+    if (members.includes(memberId)) {
+      percent[memberId] = value;
     }
   }
 
@@ -214,21 +241,34 @@ function resolveRemainder(
 /**
  * Split an amount as evenly as possible.
  *
- * The extra cents go to the first members, which is what the backend does.
+ * The cents that will not divide start on the member the amount points at, which
+ * is what the backend does — see `_distribute` in `helpers/splits.py` for why one
+ * member used to bear every one of them.
+ *
+ * The offset is the quotient and not the amount: `amount % count` is `extra`
+ * itself, so at two members every odd cent would go to the second and never to
+ * the first.
  */
 function distribute(amount: number, memberIds: string[]): Record<string, number> {
   if (amount <= 0 || memberIds.length === 0) {
     return {};
   }
 
-  const base = Math.floor(amount / memberIds.length);
-  const extra = amount % memberIds.length;
+  const count = memberIds.length;
+  const base = Math.floor(amount / count);
+  const extra = amount % count;
 
   const shares: Record<string, number> = {};
 
-  memberIds.forEach((memberId, index) => {
-    shares[memberId] = base + (index < extra ? 1 : 0);
-  });
+  for (const memberId of memberIds) {
+    shares[memberId] = base;
+  }
+
+  const start = base % count;
+
+  for (let step = 0; step < extra; step += 1) {
+    shares[memberIds[(start + step) % count]] += 1;
+  }
 
   return shares;
 }

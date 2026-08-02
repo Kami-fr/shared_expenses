@@ -12,7 +12,12 @@ the same ones as in the panel, drawn by the same code:
 ```yaml
 type: custom:shared-expenses-card
 group_id: 01KXHEB4VFFWMAN5CG4BDNNBF9
+add_button: false   # optional: hide the header's "+ add expense" button
 ```
+
+Its header carries a **+ add expense** button that opens the form for this
+group; set `add_button: false`, or untick it in the editor, to drop it — the
+title still opens the group, where the "+" waits anyway.
 
 It says what the panel says, in the same words. **You are owed 42,71 €** when
 two of you are square with everyone but each other; your line first and the
@@ -32,6 +37,44 @@ and that door knows the answer.
 Add or edit the card from the dashboard's own UI and a group picker fills the
 `group_id` in for you — it lists only the groups you belong to. To write it by
 hand, see **Where the ids come from** below.
+
+## Add an expense, from a card or a badge
+
+Two smaller pieces do just one thing — open a new expense in a group. A card,
+for the body of a dashboard:
+
+```yaml
+type: custom:shared-expenses-add-card
+group_id: 01KXHEB4VFFWMAN5CG4BDNNBF9
+```
+
+And a badge, the same thing shrunk for the row along the top:
+
+```yaml
+type: custom:shared-expenses-add-badge
+group_id: 01KXHEB4VFFWMAN5CG4BDNNBF9
+```
+
+A tap walks to the panel and opens the new-expense form for that group, with
+nothing to fill in first. This is not the `add_expense` action further down: that
+one posts an expense from the fields you hand it, while these open the real form,
+so the split, the currency and everything else are there to set as usual.
+
+Each takes a few optional touches, all offered in the dashboard editor beside the
+group picker:
+
+```yaml
+type: custom:shared-expenses-add-card
+group_id: 01KXHEB4VFFWMAN5CG4BDNNBF9
+label: Courses          # the word on it; defaults to "Add expense"
+icon: mdi:cart          # a glyph in place of the plain "+"
+icon_color: "#4a7c59"   # the glyph's own colour; omitted, it takes the label's
+color: "#e0533d"        # its background; "none" for the bare card grey,
+                        # omitted for the theme's accent
+```
+
+The icon's colour is offered only once an icon is set — there is nothing to
+colour before then.
 
 ## The entities
 
@@ -55,9 +98,13 @@ There is no "you" out there, either. An entity's state is the same for everybody
 reading it, so nothing here says "you are owed" — a balance is named for whose it
 is. That is what the card above is for, and why it is not built out of these.
 
-A group that closes the switch, or is deleted, has its device removed and its
-entities with it: no stale figures left unavailable to rot. Turn it back on and
-they come straight back.
+A group that closes the switch keeps its device, and every entity on it says it
+has nothing to say — no figure, no last known balance, nothing to read. Turn it
+back on and the numbers come back to the same entities, with the names, rooms
+and history you gave them, and the tiles pointing at them never noticed. A group
+that is actually deleted is the other thing: there is nothing left to point at,
+so its device goes. To clear away a silent one anyway, delete it from its own
+device page.
 
 **Where the ids come from.** A group and a member are this integration's own, not
 Home Assistant entities, so no selector lists them. They are under **Developer

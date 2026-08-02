@@ -523,6 +523,59 @@ def test_the_schema_takes_what_the_panel_sends():
         SPLIT_RULE_SCHEMA(rule)
 
 
+async def test_a_refund_goes_through_the_real_command(
+    loaded: FakeHass,
+    household: dict[str, Any],
+    manager: SharedExpensesManager,
+):
+    """The message the panel sends for a refund, against the schema it must pass.
+
+    Through the command rather than the manager, because that is where a sign
+    would be refused: a negative amount and negative shares have to survive
+    voluptuous before anything is asked of the split.
+    """
+
+    connection = FakeConnection(MINE)
+    admin = household["my_admin"]
+    other = await manager.create_group_member(
+        group_id=household["mine"].id,
+        name="Antonin",
+    )
+
+    await call(
+        loaded,
+        connection,
+        expenses.websocket_create_expense,
+        {
+            "type": "shared_expenses/create_expense",
+            "group_id": household["mine"].id,
+            "title": "Retour Decathlon",
+            "amount": -3_000,
+            "paid_by_member_id": admin.id,
+            "expense_date": NOW.isoformat(),
+            "shares": [
+                {"member_id": admin.id, "amount": -1_500},
+                {"member_id": other.id, "amount": -1_500},
+            ],
+        },
+    )
+
+    assert connection.errors == {}
+
+    expense = connection.results[1]
+
+    assert expense["amount"] == -3_000
+    assert expense["converted_amount"] == -3_000
+
+    shares = {
+        share.member_id: share.amount
+        for share in await manager.list_expense_shares(household["mine"].id)
+        if share.expense_id == expense["id"]
+    }
+
+    assert shares == {admin.id: -1_500, other.id: -1_500}
+
+
 async def test_a_foreign_expense_goes_through_the_real_command(
     loaded: FakeHass,
     household: dict[str, Any],
@@ -614,6 +667,48 @@ async def test_an_expense_can_change_currency(
     assert reloaded.currency == "USD"
     assert reloaded.exchange_rate == 876_810
     assert reloaded.converted_amount != reloaded.amount
+
+
+async def test_an_expense_edit_answers_with_what_was_saved(
+    loaded: FakeHass,
+    household: dict[str, Any],
+    manager: SharedExpensesManager,
+):
+    """The reply is the stored expense, not the message that asked for it.
+
+    The handler used to serialise the expense it had built from the message,
+    which knows nothing of the converted amount, the rate and the split rule the
+    manager works out — so the same payload announced 100 USD = 100 EUR next to
+    shares read from the database that said otherwise.
+    """
+
+    connection = FakeConnection(MINE)
+
+    await call(
+        loaded,
+        connection,
+        expenses.websocket_update_expense,
+        {
+            "type": "shared_expenses/update_expense",
+            "expense_id": household["my_expense"].id,
+            "currency": "USD",
+            "exchange_rate": 876_810,
+        },
+    )
+
+    assert connection.errors == {}
+
+    reloaded = await manager.get_expense(household["my_expense"].id)
+    expense = connection.results[1]
+
+    assert expense["currency"] == reloaded.currency
+    assert expense["converted_amount"] == reloaded.converted_amount
+    assert expense["exchange_rate"] == reloaded.exchange_rate
+
+    # And the shares beside it add up to the amount it announces.
+    shared = sum(share["amount"] for share in expense["shares"])
+
+    assert shared == reloaded.converted_amount
 
 
 async def test_a_group_can_be_renamed_without_touching_its_currency(
@@ -757,6 +852,91 @@ async def test_a_payment_carries_a_note(
     assert reloaded.description == "Billet de train, aller simple"
     assert reloaded.amount == 4_625
     assert reloaded.kind is PaymentKind.DEBT
+
+
+async def test_a_payment_names_the_expense_it_is_about(
+    loaded: FakeHass,
+    household: dict[str, Any],
+    manager: SharedExpensesManager,
+):
+    """The link through the whole path the panel takes, and back off again.
+
+    Through the schema on purpose. The column existed once before, in v14, and
+    was dropped in v15 having never been read — a field the door does not know
+    is a field nobody can send, and it dies there with "extra keys not allowed",
+    which names the field and says nothing about why.
+    """
+
+    connection = FakeConnection(MINE)
+    admin = household["my_admin"]
+    other = await manager.create_group_member(
+        group_id=household["mine"].id,
+        name="Antonin",
+    )
+
+    await call(
+        loaded,
+        connection,
+        payments.websocket_create_payment,
+        {
+            "type": "shared_expenses/create_payment",
+            "group_id": household["mine"].id,
+            "from_member_id": other.id,
+            "to_member_id": admin.id,
+            "amount": 4_271,
+            "payment_date": NOW.isoformat(),
+            "expense_id": household["my_expense"].id,
+        },
+    )
+
+    assert connection.errors == {}
+
+    created = connection.results[1]
+
+    assert created["expense_id"] == household["my_expense"].id
+
+    # Null and not merely absent: absent means "leave it alone", so taking the
+    # link off has to be sayable, and the schema has to allow saying it.
+    await call(
+        loaded,
+        connection,
+        payments.websocket_update_payment,
+        {
+            "type": "shared_expenses/update_payment",
+            "payment_id": created["id"],
+            "expense_id": None,
+        },
+        msg_id=2,
+    )
+
+    assert connection.errors == {}
+    assert (await manager.get_payment(created["id"])).expense_id is None
+
+
+async def test_a_payment_cannot_name_another_household_s_expense(
+    loaded: FakeHass,
+    household: dict[str, Any],
+):
+    """An id is enough to ask with, and this is the door it asks through."""
+
+    connection = FakeConnection(MINE)
+
+    await call(
+        loaded,
+        connection,
+        payments.websocket_create_payment,
+        {
+            "type": "shared_expenses/create_payment",
+            "group_id": household["mine"].id,
+            "from_member_id": household["my_admin"].id,
+            "to_member_id": household["my_admin"].id,
+            "amount": 1_000,
+            "payment_date": NOW.isoformat(),
+            "expense_id": household["their_expense"].id,
+        },
+    )
+
+    assert connection.errors != {}
 
 
 async def test_a_debt_becomes_a_reimbursement(
@@ -904,6 +1084,56 @@ async def test_a_payment_in_another_currency_goes_through(
     balances = await manager.get_balances(household["mine"].id)
 
     assert balances.balances[other.id] == -4_384
+
+
+async def test_a_payment_edit_answers_with_what_was_saved(
+    loaded: FakeHass,
+    household: dict[str, Any],
+    manager: SharedExpensesManager,
+):
+    """The reply is the stored payment, not the message that asked for it.
+
+    The handler used to serialise the payment it had built from the message,
+    which knows nothing of the converted amount and the rate the manager works
+    out — so a handover corrected to 50 USD came back announcing the euros of
+    the state before the edit, while the balances counted the new ones.
+    """
+
+    connection = FakeConnection(MINE)
+    admin = household["my_admin"]
+    other = await manager.create_group_member(
+        group_id=household["mine"].id,
+        name="Antonin",
+    )
+
+    reimbursement = await manager.create_payment(
+        group_id=household["mine"].id,
+        from_member_id=admin.id,
+        to_member_id=other.id,
+        amount=5_000,
+        payment_date=NOW,
+    )
+
+    await call(
+        loaded,
+        connection,
+        payments.websocket_update_payment,
+        {
+            "type": "shared_expenses/update_payment",
+            "payment_id": reimbursement.id,
+            "currency": "USD",
+            "exchange_rate": 876_810,
+        },
+    )
+
+    assert connection.errors == {}
+
+    reloaded = await manager.get_payment(reimbursement.id)
+    payment = connection.results[1]
+
+    assert payment["currency"] == reloaded.currency
+    assert payment["converted_amount"] == reloaded.converted_amount
+    assert payment["exchange_rate"] == reloaded.exchange_rate
 
 
 #

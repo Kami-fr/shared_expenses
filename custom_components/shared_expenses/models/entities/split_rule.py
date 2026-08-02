@@ -40,6 +40,10 @@ class SplitRule:
     1. `envelope` is split equally between `participants`. Leave it at `None`
        and the whole expense is the envelope, which is the plain equal split.
     2. Whatever is left goes to `remainder`, which by default is the payer.
+
+    Every figure here is a size, never a direction. A rule shares 30 the same
+    way whether a shop took it or gave it back, so the same rule reads against a
+    refund unchanged and the resolver simply owes each share the other way.
     """
 
     envelope: int | None = None

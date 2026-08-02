@@ -27,16 +27,47 @@ def resolve_shares(
     `amount`.
     """
 
-    if amount <= 0:
-        raise InvalidSplitRuleError("Expense amount must be positive.")
+    if amount == 0:
+        # The same cause the manager already names, so it reads the same
+        # whichever of the two catches it first.
+        raise InvalidSplitRuleError(
+            "An expense amount cannot be zero.",
+            code="expense_amount_zero",
+        )
+
+    if amount < 0:
+        # A refund from a shop is the purchase it undoes, run backwards. The
+        # rule is read on what came back — an envelope of 20 is 20 of the
+        # refund, and 60% is 60% of it — and every share it resolves to is then
+        # owed the other way round.
+        #
+        # Turned round here rather than threaded through the arithmetic below,
+        # so that whatever a rule does to a purchase it does to what gives it
+        # back. Two signed code paths would be two chances for a refund to
+        # split differently from the very expense it cancels.
+        return {
+            member_id: -share
+            for member_id, share in resolve_shares(
+                amount=-amount,
+                payer_id=payer_id,
+                member_ids=member_ids,
+                rule=rule,
+            ).items()
+        }
 
     pool = tuple(dict.fromkeys(member_ids))
 
     if not pool:
-        raise InvalidSplitRuleError("The group has no member to split between.")
+        raise InvalidSplitRuleError(
+            "The group has no member to split between.",
+            code="split_no_members",
+        )
 
     if payer_id not in pool:
-        raise InvalidSplitRuleError("The payer must be a member of the group.")
+        raise InvalidSplitRuleError(
+            "The payer must be a member of the group.",
+            code="split_payer_not_member",
+        )
 
     rule = rule if rule is not None else SplitRule()
 
@@ -79,7 +110,10 @@ def _envelope(rule: SplitRule, amount: int) -> int:
         return amount
 
     if rule.envelope < 0:
-        raise InvalidSplitRuleError("The shared amount cannot be negative.")
+        raise InvalidSplitRuleError(
+            "The shared amount cannot be negative.",
+            code="split_envelope_negative",
+        )
 
     return min(rule.envelope, amount)
 
@@ -118,10 +152,16 @@ def _resolve_remainder(
     _ensure_known(remainder.percent, pool, "remainder")
 
     if any(value < 0 for value in remainder.fixed.values()):
-        raise InvalidSplitRuleError("A remainder amount cannot be negative.")
+        raise InvalidSplitRuleError(
+            "A remainder amount cannot be negative.",
+            code="split_fixed_negative",
+        )
 
     if any(value < 0 for value in remainder.percent.values()):
-        raise InvalidSplitRuleError("A remainder share cannot be negative.")
+        raise InvalidSplitRuleError(
+            "A remainder share cannot be negative.",
+            code="split_percent_negative",
+        )
 
     members = remainder.members
 
@@ -134,7 +174,10 @@ def _resolve_remainder(
         _ensure_known(members, pool, "remainder")
 
     if not members:
-        raise InvalidSplitRuleError("Nobody takes the remainder.")
+        raise InvalidSplitRuleError(
+            "Nobody takes the remainder.",
+            code="split_remainder_nobody",
+        )
 
     fixed = {
         member_id: value
@@ -152,13 +195,17 @@ def _resolve_remainder(
 
     if both:
         raise InvalidSplitRuleError(
-            f"A member cannot owe both an amount and a share: {', '.join(both)}"
+            f"A member cannot owe both an amount and a share: {', '.join(both)}",
+            code="split_both_amount_and_share",
         )
 
     percent_total = sum(percent.values())
 
     if percent_total > FULL_PERCENT:
-        raise InvalidSplitRuleError("The remainder shares exceed the whole.")
+        raise InvalidSplitRuleError(
+            "The remainder shares exceed the whole.",
+            code="split_percent_over",
+        )
 
     # Both are taken out of what the envelope left, so a share means a share of
     # that — not of what the fixed amounts happen to leave behind. "60%" is 60%
@@ -171,7 +218,10 @@ def _resolve_remainder(
     claimed = fixed_total + sum(from_percent.values())
 
     if claimed > left:
-        raise InvalidSplitRuleError("The remainder exceeds what is left.")
+        raise InvalidSplitRuleError(
+            "The remainder exceeds what is left.",
+            code="split_remainder_exceeds",
+        )
 
     shares = {**fixed, **from_percent}
 
@@ -200,7 +250,10 @@ def _resolve_remainder(
 
         return shares
 
-    raise InvalidSplitRuleError("The remainder does not add up to what is left.")
+    raise InvalidSplitRuleError(
+        "The remainder does not add up to what is left.",
+        code="split_remainder_short",
+    )
 
 
 RULE_KEYS = frozenset({"envelope", "participants", "remainder"})
@@ -341,19 +394,42 @@ def _members_from(value: Any) -> tuple[str, ...] | None:
 def _distribute(amount: int, member_ids: Sequence[str]) -> dict[str, int]:
     """Split an amount in cents as evenly as possible.
 
-    The extra cents that cannot be divided evenly go to the first members, so
-    that the result stays deterministic.
+    The cents that will not divide start on the member the amount points at,
+    rather than always on the first. Going to the first was deterministic, which
+    was all it set out to be — and since the pool comes in the group's own order,
+    it meant one member bore the extra cent of every uneven split the group ever
+    made. Three members over a thousand expenses put 6,67 € on one of them and
+    not a centime on another.
+
+    **The offset is the quotient, not the amount.** `amount % count` is `extra`
+    itself and carries nothing the remainder does not: at two members every odd
+    amount would hand its cent to the second and never to the first, the same
+    unfairness wearing the other shoe. The quotient moves independently of the
+    remainder, and over every amount it comes out level — nothing to spread at
+    two, four or five members, a dozen cents in six thousand expenses at eight.
+
+    It is the amount and nothing else because of what it cannot be: the expense
+    has no id yet while the dialog is still adding it up, and the panel must
+    resolve what the backend will store. Same amount, same shares — so reopening
+    an expense leaves every share where it was.
+
+    An amount that recurs unchanged does still land on the same member every
+    time. Folding the date in would give the daily bread its turn, at the price
+    of editing a date moving a cent.
     """
 
     if amount <= 0 or not member_ids:
         return {}
 
-    base, extra = divmod(amount, len(member_ids))
+    count = len(member_ids)
+    base, extra = divmod(amount, count)
 
     shares = {member_id: base for member_id in member_ids}
 
-    for member_id in member_ids[:extra]:
-        shares[member_id] += 1
+    start = base % count
+
+    for step in range(extra):
+        shares[member_ids[(start + step) % count]] += 1
 
     return shares
 
@@ -368,7 +444,14 @@ def _ensure_known(
     unknown = sorted(set(member_ids) - set(pool))
 
     if unknown:
-        raise InvalidSplitRuleError(f"Unknown {label} member: {', '.join(unknown)}")
+        # One code for both labels. What the message adds over it is a list of
+        # ids, which the panel would show to somebody who has never seen one:
+        # a translated sentence is the better of the two, and the ids stay in
+        # the log where they are worth something.
+        raise InvalidSplitRuleError(
+            f"Unknown {label} member: {', '.join(unknown)}",
+            code="split_unknown_member",
+        )
 
 
 def _as_int(value: Any) -> int:

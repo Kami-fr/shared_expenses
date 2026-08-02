@@ -26,16 +26,29 @@ import { customElement, property, state } from "lit/decorators.js";
 import "./card-editor";
 import "./components/se-balance-card";
 import { SharedExpensesApi } from "./services/api";
+import { withAvatars } from "./services/avatar";
+import { NEW_EXPENSE, goToGroup } from "./services/navigate";
 import { errorMessage, localizer } from "./services/localize";
 import type { Localizer } from "./services/localize";
 import { sharedStyles } from "./styles/shared";
 import type { Balance, HomeAssistant, Member, Settlement } from "./types";
+
+/**
+ * How long a card that could not load waits before asking again, in ms.
+ *
+ * Long enough that a card left broken on a wall is not a poll worth counting,
+ * short enough that an integration reloaded from the settings page is back on
+ * the tablet before anybody has walked to it.
+ */
+const RETRY_DELAY = 30000;
 
 export interface CardConfig {
   type: string;
   group_id?: string;
   /** A heading of the dashboard's choosing. Absent means "Current balance". */
   title?: string;
+  /** Whether to show the "+ add expense" button. Absent means yes. */
+  add_button?: boolean;
 }
 
 @customElement("shared-expenses-card")
@@ -54,6 +67,18 @@ export class SharedExpensesCard extends LitElement {
 
   /** How to stop listening, once we are. */
   private unsubscribe?: () => Promise<void>;
+
+  /**
+   * Which `start` is the current one.
+   *
+   * A start is three round trips long, and the card can be taken off the view
+   * or pointed at another project in the middle of one. Whatever comes back
+   * after that belongs to nobody, and is told apart by this.
+   */
+  private generation = 0;
+
+  /** A load that failed, waiting to be tried again. */
+  private retryTimer?: number;
 
   /** The project this card is already showing, so it is not reloaded forever. */
   private loadedFor?: string;
@@ -147,6 +172,8 @@ export class SharedExpensesCard extends LitElement {
   }
 
   private async start(groupId: string): Promise<void> {
+    const generation = ++this.generation;
+
     await this.stop();
     await this.load(groupId);
 
@@ -154,19 +181,60 @@ export class SharedExpensesCard extends LitElement {
     // is opened and closed. Without this the card would sit on the balances as
     // they were when the page was loaded, and look perfectly current doing it.
     try {
-      this.unsubscribe = await this.api!.subscribeGroup(groupId, () => {
+      const unsubscribe = await this.api!.subscribeGroup(groupId, () => {
         void this.load(groupId);
       });
+
+      // Everything above took a while, and the card may be off the view or on
+      // another project by now. Kept, this would go on listening for an element
+      // nobody can reach, and there would be nothing left holding the handle
+      // that closes it.
+      if (!this.isConnected || generation !== this.generation) {
+        await unsubscribe().catch(() => undefined);
+
+        return;
+      }
+
+      this.unsubscribe = unsubscribe;
     } catch {
       // The load above already said what is wrong, in words. A card that could
       // not listen still shows what it read.
     }
+
+    if (this.error && this.isConnected && generation === this.generation) {
+      this.retryLater(groupId, generation);
+    }
+  }
+
+  /**
+   * Ask again, later, when the ask failed.
+   *
+   * Nothing else will. `loadedFor` is set, so the constant stream of `hass`
+   * updates goes past without a word, and a load that failed usually took its
+   * subscription down with it — an integration still starting refuses both — so
+   * there is no ping coming either. Without this the card says "The integration
+   * is not loaded." until somebody reloads the browser, long after it is.
+   */
+  private retryLater(groupId: string, generation: number): void {
+    this.retryTimer = window.setTimeout(() => {
+      this.retryTimer = undefined;
+
+      if (this.isConnected && generation === this.generation) {
+        void this.start(groupId);
+      }
+    }, RETRY_DELAY);
   }
 
   private async stop(): Promise<void> {
     const unsubscribe = this.unsubscribe;
 
     this.unsubscribe = undefined;
+
+    if (this.retryTimer !== undefined) {
+      window.clearTimeout(this.retryTimer);
+
+      this.retryTimer = undefined;
+    }
 
     // The socket is often already gone: it going is what tore the card down.
     await unsubscribe?.().catch(() => undefined);
@@ -191,7 +259,7 @@ export class SharedExpensesCard extends LitElement {
       this.currency = group.currency;
       this.balances = result.balances;
       this.settlements = result.settlements;
-      this.members = members;
+      this.members = withAvatars(members, this.hass);
       this.error = undefined;
     } catch (err) {
       // Including "no such project", which is what being refused looks like
@@ -239,18 +307,13 @@ export class SharedExpensesCard extends LitElement {
    * the project instead and the line there does the rest. One tap more than
    * the panel, and nothing pretended.
    */
-  private settleUp = () => {
-    const path = `/shared_expenses/group/${this.config!.group_id}`;
+  private settleUp = () => goToGroup(this.config!.group_id!);
 
-    history.pushState(null, "", path);
+  private openGroup = () => goToGroup(this.config!.group_id!);
 
-    // How Home Assistant is told to route: it owns the page, this card does
-    // not, and reloading the browser at the new address would throw the whole
-    // frontend away to move one screen.
-    window.dispatchEvent(
-      new CustomEvent("location-changed", { bubbles: true, composed: true }),
-    );
-  };
+  // The panel reads `new=expense` off the address and opens the dialog, so a
+  // glance at the balances is one tap from adding the shopping that changed them.
+  private addExpense = () => goToGroup(this.config!.group_id!, NEW_EXPENSE);
 
   protected render() {
     if (this.error) {
@@ -271,7 +334,11 @@ export class SharedExpensesCard extends LitElement {
         .currency=${this.currency}
         .language=${this.language}
         .heading=${this.config?.title ?? ""}
+        linked
+        .addButton=${this.config?.add_button !== false}
         @settle-up=${this.settleUp}
+        @open-group=${this.openGroup}
+        @add-expense=${this.addExpense}
       ></se-balance-card>
     `;
   }
@@ -301,6 +368,8 @@ interface CustomCard {
   type: string;
   name: string;
   description: string;
+  /** Draw a live preview in the card picker, built from `getStubConfig`. */
+  preview?: boolean;
 }
 
 const cards = ((window as unknown as { customCards?: CustomCard[] }).customCards ??=
@@ -310,6 +379,9 @@ cards.push({
   type: "shared-expenses-card",
   name: "Shared Expenses",
   description: "Who owes what to whom, in one project.",
+  // The picker renders the real card, filled with the account's first group, so
+  // the choice is made against the thing itself rather than a line of prose.
+  preview: true,
 });
 
 declare global {

@@ -17,7 +17,18 @@ export interface HistoryContext {
   localize: Localizer;
   members: Member[];
   categories: Category[];
+  /** The group's own: what the shares and the default split are counted in. */
   currency: string;
+  /**
+   * What an `amount` is counted in, on each side of the arrow.
+   *
+   * An expense is paid in a currency of its own, and the group's is only what
+   * it is converted into: reading 50.00 USD as "50,00 €" puts a symbol on a
+   * number nobody ever owed, next to a stamp saying "$50.00". Two of them
+   * because a revision can move the currency itself, and then each side of the
+   * arrow is in its own.
+   */
+  amountCurrency: { before: string; after: string };
   language: string;
 }
 
@@ -52,6 +63,7 @@ const LABELS: Record<string, Key> = {
   name: "field_name",
   icon: "icon",
   color: "color",
+  use_ha_avatar: "avatar",
   archived: "archived",
   exposed: "dashboard",
   default_category_id: "default_category",
@@ -79,8 +91,8 @@ export function readChange(
 
   return {
     label: context.localize(key),
-    before: readValue(change.field, change.before, context),
-    after: readValue(change.field, change.after, context),
+    before: readValue(change.field, change.before, context, "before"),
+    after: readValue(change.field, change.after, context, "after"),
   };
 }
 
@@ -88,6 +100,7 @@ function readValue(
   field: string,
   value: unknown,
   context: HistoryContext,
+  side: "before" | "after",
 ): string | null {
   // Nothing: a creation has no before, a deletion no after, and a field can be
   // cleared. The caller decides how to show an absence — em dash, or nothing.
@@ -95,15 +108,21 @@ function readValue(
     return null;
   }
 
+  // What was handed over, in what it was handed over in — not the group's,
+  // which is only what it was converted into. The shares below are the ones
+  // stored in the group's, and they keep reading in it.
   if (field === "amount" && typeof value === "number") {
-    return formatMoney(value, context.currency, context.language);
+    return formatMoney(value, context.amountCurrency[side], context.language);
   }
 
   if (field === "expense_date" || field === "payment_date") {
-    return formatDayDate(String(value), context.language);
+    return formatDayDate(String(value), context.language, "UTC");
   }
 
-  if (field === "category_id") {
+  // The group's default is a category id like any other, and reads like one:
+  // left to fall through, it printed the ULID the docstring above says never to
+  // put in a sentence.
+  if (field === "category_id" || field === "default_category_id") {
     return (
       context.categories.find((category) => category.id === value)?.name ??
       context.localize("no_category")
@@ -135,6 +154,12 @@ function readValue(
   // project change nobody should have to take on trust.
   if (field === "archived" || field === "exposed") {
     return context.localize(value ? "yes" : "no");
+  }
+
+  // A boolean too, but yes/no would say nothing: what changed is which of the
+  // two the member wears, so it reads as the choice itself.
+  if (field === "use_ha_avatar") {
+    return context.localize(value ? "avatar_photo" : "avatar_initials");
   }
 
   // Said the way the editor says it, through the same helper: a rule described

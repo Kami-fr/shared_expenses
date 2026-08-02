@@ -35,11 +35,11 @@
         },
         "amount": {
           "name": "Montant",
-          "description": "En monnaie entière, pas en centimes. 85,42 et non 8542."
+          "description": "En monnaie entière, pas en centimes. 85,42 et non 8542. Un montant négatif est un remboursement d'une enseigne : -12,90 rend 12,90 au groupe."
         },
         "paid_by_member_id": {
           "name": "Payé par",
-          "description": "L'identifiant du membre qui a payé."
+          "description": "L'identifiant du membre qui a payé. Sur un remboursement, celui à qui l'argent est revenu."
         },
         "expense_date": {
           "name": "Date",

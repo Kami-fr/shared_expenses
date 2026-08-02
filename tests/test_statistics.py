@@ -87,6 +87,47 @@ def test_the_count_is_the_expenses_of_the_period():
     assert compute_statistics(expenses=expenses, shares=[], year=2025).count == 1
 
 
+def test_a_refund_comes_off_the_total_without_being_a_shopping_trip():
+    """It is a euro back and not an outing: in the total, out of the count."""
+
+    expenses = [
+        expense("e1", 5000, category="c-clothes"),
+        expense("e2", -2000, category="c-clothes"),
+    ]
+
+    result = compute_statistics(expenses=expenses, shares=[])
+
+    assert result.total == 3000
+    assert result.count == 1
+    assert [(c.category_id, c.total) for c in result.by_category] == [
+        ("c-clothes", 3000)
+    ]
+    assert [(m.month, m.total) for m in result.by_month] == [("2026-07", 3000)]
+
+
+def test_a_refund_comes_off_what_a_member_paid_and_bore():
+    """Both sides of it, or the balance the two make would stop being one."""
+
+    expenses = [
+        expense("e1", 5000, payer="m1"),
+        expense("e2", -2000, payer="m1"),
+    ]
+
+    shares = [
+        share("e1", "m1", 2500),
+        share("e1", "m2", 2500),
+        share("e2", "m1", -1000),
+        share("e2", "m2", -1000),
+    ]
+
+    result = compute_statistics(expenses=expenses, shares=shares)
+
+    assert [(m.member_id, m.paid, m.share) for m in result.by_member] == [
+        ("m1", 3000, 1500),
+        ("m2", 0, 1500),
+    ]
+
+
 def test_categories_are_ranked_by_what_they_cost():
     """A breakdown is asked as a ranking: biggest first."""
 

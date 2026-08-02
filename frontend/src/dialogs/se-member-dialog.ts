@@ -2,15 +2,24 @@ import { LitElement, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { live } from "lit/directives/live.js";
 
+import { renderAvatar } from "../components/avatar";
 import "../components/se-button";
 import "../components/se-dialog";
 import "../components/se-color-picker";
 import "../components/se-field";
 import type { SharedExpensesApi } from "../services/api";
-import { colorFor, initials } from "../services/format";
+import { personPicture, withAvatars } from "../services/avatar";
+import { colorFor } from "../services/format";
 import { errorMessage, type Localizer } from "../services/localize";
 import { sharedStyles } from "../styles/shared";
-import type { GroupMember, GroupRole, HaUser, Member } from "../types";
+import type {
+  GroupMember,
+  GroupRole,
+  HaUser,
+  HomeAssistant,
+  Member,
+  Permission,
+} from "../types";
 
 /**
  * Manage who is in a project.
@@ -28,18 +37,18 @@ import type { GroupMember, GroupRole, HaUser, Member } from "../types";
 export class SeMemberDialog extends LitElement {
   @property({ attribute: false }) public api!: SharedExpensesApi;
 
+  /** Where the Home Assistant photos are read from, to offer wearing one. */
+  @property({ attribute: false }) public hass!: HomeAssistant;
+
   @property({ attribute: false }) public localize!: Localizer;
 
   @property({ type: String }) public groupId!: string;
 
-  /** What the reader is here. Handing the project on is the admin's alone. */
-  @property({ attribute: false }) public role: GroupRole | null = null;
-
   /** Which member the reader is, if any. Yourself is always yours to change. */
   @property({ type: String }) public meId: string | null = null;
 
-  /** Whether the project lets the reader touch anybody but themselves. */
-  @property({ type: Boolean }) public mayManage = false;
+  /** What an ordinary member of this project may do: the project's own rule. */
+  @property({ attribute: false }) public permissions: Permission[] = [];
 
   @state() private haUsers: HaUser[] = [];
 
@@ -57,8 +66,8 @@ export class SeMemberDialog extends LitElement {
 
   @state() private dirty = false;
 
-  /** The member whose palette is open, if any. */
-  @state() private tinting?: string;
+  /** The member whose appearance panel — mode and colour — is open, if any. */
+  @state() private editing?: string;
 
   /**
    * The guest whose removal is awaiting a second click.
@@ -126,14 +135,50 @@ export class SeMemberDialog extends LitElement {
         flex: 1;
       }
 
-      .tintable {
+      /* A bare wrapper so the avatar itself stays clickable, whether it shows
+         initials or a photo, without a button's own chrome around it. */
+      .avatar-button {
         border: none;
+        background: none;
+        padding: 0;
         cursor: pointer;
+        border-radius: 50%;
         font-family: inherit;
       }
 
-      .palette {
+      .appearance {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
         padding: 4px 0 12px 48px;
+      }
+
+      /* The two ways a member can look, offered side by side. */
+      .modes {
+        display: inline-flex;
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        border-radius: 8px;
+        overflow: hidden;
+        align-self: flex-start;
+      }
+
+      .modes button {
+        border: none;
+        background: none;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 13px;
+        padding: 6px 12px;
+        color: var(--secondary-text-color);
+      }
+
+      .modes button + button {
+        border-left: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+      }
+
+      .modes button.on {
+        background: var(--primary-color, #03a9f4);
+        color: var(--text-primary-color, #fff);
       }
 
       .gone {
@@ -170,7 +215,12 @@ export class SeMemberDialog extends LitElement {
     const translate = this.localize;
 
     return html`
-      <se-dialog open heading=${translate("members")} @dialog-closed=${this.close}>
+      <se-dialog
+        open
+        heading=${translate("members")}
+        .localize=${this.localize}
+        @dialog-closed=${this.close}
+      >
         ${this.loading
           ? html`<div class="empty">${translate("loading")}</div>`
           : html`
@@ -209,7 +259,7 @@ export class SeMemberDialog extends LitElement {
     // Ticking somebody in or out is managing the members — unless the somebody
     // is you, on your way out.
     const isMe = member !== undefined && member.id === this.meId;
-    const mayToggle = this.mayManage || isMe;
+    const mayToggle = this.mayManage() || isMe;
 
     return html`
       <div class="row">
@@ -243,14 +293,14 @@ export class SeMemberDialog extends LitElement {
           same person two different colours. An account not in the group has no
           member to seed on yet, and its colour is only a preview until it does.
         -->
-        ${this.renderTintable(member, user.name, member?.id ?? user.id)}
+        ${this.renderEditableAvatar(member, user.name, member?.id ?? user.id)}
         <span class="name">${user.name}</span>
         ${admin
           ? html`<span class="tag">${this.localize("role_admin")}</span>`
           : nothing}
         ${this.renderHandOver(member, admin)}
       </div>
-      ${this.renderPalette(member)}
+      ${this.renderAppearance(member)}
     `;
   }
 
@@ -265,7 +315,7 @@ export class SeMemberDialog extends LitElement {
    * become an ordinary member, and only the new admin can hand it on again.
    */
   private renderHandOver(member: Member | undefined, admin: boolean) {
-    if (this.role !== "admin" || !member || admin) {
+    if (this.myRole() !== "admin" || !member || admin) {
       return nothing;
     }
 
@@ -319,65 +369,123 @@ export class SeMemberDialog extends LitElement {
   }
 
   /**
-   * A member's avatar, clickable to recolour them.
+   * A member's avatar, clickable to change how they look.
    *
-   * The avatar is what the colour actually shows up in, so it is the obvious
-   * thing to press. Members with no account yet have nothing to recolour.
+   * The avatar is where the colour and the photo actually show up, so it is the
+   * obvious thing to press. Members with no account yet have nothing to change.
    *
-   * Your own colour is always yours. Somebody else's is managing the members,
-   * and where the project does not allow it the avatar is a plain circle: a
-   * palette that opened and then refused to save would read as a broken panel
-   * rather than as a shut door.
+   * Your own look is always yours. Somebody else's is managing the members, and
+   * where the project does not allow it the avatar is a plain circle: a panel
+   * that opened and then refused to save would read as a broken panel rather
+   * than as a shut door.
    */
-  private renderTintable(member: Member | undefined, name: string, seed: string) {
-    const color = member?.color ?? colorFor(seed);
-    const mayTint = member && (member.id === this.meId || this.mayManage);
+  private renderEditableAvatar(
+    member: Member | undefined,
+    name: string,
+    seed: string,
+  ) {
+    const avatar = renderAvatar(member, name, seed);
+    const mayEdit = member && (member.id === this.meId || this.mayManage());
 
-    if (!member || !mayTint) {
-      return html`
-        <div class="avatar" style=${`background:${color}`}>${initials(name)}</div>
-      `;
+    if (!member || !mayEdit) {
+      return avatar;
     }
 
     return html`
       <button
-        class="avatar tintable"
+        class="avatar-button"
         title=${this.localize("pick_color")}
-        style=${`background:${color}`}
-        @click=${() => this.toggleTint(member.id)}
+        @click=${() => this.toggleAppearance(member.id)}
       >
-        ${initials(name)}
+        ${avatar}
       </button>
     `;
   }
 
-  private renderPalette(member: Member | undefined) {
-    if (!member || this.tinting !== member.id) {
+  /**
+   * How a member looks: the coloured initials, or their Home Assistant photo.
+   *
+   * The photo is only offered when there is one to offer — an account whose
+   * person carries a picture. With none, the choice is moot and the panel is
+   * just the palette, exactly as it always was. The colour goes on hiding once
+   * a photo is what shows, since it would tint nothing.
+   */
+  private renderAppearance(member: Member | undefined) {
+    if (!member || this.editing !== member.id) {
       return nothing;
     }
 
+    const translate = this.localize;
+    const photo = personPicture(member.user_id, this.hass);
+
     return html`
-      <div class="palette">
-        <se-color-picker
-          .localize=${this.localize}
-          .value=${member.color}
-          .fallback=${colorFor(member.id)}
-          @value-changed=${(e: CustomEvent) => this.tint(member, e.detail.value)}
-        ></se-color-picker>
+      <div class="appearance">
+        ${photo
+          ? html`
+              <div class="modes">
+                <button
+                  class=${member.use_ha_avatar ? "" : "on"}
+                  ?disabled=${this.busy !== undefined}
+                  @click=${() => this.setAvatarMode(member, false)}
+                >
+                  ${translate("avatar_initials")}
+                </button>
+                <button
+                  class=${member.use_ha_avatar ? "on" : ""}
+                  ?disabled=${this.busy !== undefined}
+                  @click=${() => this.setAvatarMode(member, true)}
+                >
+                  ${translate("avatar_photo")}
+                </button>
+              </div>
+            `
+          : nothing}
+        ${member.use_ha_avatar && photo
+          ? nothing
+          : html`
+              <!--
+                live(), for the same reason as the box above: the picker writes
+                its own value before it tells anybody, so a save the backend
+                refuses leaves it showing a colour nobody stored — next to an
+                avatar still drawn in the old one, with nothing saying which is
+                true. Compared against the DOM, the stored colour comes back.
+              -->
+              <se-color-picker
+                .localize=${this.localize}
+                .value=${live(member.color)}
+                .fallback=${colorFor(member.id)}
+                @value-changed=${(e: CustomEvent) => this.tint(member, e.detail.value)}
+              ></se-color-picker>
+            `}
       </div>
     `;
   }
 
-  private toggleTint(memberId: string) {
-    this.tinting = this.tinting === memberId ? undefined : memberId;
+  private toggleAppearance(memberId: string) {
+    this.editing = this.editing === memberId ? undefined : memberId;
   }
 
   private async tint(member: Member, color: string | null) {
+    await this.saveMember(member, { color });
+  }
+
+  private async setAvatarMode(member: Member, useHaAvatar: boolean) {
+    if (member.use_ha_avatar === useHaAvatar) {
+      return;
+    }
+
+    await this.saveMember(member, { use_ha_avatar: useHaAvatar });
+  }
+
+  private async saveMember(
+    member: Member,
+    changes: { color?: string | null; use_ha_avatar?: boolean },
+  ) {
     this.busy = member.id;
     this.error = undefined;
 
     try {
-      await this.api.updateMember(this.groupId, member.id, { color });
+      await this.api.updateMember(this.groupId, member.id, changes);
 
       this.dirty = true;
       await this.load();
@@ -404,7 +512,7 @@ export class SeMemberDialog extends LitElement {
         ${active.map(
           (member) => html`
             <div class="row">
-              ${this.renderTintable(member, member.name, member.id)}
+              ${this.renderEditableAvatar(member, member.name, member.id)}
               <span class="name">${member.name}</span>
               ${this.confirming === member.id
                 ? html`<span class="confirm">${translate("confirm_remove")}</span>`
@@ -413,7 +521,7 @@ export class SeMemberDialog extends LitElement {
                 A guest has no account, so they are never you: removing one is
                 always managing the members, and the project has to allow it.
               -->
-              ${this.mayManage
+              ${this.mayManage()
                 ? html`<button
                     class=${`remove ${this.confirming === member.id ? "danger" : ""}`}
                     ?disabled=${this.busy !== undefined}
@@ -424,21 +532,16 @@ export class SeMemberDialog extends LitElement {
                   </button>`
                 : nothing}
             </div>
-            ${this.renderPalette(member)}
+            ${this.renderAppearance(member)}
           `,
         )}
 
         ${hidden.map(
           (member) => html`
             <div class="row gone">
-              <div
-                class="avatar"
-                style=${`background:${member.color ?? colorFor(member.id)}`}
-              >
-                ${initials(member.name)}
-              </div>
+              ${renderAvatar(member, member.name, member.id)}
               <span class="name">${member.name}</span>
-              ${this.mayManage
+              ${this.mayManage()
                 ? html`<se-button
                     variant="text"
                     ?disabled=${this.busy !== undefined}
@@ -450,7 +553,7 @@ export class SeMemberDialog extends LitElement {
             </div>
           `,
         )}
-        ${this.mayManage
+        ${this.mayManage()
           ? html`<div class="add">
               <se-field
                 .label=${translate("member_name")}
@@ -493,6 +596,39 @@ export class SeMemberDialog extends LitElement {
     );
   }
 
+  /**
+   * What the reader is here, read from the memberships this dialog has loaded.
+   *
+   * Not inherited from the page, and that is the point: handing the project on
+   * makes you an ordinary member while the dialog is still open, and the page
+   * only hears about it on close. Kept stale, the panel goes on offering the
+   * admin's buttons to somebody the backend now refuses — and a button that
+   * always errors is worse than no button.
+   */
+  private myRole(): GroupRole | null {
+    if (this.meId === null) {
+      return null;
+    }
+
+    return (
+      this.memberships.find(
+        (membership) =>
+          membership.member_id === this.meId && membership.left_at === null,
+      )?.role ?? null
+    );
+  }
+
+  /**
+   * Whether the project lets the reader touch anybody but themselves.
+   *
+   * The same rule the page applies, on the standing this dialog just read: the
+   * admin passes through everything, everybody else only what the project
+   * allows. Handing the project on therefore takes the guests away with it.
+   */
+  private mayManage(): boolean {
+    return this.myRole() === "admin" || this.permissions.includes("manage_members");
+  }
+
   private async load() {
     this.error = undefined;
 
@@ -505,8 +641,8 @@ export class SeMemberDialog extends LitElement {
       ]);
 
       this.haUsers = haUsers;
-      this.members = members;
-      this.pastMembers = pastMembers;
+      this.members = withAvatars(members, this.hass);
+      this.pastMembers = withAvatars(pastMembers, this.hass);
       this.memberships = memberships;
     } catch (error) {
       this.error = errorMessage(error, this.localize);
@@ -540,6 +676,17 @@ export class SeMemberDialog extends LitElement {
     try {
       if (member) {
         await this.api.removeMemberFromGroup(this.groupId, member.id);
+
+        // On your own way out, stop here. Every command this dialog issues is
+        // scoped to the project, and the project is no longer yours to read:
+        // reloading would come back "this group no longer exists" and paint a
+        // failure over a departure that worked. Close instead, and let the page
+        // find out — it reloads on `members-changed` and takes the reader away.
+        if (member.id === this.meId) {
+          this.dirty = true;
+          this.close();
+          return;
+        }
       } else {
         // Attaches the account, reusing the member it already has elsewhere.
         await this.api.createMember({

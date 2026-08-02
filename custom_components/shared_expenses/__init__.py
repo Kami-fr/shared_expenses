@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
@@ -23,7 +25,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     manager = SharedExpensesManager(database)
 
-    coordinator = SharedExpensesCoordinator(hass, manager)
+    coordinator = SharedExpensesCoordinator(hass, entry, manager)
 
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = {
@@ -31,19 +33,32 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "coordinator": coordinator,
     }
 
-    # Before the platforms, so the first entities are set up against something
-    # rather than against an empty coordinator they would then have to be told
-    # about twice.
-    await coordinator.async_config_entry_first_refresh()
+    try:
+        # Before the platforms, so the first entities are set up against
+        # something rather than against an empty coordinator they would then
+        # have to be told about twice.
+        await coordinator.async_config_entry_first_refresh()
 
-    coordinator.async_listen()
+        coordinator.async_listen()
 
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+        async_setup_websocket(hass)
+        async_setup_services(hass)
 
-    async_setup_websocket(hass)
-    async_setup_services(hass)
+        await async_register_panel(hass)
 
-    await async_register_panel(hass)
+        # Last, and that is the point: an entry that fails has to fail whole.
+        # Setting the platforms up before the panel meant a bad bundle could
+        # tear down entities that were already on somebody's dashboard.
+        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    except Exception:
+        # Home Assistant does not unload a setup that never finished, so the
+        # file this opened is this function's to give back before a retry opens
+        # another one on top of it.
+        hass.data[DOMAIN].pop(entry.entry_id, None)
+
+        await database.close()
+
+        raise
 
     return True
 
@@ -59,13 +74,20 @@ async def async_remove_config_entry_device(
     A group still on the dashboard is a live device and stays — deleting it
     would only see it rebuilt on the next refresh. One whose switch is shut, or
     whose group is gone, is the user's to clear away, and this is the one door
-    the registry opens for that. The switch removes such a device on its own;
-    this is for the ones already sitting there when the feature arrived.
+    the registry opens for that. A deleted group loses its device on its own; a
+    group that only went quiet keeps its entities so the tiles pointing at them
+    survive, and this is how somebody who wants them gone anyway says so.
     """
 
-    coordinator: SharedExpensesCoordinator = hass.data[DOMAIN][entry.entry_id][
-        "coordinator"
-    ]
+    entries: dict[str, dict[str, Any]] = hass.data.get(DOMAIN, {})
+    entry_data = entries.get(entry.entry_id)
+
+    # Asked about an entry that is not loaded — a reload in flight, an entry on
+    # its way out. There is nothing here left to protect.
+    if entry_data is None:
+        return True
+
+    coordinator: SharedExpensesCoordinator = entry_data["coordinator"]
 
     group_id = next(
         (identifier for domain, identifier in device.identifiers if domain == DOMAIN),
@@ -82,6 +104,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         return False
 
     data = hass.data[DOMAIN].pop(entry.entry_id)
+
+    # Before the connection goes, not after. Home Assistant runs what the entry
+    # registered through `async_on_unload` only once this has returned, so a
+    # refresh already in flight reached for a database that had just closed
+    # under it — and the clock would have brought another one along ten minutes
+    # later, on a `Database` nobody owns.
+    await data["coordinator"].async_shutdown()
 
     await data["manager"].database.close()
 

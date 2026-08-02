@@ -29,6 +29,21 @@ export class SeGroupDialog extends LitElement {
   /** What the reader is here. The switches are the admin's alone. */
   @property({ attribute: false }) public role: GroupRole | null = null;
 
+  /**
+   * Whether the project lets this reader change it.
+   *
+   * Separate from the role: the admin always may, an ordinary member only where
+   * the project says so, and working that out is the page's job — it holds the
+   * memberships. Left false, the dialog opens as a page to read.
+   */
+  @property({ type: Boolean }) public mayManage = false;
+
+  /**
+   * The house's own currency, offered as the starting point for a new group.
+   * Taken only if the rate service knows it; anything else falls back to EUR.
+   */
+  @property({ attribute: false }) public defaultCurrency?: string;
+
   @state() private name = "";
 
   @state() private description = "";
@@ -89,32 +104,55 @@ export class SeGroupDialog extends LitElement {
       this.currency = this.group.currency;
       this.permissions = new Set(this.group.permissions);
       this.exposed = this.group.exposed;
+    } else if (this.defaultCurrency && CURRENCIES.includes(this.defaultCurrency)) {
+      this.currency = this.defaultCurrency;
     }
   }
 
   protected render() {
     const translate = this.localize;
 
+    // A creation is always yours: there is no project yet to have a say.
+    const editable = !this.group || this.mayManage;
+
     const heading = this.group
-      ? translate("edit_group")
+      ? editable
+        ? translate("edit_group")
+        : translate("group_details")
       : translate("new_group");
 
     return html`
-      <se-dialog open heading=${heading} @dialog-closed=${this.cancel}>
+      <se-dialog
+        open
+        heading=${heading}
+        .localize=${this.localize}
+        @dialog-closed=${this.cancel}
+      >
         <div class="stack">
           ${this.error ? html`<div class="error">${this.error}</div>` : nothing}
-          <se-field
-            .label=${translate("group_name")}
-            .value=${this.name}
-            required
-            placeholder="Appartement"
-            @value-changed=${(e: CustomEvent) => (this.name = e.detail.value)}
-          ></se-field>
-          <se-field
-            .label=${translate("description")}
-            .value=${this.description}
-            @value-changed=${(e: CustomEvent) => (this.description = e.detail.value)}
-          ></se-field>
+          ${editable
+            ? html`<se-field
+                  .label=${translate("group_name")}
+                  .value=${this.name}
+                  required
+                  placeholder="Appartement"
+                  @value-changed=${(e: CustomEvent) => (this.name = e.detail.value)}
+                ></se-field>
+                <se-field
+                  .label=${translate("description")}
+                  .value=${this.description}
+                  @value-changed=${(e: CustomEvent) => (this.description = e.detail.value)}
+                ></se-field>`
+            : html`<div>
+                  <label class="muted">${translate("group_name")}</label>
+                  <div>${this.name}</div>
+                </div>
+                ${this.description
+                  ? html`<div>
+                      <label class="muted">${translate("description")}</label>
+                      <div>${this.description}</div>
+                    </div>`
+                  : nothing}`}
 
           <!--
             Picked, never typed: a rate can only be had for a currency the rate
@@ -142,16 +180,23 @@ export class SeGroupDialog extends LitElement {
           ${this.renderPermissions()} ${this.renderDashboard()}
         </div>
 
+        <!--
+          Nothing to cancel when there was nothing to change: the pair becomes
+          one button that shuts the page. Leaving "Save" there greyed out would
+          only say the project is broken rather than closed.
+        -->
         <se-button slot="actions" variant="text" @click=${this.cancel}>
-          ${translate("cancel")}
+          ${editable ? translate("cancel") : translate("close")}
         </se-button>
-        <se-button
-          slot="actions"
-          ?disabled=${this.busy || this.name.trim() === ""}
-          @click=${this.submit}
-        >
-          ${this.group ? translate("save") : translate("create")}
-        </se-button>
+        ${editable
+          ? html`<se-button
+              slot="actions"
+              ?disabled=${this.busy || this.name.trim() === ""}
+              @click=${this.submit}
+            >
+              ${this.group ? translate("save") : translate("create")}
+            </se-button>`
+          : nothing}
       </se-dialog>
     `;
   }

@@ -218,7 +218,7 @@ export class SeCurrencyField extends LitElement {
       ${this.fetched?.stale && !this.typed
         ? html`<div class="stale">
             ${translate("rate_stale")}
-            ${formatDayDate(this.fetched.as_of, this.language)}
+            ${formatDayDate(this.fetched.as_of, this.language, "UTC")}
           </div>`
         : nothing}
       <div>
@@ -275,28 +275,46 @@ export class SeCurrencyField extends LitElement {
     // A fetch supersedes any frozen rate: asking for a fresh one is a choice.
     this.frozen = null;
 
+    // What this fetch is about, kept for when it comes back. Someone who picks
+    // the wrong currency and corrects it a second later has two of these out at
+    // once, and they do not come back in order: a pair already in the table
+    // answers in milliseconds while an unknown one is still out on the wire.
+    // Without this, the late answer would be filed under the currency now on
+    // screen, and the expense saved at another currency's rate.
+    const asked = this.currency;
+    const askedOn = this.on;
+
     this.busy = true;
     this.error = undefined;
 
+    let answer: ExchangeRate | undefined;
+    let failed: string | undefined;
+
     try {
-      this.fetched = await this.api.getExchangeRate(
+      answer = await this.api.getExchangeRate(
         this.groupId,
-        this.currency,
+        asked,
         this.groupCurrency,
-        this.on,
+        askedOn,
       );
     } catch (error) {
       // Nothing known and nothing reachable. Not a dead end: the field below
-      // is open, and what is typed there is kept for the next expense.
-      this.fetched = undefined;
-      this.error =
-        (error as { code?: string })?.code === "exchange_rate_unavailable"
-          ? this.localize("rate_unavailable")
-          : errorMessage(error, this.localize);
-    } finally {
-      this.busy = false;
-      this.emit();
+      // is open, and what is typed there is kept for the next expense — which
+      // every message about a missing rate now says for itself, so there is no
+      // longer one code worth singling out here.
+      failed = errorMessage(error, this.localize);
     }
+
+    // Asked about something else since: this answer is about nothing anyone is
+    // looking at, and the fetch that is is still running and will say so.
+    if (asked !== this.currency || askedOn !== this.on) {
+      return;
+    }
+
+    this.fetched = answer;
+    this.error = failed;
+    this.busy = false;
+    this.emit();
   }
 
   /**

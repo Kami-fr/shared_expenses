@@ -38,11 +38,88 @@ def test_an_empty_rule_is_the_equal_split():
     ) == {STEPHANE: 500, ANTONIN: 500}
 
 
-def test_extra_cents_go_to_the_first_members():
+def test_the_extra_cents_land_where_the_amount_says():
+    # 1000 // 3 is 333, and 333 % 3 is 0, so the odd cent starts on the first.
     shares = resolve_shares(amount=1000, payer_id=STEPHANE, member_ids=EVERYONE)
 
     assert shares == {STEPHANE: 334, ANTONIN: 333, CLARA: 333}
     assert sum(shares.values()) == 1000
+
+    # The same quotient, with two cents to place: the first and the second.
+    assert resolve_shares(amount=1001, payer_id=STEPHANE, member_ids=EVERYONE) == {
+        STEPHANE: 334,
+        ANTONIN: 334,
+        CLARA: 333,
+    }
+
+    # 1003 // 3 is 334, and 334 % 3 is 1, so the odd cent starts on the second.
+    assert resolve_shares(amount=1003, payer_id=STEPHANE, member_ids=EVERYONE) == {
+        STEPHANE: 334,
+        ANTONIN: 335,
+        CLARA: 334,
+    }
+
+
+def test_the_odd_cent_does_not_always_fall_on_the_same_member():
+    """The bug this rule exists for, and the test whose absence let it live.
+
+    An uneven split handed its extra cents to the first members of the pool, and
+    the pool arrives in the group's own order -- so one member bore the odd cent
+    of every uneven split the group ever made, and another never bore one at all.
+    Over every amount up to 60,00 the old rule put 40,00 of cents on Stephane and
+    nothing on Clara.
+    """
+
+    borne = dict.fromkeys(EVERYONE, 0)
+
+    for amount in range(1, 6_001):
+        shares = resolve_shares(amount=amount, payer_id=STEPHANE, member_ids=EVERYONE)
+
+        assert sum(shares.values()) == amount
+
+        for member_id, share in shares.items():
+            borne[member_id] += share - amount // len(EVERYONE)
+
+    assert max(borne.values()) - min(borne.values()) <= len(EVERYONE)
+
+
+def test_a_pair_shares_the_odd_cents_exactly():
+    """Two members, where every odd amount has a cent to place.
+
+    The tempting offset -- the amount itself -- is the very count of leftover
+    cents, so at two members it would have handed every one of them to Antonin
+    and never to Stephane: as unfair as the rule it replaced, in the commonest
+    group there is. The quotient does not have that shape, and here it comes out
+    exactly level.
+    """
+
+    borne = dict.fromkeys(PAIR, 0)
+
+    for amount in range(1, 6_001):
+        for member_id, share in resolve_shares(
+            amount=amount,
+            payer_id=STEPHANE,
+            member_ids=PAIR,
+        ).items():
+            borne[member_id] += share - amount // len(PAIR)
+
+    assert borne[STEPHANE] == borne[ANTONIN]
+
+
+def test_an_uneven_split_resolves_the_same_way_every_time():
+    """Deterministic, as the old rule was and as this one had to stay.
+
+    The offset comes from the amount and from nothing else -- not from the
+    expense's id, which does not exist while the dialog is still adding it up,
+    and the panel has to promise what the backend will store.
+    """
+
+    resolved = [
+        resolve_shares(amount=1_001, payer_id=STEPHANE, member_ids=EVERYONE)
+        for _ in range(3)
+    ]
+
+    assert resolved[0] == resolved[1] == resolved[2]
 
 
 def test_the_reference_case():
@@ -168,10 +245,73 @@ def test_shares_always_add_up_to_the_amount():
         assert sum(shares.values()) == amount
 
 
-@pytest.mark.parametrize("amount", [0, -1, -100])
-def test_a_non_positive_amount_is_refused(amount: int):
+def test_an_amount_of_nothing_is_refused():
+    """Zero is not a small expense, it is no expense."""
+
     with pytest.raises(InvalidSplitRuleError):
-        resolve_shares(amount=amount, payer_id=STEPHANE, member_ids=PAIR)
+        resolve_shares(amount=0, payer_id=STEPHANE, member_ids=PAIR)
+
+
+def test_a_refund_splits_the_way_the_expense_did():
+    """A shop giving 30 back undoes 30 spent, share for share."""
+
+    rule = SplitRule(envelope=1000, participants=PAIR)
+
+    spent = resolve_shares(
+        amount=3000,
+        payer_id=STEPHANE,
+        member_ids=PAIR,
+        rule=rule,
+    )
+
+    given_back = resolve_shares(
+        amount=-3000,
+        payer_id=STEPHANE,
+        member_ids=PAIR,
+        rule=rule,
+    )
+
+    assert given_back == {member_id: -share for member_id, share in spent.items()}
+    assert sum(given_back.values()) == -3000
+
+
+def test_a_refund_reads_its_rule_on_what_came_back():
+    """The figures of a rule are sizes: an envelope of 10 is 10 of the refund."""
+
+    shares = resolve_shares(
+        amount=-2500,
+        payer_id=STEPHANE,
+        member_ids=PAIR,
+        rule=SplitRule(envelope=1000, participants=PAIR),
+    )
+
+    # 10 shared between the two, and the 15 left back to whoever was refunded.
+    assert shares == {STEPHANE: -2000, ANTONIN: -500}
+
+
+def test_a_refund_that_does_not_divide_evenly_still_adds_up():
+    """The cents flooring leaves over cannot go missing on the way back."""
+
+    for amount in range(1, 300):
+        shares = resolve_shares(
+            amount=-amount,
+            payer_id=STEPHANE,
+            member_ids=EVERYONE,
+        )
+
+        assert sum(shares.values()) == -amount
+
+
+def test_a_rule_a_refund_cannot_honour_is_refused():
+    """Refused on the way back for the same reason as on the way out."""
+
+    rule = SplitRule(
+        envelope=0,
+        remainder=Remainder(members=PAIR, fixed={STEPHANE: 9999}),
+    )
+
+    with pytest.raises(InvalidSplitRuleError):
+        resolve_shares(amount=-100, payer_id=STEPHANE, member_ids=PAIR, rule=rule)
 
 
 def test_a_payer_outside_the_group_is_refused():

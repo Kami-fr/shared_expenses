@@ -8,7 +8,7 @@ import { readFileSync } from "node:fs";
 
 const [, , modulePath, casesPath] = process.argv;
 
-const { convert, parseRate, formatRate } = await import(
+const { convert, parseRate, formatRate, apportion } = await import(
   new URL(`file://${modulePath}`).href
 );
 
@@ -24,6 +24,8 @@ for (const item of cases) {
       got = convert(item.amount, item.rate);
     } else if (item.kind === "parse") {
       got = parseRate(item.text);
+    } else if (item.kind === "apportion") {
+      got = apportion(item.amounts, item.total);
     } else {
       got = formatRate(item.rate);
     }

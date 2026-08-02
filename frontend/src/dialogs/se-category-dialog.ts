@@ -8,7 +8,7 @@ import "../components/se-color-picker";
 import "../components/se-icon-picker";
 import "../components/se-split-rule-editor";
 import type { SharedExpensesApi } from "../services/api";
-import { colorFor } from "../services/format";
+import { colorOf } from "../services/format";
 import { errorMessage, type Localizer } from "../services/localize";
 import { sharedStyles } from "../styles/shared";
 import type { Category, Group, Member, SplitRule } from "../types";
@@ -16,7 +16,8 @@ import type { Category, Group, Member, SplitRule } from "../types";
 /**
  * Dialog creating or editing a category and its default split rule.
  *
- * Fires `category-saved` on success.
+ * Fires `category-saved` on success, and on giving up after a save that only
+ * partly went through — what reached the server is reported either way.
  */
 @customElement("se-category-dialog")
 export class SeCategoryDialog extends LitElement {
@@ -26,10 +27,27 @@ export class SeCategoryDialog extends LitElement {
 
   @property({ attribute: false }) public group!: Group;
 
+  /**
+   * Whether the project lets this reader change the group itself.
+   *
+   * Separate from managing the categories: the default one is stored on the
+   * group, so choosing it is a second command the project may well refuse.
+   * Left false, the choice is not offered rather than offered and refused.
+   */
+  @property({ type: Boolean }) public mayManageGroup = false;
+
   @property({ attribute: false }) public members: Member[] = [];
 
   /** Set to edit an existing category, leave out to create one. */
   @property({ attribute: false }) public category?: Category;
+
+  /**
+   * The group's categories, so the automatic colour can be one no other has.
+   *
+   * The whole set and not the neighbours: what is left over is only knowable
+   * from what is taken.
+   */
+  @property({ attribute: false }) public categories: Category[] = [];
 
   @property({ type: String }) public language = "en";
 
@@ -47,6 +65,15 @@ export class SeCategoryDialog extends LitElement {
   @state() private busy = false;
 
   @state() private error?: string;
+
+  /**
+   * The category reached the server, whatever the command after it did.
+   *
+   * Not state: nothing on screen turns on it. It is what cancelling has to
+   * know — giving up on the error is giving up on the default category, not on
+   * the category itself, and the parent has heard nothing about it yet.
+   */
+  private saved = false;
 
   public static styles = sharedStyles;
 
@@ -70,7 +97,12 @@ export class SeCategoryDialog extends LitElement {
     const heading = this.category ? translate("edit_category") : translate("new_category");
 
     return html`
-      <se-dialog open heading=${heading} @dialog-closed=${this.cancel}>
+      <se-dialog
+        open
+        heading=${heading}
+        .localize=${this.localize}
+        @dialog-closed=${this.cancel}
+      >
         <div class="stack">
           ${this.error ? html`<div class="error">${this.error}</div>` : nothing}
 
@@ -98,18 +130,20 @@ export class SeCategoryDialog extends LitElement {
             @value-changed=${(e: CustomEvent) => (this.color = e.detail.value)}
           ></se-color-picker>
 
-          <div>
-            <label class="switch">
-              <input
-                type="checkbox"
-                .checked=${this.isDefault}
-                @change=${(e: Event) =>
-                  (this.isDefault = (e.target as HTMLInputElement).checked)}
-              />
-              <span>${translate("default_category")}</span>
-            </label>
-            <div class="muted hint">${translate("default_category_hint")}</div>
-          </div>
+          ${this.mayManageGroup
+            ? html`<div>
+                <label class="switch">
+                  <input
+                    type="checkbox"
+                    .checked=${this.isDefault}
+                    @change=${(e: Event) =>
+                      (this.isDefault = (e.target as HTMLInputElement).checked)}
+                  />
+                  <span>${translate("default_category")}</span>
+                </label>
+                <div class="muted hint">${translate("default_category_hint")}</div>
+              </div>`
+            : nothing}
 
           <div>
             <label class="muted">${translate("default_split")}</label>
@@ -146,13 +180,23 @@ export class SeCategoryDialog extends LitElement {
   }
 
   /**
-   * The colour the app would pick on its own.
+   * The colour the app would pick on its own: one no other category is wearing.
    *
-   * Keyed on the id, so a category being created has none yet: fall back to the
-   * name, which at least stays put while typing.
+   * A category being created is not in the list yet, so it is dealt in as it
+   * would be — under its name, having no id until it is saved. That the colour
+   * moves while somebody types the name is the same as it ever was; what it can
+   * no longer do is land on the green the shopping already has.
    */
   private autoColor(): string {
-    return colorFor(this.category?.id ?? this.name);
+    const pending = { id: this.category?.id ?? this.name, color: null };
+
+    // This one as it would be, and the others as they are. Taken out and put
+    // back rather than read from the list, because the list still holds the
+    // colour it was saved with — a category being turned back to automatic
+    // would otherwise be counted among what is taken and get nothing left.
+    const others = this.categories.filter((one) => one.id !== pending.id);
+
+    return colorOf(pending, [...others, pending]);
   }
 
   /**
@@ -174,7 +218,27 @@ export class SeCategoryDialog extends LitElement {
     });
   }
 
+  /**
+   * Give up — and say what was written anyway, if anything was.
+   *
+   * A category saved before the default-category command failed is on the
+   * server for good. Reported as a save rather than swallowed as a cancel, so
+   * the list shows it and the page reloads when the categories close: a cancel
+   * here leaves the panel with a category set that is missing one it holds.
+   */
   private cancel = () => {
+    if (this.saved) {
+      this.dispatchEvent(
+        new CustomEvent("category-saved", {
+          detail: { category: this.category },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+
+      return;
+    }
+
     this.dispatchEvent(new CustomEvent("dialog-cancelled", { bubbles: true, composed: true }));
   };
 
@@ -193,6 +257,14 @@ export class SeCategoryDialog extends LitElement {
       const category = this.category
         ? await this.api.updateCategory(this.category.id, changes)
         : await this.api.createCategory({ group_id: this.group.id, ...changes });
+
+      // Hold on to what came back before the second command goes out. Saying
+      // which category is the default is a command of its own, on the group,
+      // and the project may refuse it — the category is created all the same,
+      // and the dialog stays open on the error. Adopted here, pressing the
+      // button again corrects that category instead of making another one.
+      this.category = category;
+      this.saved = true;
 
       await this.saveDefault(category.id);
 

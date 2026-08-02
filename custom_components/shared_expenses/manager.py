@@ -12,7 +12,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .clients.frankfurter import fetch_rate
-from .const import SIGNAL_GROUP_CHANGED
+from .const import EVENT_CHANGED, SIGNAL_GROUP_CHANGED
 from .exceptions import (
     AdminNeedsAccountError,
     CannotRemoveAdminError,
@@ -25,6 +25,7 @@ from .exceptions import (
     InvalidExpenseError,
     InvalidExpenseSharesError,
     InvalidPaymentError,
+    InvalidSplitRuleError,
     MemberAlreadyInGroupError,
     MemberNotFoundError,
     NotAllowedError,
@@ -256,10 +257,34 @@ class SharedExpensesManager:
         Yourself, always: a name is your own, and being unable to leave is the
         very trap the admin is still in — deliberately, and only until they hand
         the group on. Anybody else is managing the members.
+
+        The group asking comes first, before either. `group_id` is not
+        decoration: it is the journal the change lands in, and the event the
+        group hears. Sharing *a* group with somebody is what gets the caller
+        this far; being in *this* one is what lets them write into it — and
+        without this the self shortcut walked straight past the wall, into the
+        history of a household the caller had left.
+
+        Then the other half: the member has to be in that group too. Otherwise
+        the two checks never meet — sharing *some* group with the target, and
+        being allowed in *this* one — and any group of your own, whose admin you
+        are, would answer for somebody it has never held.
         """
+
+        await self.ensure_group_member(group_id, user_id)
 
         if await self._member_of(user_id) == member_id:
             return
+
+        memberships = await self._database.group_member_repository.list_by_group(
+            group_id,
+        )
+
+        if not any(
+            membership.member_id == member_id and membership.left_at is None
+            for membership in memberships
+        ):
+            raise MemberNotFoundError(member_id)
 
         await self.ensure_permission(group_id, user_id, Permission.MANAGE_MEMBERS)
 
@@ -528,12 +553,26 @@ class SharedExpensesManager:
         category, a member, a name never touched money. So those two are what
         freezes the currency, and nothing else does. Read only when the currency
         is actually being changed, which is rare and always deliberate.
+
+        Deleted is not gone. The deletion froze the figures already converted,
+        and `_restored_money` deliberately keeps them rather than working them
+        out again — so a group emptied by deleting everything and then switched
+        to another currency would read its own history back in the wrong one the
+        day somebody pressed Restore. Nothing prunes a revision, so what could
+        come back counts as held.
         """
 
         if await self._database.expense_repository.list_by_group(group_id):
             return True
 
-        return bool(await self._database.payment_repository.list_by_group(group_id))
+        if await self._database.payment_repository.list_by_group(group_id):
+            return True
+
+        return await self._database.revision_repository.has_deletion(
+            group_id,
+            RevisionEntity.EXPENSE,
+            RevisionEntity.PAYMENT,
+        )
 
     async def archive_group(
         self,
@@ -568,17 +607,32 @@ class SharedExpensesManager:
     async def delete_group(self, group_id: str) -> None:
         """Delete a group and everything it contains.
 
-        Says so itself rather than through `_record`, being the one write that
-        journals nothing: the revisions cascade away with the group, so there is
-        nobody left to tell. The dashboard still has to hear it — a group with
-        entities on it has just stopped existing.
+        Announces itself rather than going through `_record`, being the one write
+        that journals nothing: the revisions cascade away with the group, so
+        there is nobody left to tell in the history. The dashboard and the bus
+        still have to hear it — a group with entities on it has just stopped
+        existing, and an automation may have been watching for exactly that.
+
+        It journals nothing, but it takes the transaction like every other write.
+        A bare `DELETE` takes no lock, so on the one connection it lands inside
+        whatever `BEGIN` another task has open — and goes away again with that
+        task's `ROLLBACK`, after `after_commit` has already told the house the
+        group was gone, because the transaction it fell into was not this one's.
         """
 
         await self.get_group(group_id)
 
-        await self._database.group_repository.delete(group_id)
+        async with self._database.transaction():
+            await self._database.group_repository.delete(group_id)
 
-        async_dispatcher_send(self._database.hass, SIGNAL_GROUP_CHANGED, group_id)
+            self._announce(
+                group_id=group_id,
+                entity=RevisionEntity.GROUP,
+                entity_id=group_id,
+                action=RevisionAction.DELETED,
+                label=None,
+                actor_user_id=None,
+            )
 
     #
     # ------------------------------------------------------------------
@@ -1003,6 +1057,7 @@ class SharedExpensesManager:
         exchange_rate: int | None = None,
         description: str | None = None,
         kind: PaymentKind = PaymentKind.REIMBURSEMENT,
+        expense_id: str | None = None,
         actor_user_id: str | None = None,
     ) -> Payment:
         """Create a payment.
@@ -1014,6 +1069,8 @@ class SharedExpensesManager:
         `currency` is what was handed over, the group's unless said otherwise.
         It converts on the way in, once, exactly as an expense does: 100 USD paid
         back does not clear 100 EUR owed.
+
+        `expense_id` is what it was about, when it was about one thing.
         """
 
         group = await self._get_active_group(group_id)
@@ -1026,6 +1083,7 @@ class SharedExpensesManager:
 
         await self.get_member(from_member_id)
         await self.get_member(to_member_id)
+        await self._ensure_parties(group_id, from_member_id, to_member_id)
 
         paid_in = (currency or group.currency).upper()
 
@@ -1051,6 +1109,7 @@ class SharedExpensesManager:
             converted_amount=converted,
             exchange_rate=rate,
             rate_as_of=rate_as_of,
+            expense_id=await self._settled_expense(expense_id, group_id),
             created_by_member_id=await self._member_of(actor_user_id),
         )
 
@@ -1068,6 +1127,70 @@ class SharedExpensesManager:
             )
 
         return payment
+
+    async def _settled_expense(
+        self,
+        expense_id: str | None,
+        group_id: str,
+    ) -> str | None:
+        """Return the expense a payment names, refusing one it cannot name.
+
+        One way it cannot: an expense of another project. An id is enough to ask
+        with, and without this the answer would come back — the same door the
+        refund side keeps shut, and the same reason.
+
+        Nothing else is refused, and the restraint is deliberate. A payment is
+        not a share of the expense it names: it can be more, because one handover
+        settles a month of them, and it can be less, because somebody paid half
+        of what they owed. It can even name a refund — "I am giving you your part
+        of what Decathlon sent back" is a real sentence. The link says what the
+        money was about, and what money is about is not the manager's to judge.
+
+        Refused rather than quietly dropped, as the refund's is: a link that does
+        not appear reads as a save that did not take, and somebody would only try
+        again.
+        """
+
+        if expense_id is None:
+            return None
+
+        expense = await self.get_expense(expense_id)
+
+        if expense.group_id != group_id:
+            raise InvalidPaymentError(
+                "An expense of another project cannot be settled here.",
+                code="payment_expense_other_project",
+            )
+
+        return expense_id
+
+    async def _ensure_parties(
+        self,
+        group_id: str,
+        from_member_id: str,
+        to_member_id: str,
+    ) -> None:
+        """Refuse a payment moving this project's money onto somebody outside it.
+
+        A member exists across the whole house, so proving that the two parties
+        are somebody proves nothing about *whose* somebody. An id is enough to
+        send, and the balances count whatever id they meet: a payment between
+        two people this project never held would credit and debit a stranger the
+        panel cannot even name, and the group's own figures would stop adding up
+        to nothing. The same door `_settled_expense` keeps shut, and the same
+        reason.
+
+        Those who left are parties still. What they owed did not leave with
+        them, and settling up is exactly what a departure calls for.
+        """
+
+        outside = {from_member_id, to_member_id} - await self._roster(group_id)
+
+        if outside:
+            raise InvalidPaymentError(
+                "A member of another project cannot be part of this payment.",
+                code="payment_member_other_project",
+            )
 
     async def get_payment(self, payment_id: str) -> Payment:
         """Return a payment."""
@@ -1104,6 +1227,12 @@ class SharedExpensesManager:
             to_member_id=payment.to_member_id,
         )
 
+        await self._ensure_parties(
+            payment.group_id,
+            payment.from_member_id,
+            payment.to_member_id,
+        )
+
         paid_in = payment.currency.upper()
 
         converted, rate, rate_as_of = await self._convert(
@@ -1115,12 +1244,22 @@ class SharedExpensesManager:
             known=before,
         )
 
+        # Checked here as well as on the way in. An update carries the whole
+        # payment, so a link this group has no business holding would otherwise
+        # arrive by the back door. A link that is only waiting for its expense to
+        # come back is left alone — see `_link_waits`.
+        expense_id = payment.expense_id
+
+        if not await self._link_waits(expense_id, before.expense_id):
+            expense_id = await self._settled_expense(expense_id, payment.group_id)
+
         payment = replace(
             payment,
             currency=paid_in,
             converted_amount=converted,
             exchange_rate=rate,
             rate_as_of=rate_as_of,
+            expense_id=expense_id,
         )
 
         changes = revisions.diff(
@@ -1128,23 +1267,24 @@ class SharedExpensesManager:
             revisions.payment_state(payment),
         )
 
-        # Saving with nothing changed is not something that happened. Recording
-        # it would bury the real changes under noise.
-        if not changes:
-            return
-
         async with self._database.transaction():
             await self._database.payment_repository.update(payment)
 
-            await self._record(
-                group_id=payment.group_id,
-                entity_type=RevisionEntity.PAYMENT,
-                entity_id=payment.id,
-                label=None,
-                action=RevisionAction.UPDATED,
-                actor_user_id=actor_user_id,
-                changes=changes,
-            )
+            # Saving with nothing changed is not something that happened.
+            # Recording it would bury the real changes under noise. The write
+            # itself still goes ahead: the state compared here is what the
+            # history reads, and the row holds fields it does not — the rate
+            # among them, which a save is entitled to correct.
+            if changes:
+                await self._record(
+                    group_id=payment.group_id,
+                    entity_type=RevisionEntity.PAYMENT,
+                    entity_id=payment.id,
+                    label=None,
+                    action=RevisionAction.UPDATED,
+                    actor_user_id=actor_user_id,
+                    changes=changes,
+                )
 
     async def delete_payment(
         self,
@@ -1193,6 +1333,7 @@ class SharedExpensesManager:
         shares: Sequence[ExpenseShare] | None = None,
         split_rule: SplitRule | None = None,
         exchange_rate: int | None = None,
+        refund_of: str | None = None,
         actor_user_id: str | None = None,
     ) -> Expense:
         """Create an expense and its shares.
@@ -1200,12 +1341,24 @@ class SharedExpensesManager:
         Pass `shares` to set every share explicitly. Otherwise the shares are
         derived from `split_rule`, falling back to the rule of the category,
         then to the rule of the group, then to an equal split.
+
+        A negative amount is a refund from a shop: the same expense with the
+        money going the other way. Whoever is down as having paid it is whoever
+        got it back, and each share comes off what that member bore.
+
+        `refund_of` names the purchase a refund gives money back on, and naming
+        none is allowed: a shop handing money back is often about a basket rather
+        than one line of it. It changes no figure — the shares are the money — so
+        it is the one field here a mistake in cannot cost anybody anything.
         """
 
         group = await self._get_active_group(group_id)
 
-        if amount <= 0:
-            raise InvalidExpenseError("An expense amount must be positive.")
+        if amount == 0:
+            raise InvalidExpenseError(
+                "An expense amount cannot be zero.",
+                code="expense_amount_zero",
+            )
 
         await self.get_member(paid_by_member_id)
 
@@ -1249,6 +1402,7 @@ class SharedExpensesManager:
             exchange_rate=rate,
             rate_as_of=rate_as_of,
             created_by_member_id=await self._member_of(actor_user_id),
+            refund_of=await self._refunded_expense(refund_of, group_id, converted),
         )
 
         built = _build_shares(expense.id, amounts, now)
@@ -1267,6 +1421,77 @@ class SharedExpensesManager:
             )
 
         return expense
+
+    async def _refunded_expense(
+        self,
+        refund_of: str | None,
+        group_id: str,
+        converted: int,
+        *,
+        waiting: bool = False,
+    ) -> str | None:
+        """Return the purchase a refund names, refusing one it cannot name.
+
+        Four ways it cannot. A purchase is not a refund of anything, so only a
+        negative amount may carry this at all — otherwise an ordinary expense
+        could be filed as giving money back on another and read as both. A
+        purchase from another project is out of reach: an id is enough to ask, and
+        without this the answer would come back. A refund of a refund says nothing
+        anybody means. And **a shop cannot hand back more than it was given**.
+
+        That last one is not tidiness. The panel opens a refund on the way its
+        purchase was borne, so a figure larger than the purchase stretches those
+        proportions past anything they meant: 6,95 shared 3,48/3,47 — a single
+        cent of rounding — becomes 7,51/7,49 when pulled out to 15,00, and the
+        rounding reads as an intention nobody had.
+
+        Compared in the group's own money, both sides, since a refund need not be
+        in the currency the purchase was paid in.
+
+        Refused rather than quietly dropped: a link that does not appear is read
+        as a save that did not take, and somebody would only try again.
+
+        `waiting` says the purchase is away and its link is being held rather
+        than cut — see `_link_waits`. It drops only the three refusals the
+        purchase itself answers, there being nothing left to ask them of. The
+        first is not one of them: whether this is a refund at all is answered by
+        the expense being saved, and an ordinary expense filed as giving money
+        back is refused whether or not the id it carries names anything today.
+        """
+
+        if refund_of is None:
+            return None
+
+        if converted >= 0:
+            raise InvalidExpenseError(
+                "Only a refund can give money back on another expense.",
+                code="refund_only",
+            )
+
+        if waiting:
+            return refund_of
+
+        purchase = await self.get_expense(refund_of)
+
+        if purchase.group_id != group_id:
+            raise InvalidExpenseError(
+                "An expense of another project cannot be refunded here.",
+                code="refund_other_project",
+            )
+
+        if purchase.amount < 0:
+            raise InvalidExpenseError(
+                "A refund cannot give money back on a refund.",
+                code="refund_of_refund",
+            )
+
+        if -converted > purchase.converted_amount:
+            raise InvalidExpenseError(
+                "A refund cannot give back more than the expense it is refunding.",
+                code="refund_exceeds_expense",
+            )
+
+        return refund_of
 
     async def get_expense(self, expense_id: str) -> Expense:
         """Return an expense."""
@@ -1321,8 +1546,11 @@ class SharedExpensesManager:
 
         group = await self.get_group(expense.group_id)
 
-        if expense.amount <= 0:
-            raise InvalidExpenseError("An expense amount must be positive.")
+        if expense.amount == 0:
+            raise InvalidExpenseError(
+                "An expense amount cannot be zero.",
+                code="expense_amount_zero",
+            )
 
         await self.get_member(expense.paid_by_member_id)
 
@@ -1340,6 +1568,18 @@ class SharedExpensesManager:
             on=expense.expense_date.date(),
             given_rate=exchange_rate,
             known=previous,
+        )
+
+        # After the conversion, not before: what a refund may not exceed is the
+        # purchase in the group's own money, and until here this expense has only
+        # the figure that was typed. A link waiting for its purchase to come back
+        # drops only what the purchase itself would have answered — what this
+        # expense answers on its own is asked either way.
+        await self._refunded_expense(
+            expense.refund_of,
+            expense.group_id,
+            converted,
+            waiting=await self._link_waits(expense.refund_of, previous.refund_of),
         )
 
         amounts, effective_rule = await self._resolve_amounts(
@@ -1364,21 +1604,26 @@ class SharedExpensesManager:
 
         changes = revisions.diff(before, revisions.expense_state(updated, built))
 
-        if not changes:
-            return
-
         async with self._database.transaction():
             await self._database.expense_repository.update(updated, built)
 
-            await self._record(
-                group_id=expense.group_id,
-                entity_type=RevisionEntity.EXPENSE,
-                entity_id=expense.id,
-                label=updated.title,
-                action=RevisionAction.UPDATED,
-                actor_user_id=actor_user_id,
-                changes=changes,
-            )
+            # Nothing moved: nothing to say. A save that changed no field is not
+            # an event, and a journal full of them is a journal nobody reads.
+            # The write itself still goes ahead: the state compared here is what
+            # the history reads, and the row holds fields it does not — the split
+            # rule among them, which resolves to the very same shares as often as
+            # not and would otherwise be thrown away with the caller told it was
+            # saved.
+            if changes:
+                await self._record(
+                    group_id=expense.group_id,
+                    entity_type=RevisionEntity.EXPENSE,
+                    entity_id=expense.id,
+                    label=updated.title,
+                    action=RevisionAction.UPDATED,
+                    actor_user_id=actor_user_id,
+                    changes=changes,
+                )
 
     async def delete_expense(
         self,
@@ -1465,7 +1710,16 @@ class SharedExpensesManager:
         expense = Expense(
             id=expense_id,
             group_id=group_id,
-            category_id=state.get("category_id"),
+            # The category may have gone while the expense was away, and unlike
+            # the two links below this one is held by a foreign key: an expense
+            # written back into a category that is no longer there is refused by
+            # the database, and the restore fails on an error nobody can act on.
+            # It comes back in no category, which is where the deletion would
+            # have left it had it still been on the table.
+            category_id=await self._restored_category(
+                group_id,
+                state.get("category_id"),
+            ),
             title=state["title"],
             description=state.get("description"),
             amount=state["amount"],
@@ -1481,6 +1735,10 @@ class SharedExpensesManager:
             exchange_rate=rate,
             rate_as_of=rate_as_of,
             created_by_member_id=state.get("created_by_member_id"),
+            # Brought back naming the purchase it named. That purchase may itself
+            # be away, in which case the link waits for it exactly as it did
+            # before this refund was deleted.
+            refund_of=state.get("refund_of"),
         )
 
         built = _build_shares(expense.id, state.get("shares") or {}, now)
@@ -1548,6 +1806,11 @@ class SharedExpensesManager:
             converted_amount=converted,
             exchange_rate=rate,
             rate_as_of=rate_as_of,
+            # Straight from the snapshot and not checked again: it was checked
+            # when it was written, and what it names may well be away too — a
+            # month's tidying up deletes an expense and the payment about it, and
+            # bringing either back must not depend on the order.
+            expense_id=state.get("expense_id"),
             created_by_member_id=state.get("created_by_member_id"),
         )
 
@@ -1639,6 +1902,30 @@ class SharedExpensesManager:
             on=on,
             given_rate=None,
         )
+
+    async def _restored_category(
+        self,
+        group_id: str,
+        category_id: str | None,
+    ) -> str | None:
+        """Return the category a restored expense goes back into, if it is there.
+
+        Every other link a restore carries is held loosely and may point at
+        nothing; this one is a foreign key, and a row written back against a
+        category that has since been deleted is refused outright. Deleting a
+        category sets the expenses on it to none, and this is the same answer for
+        the one that was not there to be set.
+        """
+
+        if category_id is None:
+            return None
+
+        try:
+            await self._get_group_category(group_id, category_id)
+        except CategoryNotFoundError:
+            return None
+
+        return category_id
 
     #
     # ------------------------------------------------------------------
@@ -1820,14 +2107,14 @@ class SharedExpensesManager:
         journals is a change nobody needed to be told about either — the two
         questions have the same answer, which is why they share a door.
 
-        Sent before the commit, and that is safe because nobody reads yet: the
-        listeners only schedule a refresh, and the refresh runs its own task
-        after this transaction has closed. Sending after the commit would need
-        the caller to remember to, which is the kind of remembering this method
-        exists to take away.
+        Announced through `Database.after_commit`, so it is heard when the write
+        is on disk and never when it is undone. It used to be sent from here,
+        before the commit, on the reasoning that nobody read yet — true until
+        Home Assistant began starting tasks eagerly. Sending it after the commit
+        by hand would need every caller to remember to, which is the kind of
+        remembering this method exists to take away, so the database remembers
+        instead.
         """
-
-        async_dispatcher_send(self._database.hass, SIGNAL_GROUP_CHANGED, group_id)
 
         await self._database.revision_repository.create(
             Revision(
@@ -1842,6 +2129,67 @@ class SharedExpensesManager:
                 at=datetime.now(UTC),
             )
         )
+
+        # Journalled, then announced. The order stopped mattering the day the
+        # announcement started waiting for the commit; it is kept because that
+        # is the order the two things happen in.
+        self._announce(
+            group_id=group_id,
+            entity=entity_type,
+            entity_id=entity_id,
+            action=action,
+            label=label,
+            actor_user_id=actor_user_id,
+        )
+
+    def _announce(
+        self,
+        *,
+        group_id: str,
+        entity: RevisionEntity,
+        entity_id: str,
+        action: RevisionAction,
+        label: str | None,
+        actor_user_id: str | None,
+    ) -> None:
+        """Tell the dashboard and the bus that a group moved — once it really has.
+
+        Three listeners, one door. The coordinator hears the signal and redoes
+        the arithmetic; a card left running on a kitchen wall hears the same one
+        and asks for the figures again; anything else in the house hears the
+        event and may act on it — a notification, a reminder, a light. The event
+        carries what the journal carries, and no more: an automation that needs
+        the figures reads them for itself, as anyone cleared for the group can.
+
+        Handed to the database rather than sent from here. Every one of these
+        sends somebody back to this connection, and a reader told before the
+        COMMIT reads a write that has not landed — see `Database.after_commit`,
+        which holds it until it has and throws it away when it never does.
+
+        The event's name and shape are a promise to whoever wrote an automation
+        against them; they change with the same care a stored column would.
+        """
+
+        hass = self._database.hass
+
+        def _speak() -> None:
+            """Say it, with the write behind it."""
+
+            async_dispatcher_send(hass, SIGNAL_GROUP_CHANGED, group_id)
+
+            hass.bus.async_fire(
+                EVENT_CHANGED,
+                {
+                    "group_id": group_id,
+                    "entity": str(entity),
+                    "entity_id": entity_id,
+                    "action": str(action),
+                    "label": label,
+                    "actor_user_id": actor_user_id,
+                },
+            )
+
+        self._database.after_commit(_speak)
 
     #
     # ------------------------------------------------------------------
@@ -1920,6 +2268,41 @@ class SharedExpensesManager:
             raise CategoryNotFoundError(category_id)
 
         return category
+
+    async def _roster(self, group_id: str) -> set[str]:
+        """Return everybody the group has ever held, those who left included.
+
+        Somebody who left is one of them still: what they owed did not leave
+        with them, and an expense entered while they were here has to stay
+        editable afterwards. This is what a project's money may be put on, which
+        is a wider question than who may be split between today.
+        """
+
+        members = await self._database.member_repository.list_by_group(
+            group_id,
+            include_left=True,
+        )
+
+        return {member.id for member in members}
+
+    async def _link_waits(self, link: str | None, before: str | None) -> bool:
+        """Return whether an unchanged link names an expense that is away.
+
+        A deleted expense really leaves its table and comes back under the same
+        id, so what named it goes on naming it: the columns hold no foreign key
+        on purpose, both restores bring the link back unexamined, and the panel
+        shows it as waiting rather than as wrong. There is nothing left to ask
+        about such a link, so it is held exactly as it stands.
+
+        As it stands, and only that. A link being set or changed has never been
+        through the door and goes through it now — the checks it faces are the
+        reason the door is there.
+        """
+
+        if link is None or link != before:
+            return False
+
+        return await self._database.expense_repository.get(link) is None
 
     async def _convert(
         self,
@@ -2007,6 +2390,8 @@ class SharedExpensesManager:
         member_ids = [member.id for member in members]
 
         if shares is not None:
+            await self._ensure_of_group(group.id, payer_id, shares)
+
             amounts = _explicit_amounts(shares, amount)
         else:
             amounts = resolve_shares(
@@ -2020,6 +2405,43 @@ class SharedExpensesManager:
             amounts = apportion(amounts, converted)
 
         return amounts, _pin_members(rule, payer_id, member_ids)
+
+    async def _ensure_of_group(
+        self,
+        group_id: str,
+        payer_id: str,
+        shares: Sequence[ExpenseShare],
+    ) -> None:
+        """Refuse explicit shares put on people this project never held.
+
+        The rule path is held to the group's own members by `resolve_shares`,
+        which refuses a payer outside the pool and a participant it does not
+        know. Shares that arrive already worked out went round that check
+        entirely: an id is enough to send, and the balances count whatever id
+        they meet, so a project's money could be split onto somebody its own
+        panel cannot name.
+
+        The roster rather than the pool above, because a member who left may
+        still owe: the pool is who a rule may split between today, and this is
+        who the money may be put on at all. Held to the same two reasons, so a
+        refusal reads the same whichever path found it.
+        """
+
+        roster = await self._roster(group_id)
+
+        if payer_id not in roster:
+            raise InvalidSplitRuleError(
+                "The payer must be a member of the group.",
+                code="split_payer_not_member",
+            )
+
+        unknown = sorted({share.member_id for share in shares} - roster)
+
+        if unknown:
+            raise InvalidSplitRuleError(
+                f"Unknown share member: {', '.join(unknown)}",
+                code="split_unknown_member",
+            )
 
 
 def _pin_members(
@@ -2062,14 +2484,25 @@ def _validate_payment(
     """Check the invariants of a payment."""
 
     if amount <= 0:
-        raise InvalidPaymentError("A payment amount must be positive.")
+        raise InvalidPaymentError(
+            "A payment amount must be positive.",
+            code="payment_amount_positive",
+        )
 
     if from_member_id == to_member_id:
-        raise InvalidPaymentError("A member cannot pay themselves.")
+        raise InvalidPaymentError(
+            "A member cannot pay themselves.",
+            code="payment_to_self",
+        )
 
 
 def _explicit_amounts(shares: Sequence[ExpenseShare], amount: int) -> dict[str, int]:
-    """Return the amounts of explicitly provided shares."""
+    """Return the amounts of explicitly provided shares.
+
+    Every share runs the same way as the expense: a purchase is borne, a refund
+    is given back. One share pulling against the others would say a member owes
+    money because a shop handed some back, which no split means to say.
+    """
 
     amounts: dict[str, int] = {}
 
@@ -2077,13 +2510,28 @@ def _explicit_amounts(shares: Sequence[ExpenseShare], amount: int) -> dict[str, 
         amounts[share.member_id] = amounts.get(share.member_id, 0) + share.amount
 
     if not amounts:
-        raise InvalidExpenseSharesError("An expense needs at least one share.")
+        raise InvalidExpenseSharesError(
+            "An expense needs at least one share.",
+            code="shares_none",
+        )
 
-    if any(value < 0 for value in amounts.values()):
-        raise InvalidExpenseSharesError("A share cannot be negative.")
+    if amount > 0 and any(value < 0 for value in amounts.values()):
+        raise InvalidExpenseSharesError(
+            "A share cannot be negative.",
+            code="share_negative",
+        )
+
+    if amount < 0 and any(value > 0 for value in amounts.values()):
+        raise InvalidExpenseSharesError(
+            "A share of a refund cannot be positive.",
+            code="refund_share_positive",
+        )
 
     if sum(amounts.values()) != amount:
-        raise InvalidExpenseSharesError("Shares do not add up to the expense amount.")
+        raise InvalidExpenseSharesError(
+            "Shares do not add up to the expense amount.",
+            code="shares_do_not_add_up",
+        )
 
     return {member_id: value for member_id, value in amounts.items() if value != 0}
 

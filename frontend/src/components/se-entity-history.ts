@@ -30,6 +30,9 @@ export class SeEntityHistory extends LitElement {
 
   @property({ type: String }) public currency = "EUR";
 
+  /** What this one was paid in, which the group's currency is not always. */
+  @property({ type: String }) public paidIn = "";
+
   @property({ type: String }) public language = "en";
 
   @state() private open = false;
@@ -86,6 +89,7 @@ export class SeEntityHistory extends LitElement {
         .members=${this.members}
         .categories=${this.categories}
         .currency=${this.currency}
+        .paidIn=${this.paidIn}
         .language=${this.language}
       ></se-history>
     `;

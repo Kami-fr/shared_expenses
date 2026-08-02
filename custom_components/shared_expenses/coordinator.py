@@ -5,9 +5,16 @@ tell them anything. So this sits between the two: the manager says a group
 moved, this redoes that group's arithmetic, and every entity of that group reads
 the answer off it rather than each going to the database on its own.
 
-Nothing here is polled. A shared expense changes when somebody types it in, not
-on a schedule, so `update_interval` stays None and the only thing that ever
-refreshes this is a group actually having changed.
+Nothing here is polled for its own sake. A shared expense changes when somebody
+types it in, not on a schedule, so the signal is what makes the dashboard feel
+instant.
+
+The clock under it is a safety net and nothing else. `update_interval` was None,
+and a coordinator with no interval never reschedules itself after a failure —
+Home Assistant returns straight out of `_schedule_refresh` when there is none —
+so a single hiccup left every entity in the house unavailable until somebody
+happened to write in a group. Ten minutes is now the longest anything here can
+be wrong without saying so.
 """
 
 from __future__ import annotations
@@ -16,11 +23,14 @@ from dataclasses import dataclass
 from datetime import datetime
 from logging import getLogger
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import DOMAIN, SIGNAL_GROUP_CHANGED
+from .const import DOMAIN, FALLBACK_INTERVAL, REFRESH_COOLDOWN, SIGNAL_GROUP_CHANGED
+from .exceptions import GroupNotFoundError, SharedExpensesError
 from .manager import SharedExpensesManager
 from .models import Group, Member
 
@@ -63,12 +73,50 @@ class GroupSnapshot:
 class SharedExpensesCoordinator(DataUpdateCoordinator[dict[str, GroupSnapshot]]):
     """Holds a snapshot per exposed group, refreshed when one changes."""
 
-    def __init__(self, hass: HomeAssistant, manager: SharedExpensesManager) -> None:
-        """Set up the coordinator, polling nothing."""
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        manager: SharedExpensesManager,
+    ) -> None:
+        """Set up the coordinator: pushed at, with a clock underneath."""
 
-        super().__init__(hass, LOGGER, name=DOMAIN, update_interval=None)
+        super().__init__(
+            hass,
+            LOGGER,
+            # Handed over rather than picked up. Home Assistant reads the entry
+            # off a context variable when it is not given one, and says it means
+            # to stop.
+            config_entry=entry,
+            name=DOMAIN,
+            update_interval=FALLBACK_INTERVAL,
+            # `immediate=True`: the first change of a burst is read at once, so
+            # a tile moves as the expense lands, and the rest of the burst folds
+            # into one trailing read.
+            request_refresh_debouncer=Debouncer(
+                hass,
+                LOGGER,
+                cooldown=REFRESH_COOLDOWN,
+                immediate=True,
+            ),
+            # A clock waking every entity every ten minutes would fill the
+            # recorder with a figure that had not moved. A snapshot is frozen
+            # and compares by value, so "has anything changed" is exact here —
+            # for everything the data holds. The one change it cannot see is a
+            # group disappearing that was not on the dashboard anyway, and
+            # `_async_update_data` lifts the flag for that cycle alone.
+            always_update=False,
+        )
 
         self._manager = manager
+
+        self.known_group_ids: frozenset[str] = frozenset()
+        """Every group in the database, exposed or not.
+
+        Not what is on the dashboard — what exists. It is the only way to tell a
+        group that went quiet from one that was deleted, and the sensors need
+        that difference before they take anything down.
+        """
 
     @callback
     def async_listen(self) -> None:
@@ -93,7 +141,11 @@ class SharedExpensesCoordinator(DataUpdateCoordinator[dict[str, GroupSnapshot]])
         snapshot or it is a race.
         """
 
-        self.hass.async_create_task(self.async_refresh())
+        # `async_request_refresh`, not `async_refresh`: one thing somebody does
+        # can announce itself several times, and every announcement is a full
+        # re-read of every exposed group. The debouncer runs the first at once
+        # and folds the rest into one.
+        self.hass.async_create_task(self.async_request_refresh())
 
     async def _async_update_data(self) -> dict[str, GroupSnapshot]:
         """Return a snapshot per exposed group.
@@ -103,13 +155,45 @@ class SharedExpensesCoordinator(DataUpdateCoordinator[dict[str, GroupSnapshot]])
         wants one — see `Group.exposed`.
         """
 
+        try:
+            groups = await self._manager.list_groups()
+        except SharedExpensesError as err:
+            # `UpdateFailed` is one line in the log where an unexpected error is
+            # a stack trace. Either way it costs one cycle and no more: the
+            # clock brings the next one along.
+            raise UpdateFailed(err) from err
+
         snapshots: dict[str, GroupSnapshot] = {}
 
-        for group in await self._manager.list_groups():
+        for group in groups:
             if not group.exposed:
                 continue
 
-            snapshots[group.id] = await self._snapshot(group)
+            try:
+                snapshots[group.id] = await self._snapshot(group)
+            except GroupNotFoundError:
+                # Deleted between being listed and being read. That is a fact
+                # about one group, not a reason to take the other nine off the
+                # wall — which is what letting it out of here would do.
+                LOGGER.debug("Group %s went while it was being read", group.id)
+            except SharedExpensesError as err:
+                raise UpdateFailed(err) from err
+
+        # Every group, not only the ones on the dashboard: this is what tells a
+        # group that closed its switch from one that no longer exists.
+        known = frozenset(group.id for group in groups)
+
+        # A group deleted while its switch was already closed changes nothing
+        # here — it was filtered out of the snapshots before it went, so the
+        # dict comes back equal to the last one and `always_update=False` means
+        # Home Assistant tells nobody. Which is exactly the cycle the sensors
+        # had to hear: `_forget` is a listener, and it is the only thing that
+        # takes a deleted project's device down. So the one cycle that loses an
+        # id asks to be announced anyway — the flag is read after this returns —
+        # and every other cycle goes back to saying nothing when nothing moved.
+        self.always_update = bool(self.known_group_ids - known)
+
+        self.known_group_ids = known
 
         return snapshots
 

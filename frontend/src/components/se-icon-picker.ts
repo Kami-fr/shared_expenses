@@ -62,6 +62,9 @@ export class SeIconPicker extends LitElement {
 
   @state() private failed = false;
 
+  /** Followed without an await in between, so a blur is never missed. */
+  private focused = false;
+
   public static styles = [
     sharedStyles,
     css`
@@ -230,7 +233,15 @@ export class SeIconPicker extends LitElement {
   }
 
   private handleFocus = async () => {
+    this.focused = true;
+
     await this.ensureLoaded();
+
+    // The first fetch takes a second: the field may have been left in the
+    // meantime, and nothing should pop open over where the caret went.
+    if (!this.focused) {
+      return;
+    }
 
     this.search(this.stripPrefix(this.value));
     this.open = true;
@@ -243,14 +254,53 @@ export class SeIconPicker extends LitElement {
 
     await this.ensureLoaded();
 
+    if (!this.focused) {
+      return;
+    }
+
     this.search(this.stripPrefix(raw));
     this.open = true;
   };
 
   // `mousedown` on a choice fires before `blur`, so the pick still lands.
   private handleBlur = () => {
+    this.focused = false;
     this.open = false;
+    this.commit();
   };
+
+  /**
+   * Turn what was typed into a value on the way out.
+   *
+   * Typing leaves the raw text in the field, since a name is only half written
+   * most of the time. The hint invites a bare `cart`, so on leaving, a name
+   * without a prefix becomes `mdi:cart` — and one no icon answers to is dropped
+   * rather than stored, because a value that resolves to nothing draws an empty
+   * pill instead of the fallback letter.
+   */
+  private commit() {
+    const raw = this.value.trim();
+
+    // A name that already carries a prefix — `mdi:`, or another icon set's —
+    // is left as it was written.
+    if (raw.includes(":")) {
+      if (raw !== this.value) {
+        this.emit(raw);
+      }
+
+      return;
+    }
+
+    // Without the list — the fetch failed, or is still on its way — a name is
+    // taken on trust rather than thrown away.
+    const known =
+      this.icons.length === 0 || this.icons.some((entry) => entry.name === raw);
+    const value = raw !== "" && known ? `mdi:${raw}` : "";
+
+    if (value !== this.value) {
+      this.emit(value);
+    }
+  }
 
   private choose(event: Event, name: string) {
     event.preventDefault();

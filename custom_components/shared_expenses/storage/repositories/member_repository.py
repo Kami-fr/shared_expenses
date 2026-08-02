@@ -23,15 +23,17 @@ class MemberRepository(BaseRepository):
                 user_id,
                 name,
                 color,
+                use_ha_avatar,
                 created_at
             )
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
             (
                 member.id,
                 member.user_id,
                 member.name,
                 member.color,
+                int(member.use_ha_avatar),
                 member.created_at.isoformat(),
             ),
         )
@@ -46,6 +48,7 @@ class MemberRepository(BaseRepository):
                 user_id,
                 name,
                 color,
+                use_ha_avatar,
                 created_at
             FROM members
             WHERE id = ?
@@ -71,6 +74,7 @@ class MemberRepository(BaseRepository):
                 user_id,
                 name,
                 color,
+                use_ha_avatar,
                 created_at
             FROM members
             ORDER BY name
@@ -92,6 +96,7 @@ class MemberRepository(BaseRepository):
                 user_id,
                 name,
                 color,
+                use_ha_avatar,
                 created_at
             FROM members
             WHERE user_id = ?
@@ -151,6 +156,7 @@ class MemberRepository(BaseRepository):
                 members.user_id,
                 members.name,
                 members.color,
+                members.use_ha_avatar,
                 members.created_at
             FROM members
             INNER JOIN group_members ON group_members.member_id = members.id
@@ -174,13 +180,15 @@ class MemberRepository(BaseRepository):
             SET
                 user_id = ?,
                 name = ?,
-                color = ?
+                color = ?,
+                use_ha_avatar = ?
             WHERE id = ?
             """,
             (
                 member.user_id,
                 member.name,
                 member.color,
+                int(member.use_ha_avatar),
                 member.id,
             ),
         )
@@ -206,4 +214,5 @@ class MemberRepository(BaseRepository):
             name=row["name"],
             color=row["color"],
             created_at=datetime.fromisoformat(row["created_at"]),
+            use_ha_avatar=bool(row["use_ha_avatar"]),
         )

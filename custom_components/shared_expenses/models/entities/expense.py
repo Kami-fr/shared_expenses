@@ -22,7 +22,13 @@ class Expense:
     description: str | None
 
     amount: int
-    """What was actually paid, in the cents of `currency`."""
+    """What was actually paid, in the cents of `currency`.
+
+    Negative where a shop gave money back. The same expense run the other way:
+    `paid_by_member_id` is then whoever received it, and every share is owed
+    backwards, so it comes off what each of them bore. Never zero — that is not
+    a small expense, it is no expense.
+    """
 
     currency: str
     """What it was paid in. Not always the group's."""
@@ -79,4 +85,20 @@ class Expense:
 
     Only ever read to reopen the dialog as it was filled in: the shares are the
     truth, and the balances never look at this.
+    """
+
+    refund_of: str | None = None
+    """The expense this one gives money back on, when it names one.
+
+    Only a refund may carry it — an expense with a negative `amount` — and even a
+    refund need not: a shop handing money back is often about a basket rather than
+    one line of it.
+
+    Read, never reckoned with. The balances count the shares, so naming a purchase
+    here moves nothing: it says what the money was for, and lets a refund open
+    with the split that purchase was borne under.
+
+    A plain id, with no foreign key behind it. A deleted expense really leaves the
+    table — its revision is the only place it still exists — and comes back under
+    the same id, so the link waits for it rather than being thrown away.
     """

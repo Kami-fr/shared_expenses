@@ -35,11 +35,11 @@
         },
         "amount": {
           "name": "Amount",
-          "description": "In whole money, not in cents. 85.42, not 8542."
+          "description": "In whole money, not in cents. 85.42, not 8542. A negative amount is a refund from a shop: -12.90 gives 12.90 back to the group."
         },
         "paid_by_member_id": {
           "name": "Paid by",
-          "description": "The id of the member who paid."
+          "description": "The id of the member who paid. On a refund, whoever got the money back."
         },
         "expense_date": {
           "name": "Date",

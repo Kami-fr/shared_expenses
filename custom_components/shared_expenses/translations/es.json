@@ -35,11 +35,11 @@
         },
         "amount": {
           "name": "Importe",
-          "description": "En moneda entera, no en céntimos. 85,42 y no 8542."
+          "description": "En moneda entera, no en céntimos. 85,42 y no 8542. Un importe negativo es un reembolso de una tienda: -12,90 devuelve 12,90 al grupo."
         },
         "paid_by_member_id": {
           "name": "Pagado por",
-          "description": "El identificador del miembro que pagó."
+          "description": "El identificador del miembro que pagó. En un reembolso, quien recibió el dinero de vuelta."
         },
         "expense_date": {
           "name": "Fecha",

@@ -4,7 +4,32 @@ from __future__ import annotations
 
 
 class SharedExpensesError(Exception):
-    """Base exception."""
+    """Base exception.
+
+    `code` says *why*, where the class says only what kind of thing went wrong.
+    `InvalidExpenseError` is raised ten times over for ten different reasons, and
+    the panel translates the class — so every one of them reached a reader as
+    "this expense is invalid", while the sentence that would have told them
+    something sat unused in the raise.
+
+    Set it and the panel gets that reason instead, as a key it can translate. A
+    reason with no translation yet is not a step backwards: the panel falls
+    through to the message, so an untranslated cause reads as its English
+    sentence rather than as the generic line it reads as today.
+
+    Left unset, everything behaves exactly as before — the class table in
+    `websocket/api.py` answers, and no existing raise has to change.
+    """
+
+    code: str | None = None
+
+    def __init__(self, *args: object, code: str | None = None) -> None:
+        """Raise with an optional reason, finer than the class."""
+
+        super().__init__(*args)
+
+        if code is not None:
+            self.code = code
 
 
 #
@@ -128,6 +153,23 @@ class CurrencyLockedError(SharedExpensesError):
 
 class InvalidExchangeRateError(SharedExpensesError):
     """Exchange rate is missing, malformed or not plausible."""
+
+
+#
+# Storage
+#
+
+
+class DatabaseNotReadyError(SharedExpensesError):
+    """The database is not open.
+
+    A moment rather than a mistake, which is why it is raised and not asserted:
+    a read still in flight when the entry unloads finds the file closed under
+    it. An assert says the same thing until somebody runs Python with `-O`, and
+    then says nothing at all — the connection is `None` and the traceback is
+    about an attribute. This is also a `SharedExpensesError`, so the coordinator
+    can turn it into one lost cycle instead of a stack trace.
+    """
 
 
 class ExchangeRateUnavailableError(SharedExpensesError):

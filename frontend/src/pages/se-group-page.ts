@@ -1,6 +1,9 @@
 import { LitElement, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import { keyed } from "lit/directives/keyed.js";
 
+import { renderAvatar } from "../components/avatar";
+import { withAvatars } from "../services/avatar";
 import "../components/se-balance-card";
 import "../components/se-button";
 import "../components/se-field";
@@ -15,10 +18,11 @@ import "../dialogs/se-statistics-dialog";
 import type { SharedExpensesApi } from "../services/api";
 import {
   colorFor,
+  colorOf,
   formatDayDate,
   formatMoney,
-  initials,
   moneyNeedles,
+  sortByName,
 } from "../services/format";
 import { errorMessage, type Localizer } from "../services/localize";
 import { sharedStyles } from "../styles/shared";
@@ -78,6 +82,15 @@ export class SeGroupPage extends LitElement {
 
   /** The Home Assistant account looking at the panel, to know who "you" is. */
   @property({ type: String }) public userId: string | null = null;
+
+  /**
+   * Open a fresh expense the moment the group is loaded, then say it is done.
+   *
+   * Set by the app when the address carried `new=expense` — the dashboard card's
+   * "+ expense" walking straight here. Consumed once, on the load that follows,
+   * so switching groups afterwards does not keep reopening it.
+   */
+  @property({ type: Boolean }) public openNewExpense = false;
 
   @state() private group?: Group;
 
@@ -516,6 +529,34 @@ export class SeGroupPage extends LitElement {
         gap: 6px;
       }
 
+      /* Holds the face and its mark together, so the pair scrolls as one. */
+      .face {
+        position: relative;
+        flex: 0 0 auto;
+        line-height: 0;
+      }
+
+      /*
+       * The category on the corner of the face rather than in a column of its
+       * own — the journal's arrangement, see se-history. Who paid and what for
+       * are one glance, and a third circle in the row would have been paid for
+       * by the width of the title.
+       *
+       * It also settles the row with no category: nothing is drawn and nothing
+       * has to be held open for it, where a column would have needed a blank
+       * kept in it to stop the titles going ragged.
+       *
+       * The ring is the card's own background and not a colour: it is what keeps
+       * an orange mark on an orange avatar from reading as one shape.
+       */
+      .face .pip {
+        position: absolute;
+        right: -5px;
+        bottom: -5px;
+        border-radius: 50%;
+        border: 2px solid var(--card-background-color, #fff);
+      }
+
       .stack-avatars {
         display: flex;
       }
@@ -553,12 +594,32 @@ export class SeGroupPage extends LitElement {
    * showing the one it first loaded, which read as the switcher being broken.
    * The initial group is already loaded in `connectedCallback`, so this fires
    * only on a real change, where `changed.get` holds the group left behind.
+   *
+   * What is on screen goes first. `load` fills these in only when it succeeds,
+   * so a switch that fails — the integration reloading, a dropped connection —
+   * would leave the group left behind on the page while `groupId` already names
+   * another: one group in the header and its expenses in the list, another one
+   * in the address and in the member dialog. Cleared here, the page holds on
+   * the error until a load goes through and everything on it is one group's.
    */
   protected updated(changed: Map<string, unknown>): void {
     if (changed.has("groupId") && changed.get("groupId")) {
       this.loading = true;
+      this.forget();
       void this.load();
     }
+  }
+
+  /** Drop what is on screen: none of it belongs to the group being opened. */
+  private forget() {
+    this.group = undefined;
+    this.members = [];
+    this.pastMembers = [];
+    this.memberships = [];
+    this.categories = [];
+    this.expenses = [];
+    this.payments = [];
+    this.result = undefined;
   }
 
   protected render() {
@@ -711,7 +772,7 @@ export class SeGroupPage extends LitElement {
 
     return html`
       <button role="menuitem" @click=${() => this.openDialog("group")}>
-        ${translate("edit_group")}
+        ${this.may("manage_group") ? translate("edit_group") : translate("group_details")}
       </button>
       <button role="menuitem" @click=${() => this.openDialog("member")}>
         ${translate("members")}
@@ -779,6 +840,10 @@ export class SeGroupPage extends LitElement {
   }
 
   private deleteGroup = async () => {
+    if (!this.group) {
+      return;
+    }
+
     // Deleting takes every expense with it: ask once, in place.
     if (!this.confirmingDelete) {
       this.confirmingDelete = true;
@@ -788,7 +853,9 @@ export class SeGroupPage extends LitElement {
     this.busy = true;
 
     try {
-      await this.api.deleteGroup(this.groupId);
+      // The group on screen, never `groupId`: they are the same one only once a
+      // load has gone through, and this is the one action nothing undoes.
+      await this.api.deleteGroup(this.group.id);
 
       this.menu = undefined;
       this.goBack();
@@ -928,6 +995,10 @@ export class SeGroupPage extends LitElement {
     const payer = this.memberById(payerId);
     const colour = payer?.color ?? colorFor(payerId);
 
+    // The other end. A payment has exactly one, which is what makes it a
+    // payment and not an expense.
+    const taker = this.memberById(takerId);
+
     const editable = this.mayEdit(payment);
 
     return html`
@@ -937,12 +1008,35 @@ export class SeGroupPage extends LitElement {
         ?disabled=${!editable}
         @click=${() => this.openPayment(undefined, payment)}
       >
-        <se-icon
-          icon=${debt ? "mdi:hand-coin-outline" : "mdi:swap-horizontal"}
-          fallback=${debt ? "→" : "⇄"}
-          .color=${colour}
-          .size=${40}
-        ></se-icon>
+        <span class="face">
+          <!--
+            Whose line it is, wearing the same face the expenses above and below
+            it show. This was the kind's own icon at 36px and nothing else, so
+            the one list where money moves between two people was the one list
+            neither of them had a face in.
+          -->
+          ${this.renderMemberAvatar(payer?.name ?? "?", payerId)}
+          <!--
+            Reimbursement or debt on the corner, exactly as an expense wears its
+            category. It keeps the payer's colour, which the avatar behind it
+            carries as well: the ring is what holds the two apart, and holding a
+            mark apart from an avatar of its own colour is the whole reason that
+            ring exists. Which of the two it is, the glyph says — a hand holding
+            a coin for money still owed, two arrows for money that moved.
+
+            Hidden from screen readers: the line underneath already says
+            "Reimbursement" or "Debt" in the reader's own language.
+          -->
+          <se-icon
+            class="pip"
+            aria-hidden="true"
+            .icon=${debt ? "mdi:hand-coin-outline" : "mdi:swap-horizontal"}
+            .fallback=${debt ? "→" : "⇄"}
+            .color=${colour}
+            .size=${18}
+            .glyph=${0.82}
+          ></se-icon>
+        </span>
         <div class="info">
           <div class="title">
             ${this.nameFrom(payerId)} → ${this.nameFrom(takerId)}
@@ -957,7 +1051,7 @@ export class SeGroupPage extends LitElement {
             ${payment.description || this.localize(debt ? "a_debt" : "a_settlement")}
           </div>
           <div class="muted">
-            ${formatDayDate(payment.payment_date, this.language)}
+            ${formatDayDate(payment.payment_date, this.language, "UTC")}
           </div>
         </div>
         <div class="tail">
@@ -974,6 +1068,15 @@ export class SeGroupPage extends LitElement {
                   this.language,
                 )}
               </span>`}
+          <!--
+            Who it reaches, where an expense keeps the people who share it. The
+            same stack and the same 26px, holding one face rather than several:
+            a payment has one other end, and putting it anywhere else on the row
+            would have been a fourth column for a list that reads in three.
+          -->
+          <div class="stack-avatars">
+            ${renderAvatar(taker, taker?.name ?? "?", takerId, "small")}
+          </div>
         </div>
       </button>
     `;
@@ -1026,6 +1129,10 @@ export class SeGroupPage extends LitElement {
 
     const editable = this.mayEdit(expense);
 
+    // Money a shop gave back. It is the one row here whose figure carries a
+    // minus, and the avatar on the left is who received it rather than who paid.
+    const refund = expense.amount < 0;
+
     return html`
       <button
         class=${`item ${editable ? "item-button" : "item-fixed"}`}
@@ -1033,11 +1140,40 @@ export class SeGroupPage extends LitElement {
         ?disabled=${!editable}
         @click=${() => this.openExpense(expense)}
       >
-        ${this.renderAvatar(
-          payer?.name ?? "?",
-          expense.paid_by_member_id,
-          `${this.localize("paid_by")} ${payer?.name ?? "?"}`,
-        )}
+        <span class="face">
+          ${this.renderMemberAvatar(
+            payer?.name ?? "?",
+            expense.paid_by_member_id,
+            `${this.localize(refund ? "refunded_to" : "paid_by")} ${payer?.name ?? "?"}`,
+          )}
+          <!--
+            What it was, on the corner of who paid for it, exactly as the journal
+            marks the face that wrote a line. The category was a word in grey
+            under the title and nothing else, so telling the bread from the
+            weekly shopping meant reading every row — while the icon and colour
+            it was given when it was created were only ever seen in the dialog
+            where they were chosen.
+
+            Hidden from screen readers: the name is still written underneath, in
+            the reader's own language, and hearing it twice is not hearing it
+            better.
+
+            A glyph nearly filling the badge, as the journal's does. The default
+            ratio is measured for a 34px pill and would leave a mark this small
+            with a glyph too faint to tell a loaf from a barcode.
+          -->
+          ${category
+            ? html`<se-icon
+                class="pip"
+                aria-hidden="true"
+                .icon=${category.icon}
+                .fallback=${category.name.charAt(0).toUpperCase()}
+                .color=${colorOf(category, this.categories)}
+                .size=${18}
+                .glyph=${0.82}
+              ></se-icon>`
+            : nothing}
+        </span>
         <div class="info">
           <div class="title">
             ${expense.title}
@@ -1052,12 +1188,30 @@ export class SeGroupPage extends LitElement {
           -->
           ${category ? html`<div class="muted">${category.name}</div>` : nothing}
           <div class="muted">
-            ${formatDayDate(expense.expense_date, this.language)}
+            ${formatDayDate(expense.expense_date, this.language, "UTC")}
           </div>
         </div>
         <div class="tail">
-          <span class="amount">
-            ${formatMoney(expense.amount, expense.currency, this.language)}
+          <!--
+            Money that left the group, or came back to it. Red on a purchase and
+            green on a refund, for whoever is reading: this row is not a movement
+            between two of you and so it has no side to be on. A reimbursement is
+            the other case and takes its colour from the reader, which is what
+            toneFor is for.
+
+            So the two colours answer two different questions in the same list,
+            and that is the point rather than an inconsistency: crossing the
+            group's edge is a direction, moving inside it is a position.
+          -->
+          <span class="amount ${refund ? "positive" : "negative"}">
+            <!--
+              Without its minus. Only a refund is ever negative here, so the sign
+              carried nothing the green was not already saying, and said it in the
+              one place a figure is read for its size. Math.abs rather than a
+              branch: a purchase is never negative, so there is nothing for it to
+              do on one.
+            -->
+            ${formatMoney(Math.abs(expense.amount), expense.currency, this.language)}
           </span>
           <!--
             What it weighs in the group, under what was handed over at the till.
@@ -1068,7 +1222,7 @@ export class SeGroupPage extends LitElement {
             ? nothing
             : html`<span class="converted">
                 ${formatMoney(
-                  expense.converted_amount,
+                  Math.abs(expense.converted_amount),
                   this.group!.currency,
                   this.language,
                 )}
@@ -1092,15 +1246,12 @@ export class SeGroupPage extends LitElement {
         ${shares.map((share) => {
           const member = this.memberById(share.member_id);
 
-          return html`
-            <div
-              class="avatar small"
-              title=${member?.name ?? "?"}
-              style=${`background:${member?.color ?? colorFor(share.member_id)}`}
-            >
-              ${initials(member?.name ?? "?")}
-            </div>
-          `;
+          return renderAvatar(
+            member,
+            member?.name ?? "?",
+            share.member_id,
+            "small",
+          );
         })}
       </div>
     `;
@@ -1114,18 +1265,8 @@ export class SeGroupPage extends LitElement {
    * left is the payer and the ones on the right are who shares it, which the
    * circles alone do not say.
    */
-  private renderAvatar(name: string, id: string, hint?: string) {
-    const member = this.memberById(id);
-
-    return html`
-      <div
-        class="avatar"
-        title=${hint ?? name}
-        style=${`background:${member?.color ?? colorFor(id)}`}
-      >
-        ${initials(name)}
-      </div>
-    `;
+  private renderMemberAvatar(name: string, id: string, hint?: string) {
+    return renderAvatar(this.memberById(id), name, id, "", hint ?? name);
   }
 
   private renderDialog() {
@@ -1134,21 +1275,32 @@ export class SeGroupPage extends LitElement {
     }
 
     if (this.dialog === "expense") {
-      return html`
-        <se-expense-dialog
-          .api=${this.api}
-          .localize=${this.localize}
-          .group=${this.group}
-          .members=${this.membersFor(this.editedExpense)}
-          .categories=${this.categories}
-          .expense=${this.editedExpense}
-          .meId=${this.meId()}
-          .language=${this.language}
-          @dialog-cancelled=${this.closeDialog}
-          @expense-saved=${this.handleChanged}
-          @expense-deleted=${this.handleChanged}
-        ></se-expense-dialog>
-      `;
+      // Keyed on the expense, because a refund opens the purchase it answers
+      // without the dialog ever closing: one element left standing would keep
+      // the expense it first loaded, having read it in connectedCallback and
+      // never again. The same reuse that made the group switcher do nothing.
+      return keyed(
+        this.editedExpense?.id ?? "new",
+        html`
+          <se-expense-dialog
+            .api=${this.api}
+            .localize=${this.localize}
+            .group=${this.group}
+            .members=${this.membersFor(this.editedExpense)}
+            .categories=${this.categories}
+            .expense=${this.editedExpense}
+            .expenses=${this.expenses}
+            .refunds=${this.refundsOf(this.editedExpense)}
+            .openable=${this.openableExpenses()}
+            .meId=${this.meId()}
+            .language=${this.language}
+            @dialog-cancelled=${this.closeDialog}
+            @expense-saved=${this.handleChanged}
+            @expense-deleted=${this.handleChanged}
+            @open-expense=${this.openRelated}
+          ></se-expense-dialog>
+        `,
+      );
     }
 
     if (this.dialog === "payment") {
@@ -1160,10 +1312,14 @@ export class SeGroupPage extends LitElement {
           .members=${this.membersForPayment(this.editedPayment)}
           .payment=${this.editedPayment}
           .settlement=${this.prefill}
+          .expenses=${this.expenses}
+          .categories=${this.categories}
+          .openable=${this.openableExpenses()}
           .language=${this.language}
           @dialog-cancelled=${this.closeDialog}
           @payment-saved=${this.handleChanged}
           @payment-deleted=${this.handleChanged}
+          @open-expense=${this.openRelated}
         ></se-payment-dialog>
       `;
     }
@@ -1193,6 +1349,9 @@ export class SeGroupPage extends LitElement {
           .categories=${this.categories}
           .expenses=${this.expenses}
           .payments=${this.payments}
+          .openable=${this.openableEntries()}
+          .meId=${this.meId()}
+          .mayEditOthers=${this.may("edit_others")}
           .language=${this.language}
           @dialog-cancelled=${this.closeDialog}
           @revision-picked=${this.openFromHistory}
@@ -1208,6 +1367,7 @@ export class SeGroupPage extends LitElement {
           .localize=${this.localize}
           .group=${this.group}
           .role=${this.myRole()}
+          .mayManage=${this.may("manage_group")}
           @dialog-cancelled=${this.closeDialog}
           @group-saved=${this.handleChanged}
         ></se-group-dialog>
@@ -1220,6 +1380,7 @@ export class SeGroupPage extends LitElement {
           .api=${this.api}
           .localize=${this.localize}
           .group=${this.group}
+          .mayManageGroup=${this.may("manage_group")}
           .members=${this.members}
           .language=${this.language}
           @dialog-cancelled=${this.closeDialog}
@@ -1231,11 +1392,11 @@ export class SeGroupPage extends LitElement {
     return html`
       <se-member-dialog
         .api=${this.api}
+        .hass=${this.hass}
         .localize=${this.localize}
-        .groupId=${this.groupId}
-        .role=${this.myRole()}
+        .groupId=${this.group.id}
         .meId=${this.meId()}
-        .mayManage=${this.may("manage_members")}
+        .permissions=${this.group.permissions}
         @dialog-cancelled=${this.closeDialog}
         @members-changed=${this.handleChanged}
       ></se-member-dialog>
@@ -1315,6 +1476,52 @@ export class SeGroupPage extends LitElement {
   /** Whether you may open an entry to change it, rather than only read it. */
   private mayEdit(entry: Expense | Payment): boolean {
     return this.mine(entry) || this.may("edit_others");
+  }
+
+  /**
+   * The refunds that name this expense.
+   *
+   * Filtered here rather than fetched: the page already holds every expense of
+   * the group, so "how much of this came back" is a question it can answer
+   * without another round trip — which is why no command lists them.
+   */
+  private refundsOf(expense?: Expense): Expense[] {
+    if (!expense) {
+      return [];
+    }
+
+    return this.expenses.filter((item) => item.refund_of === expense.id);
+  }
+
+  /**
+   * Which expenses may be opened rather than only read, by id.
+   *
+   * For every expense of the group and not for the one on screen: the expense
+   * dialog offers a way through to the purchase a refund answers, and which
+   * purchase that is gets chosen in the dialog, where this page cannot see it.
+   * The rule stays here — it takes the group's permissions and your role, and a
+   * second copy of it would be a second thing to keep in step.
+   */
+  private openableExpenses(): string[] {
+    return this.expenses
+      .filter((expense) => this.mayEdit(expense))
+      .map((expense) => expense.id);
+  }
+
+  /**
+   * The same, for everything the journal points at.
+   *
+   * The journal lists expenses and payments side by side, so it needs both:
+   * an entry whose thing this reader may not open gets no chevron, and pressing
+   * it opens nothing. Ids are unique across the two, so one list serves.
+   */
+  private openableEntries(): string[] {
+    return [
+      ...this.openableExpenses(),
+      ...this.payments
+        .filter((payment) => this.mayEdit(payment))
+        .map((payment) => payment.id),
+    ];
   }
 
   /**
@@ -1398,10 +1605,10 @@ export class SeGroupPage extends LitElement {
 
       this.group = group;
       this.groups = groups;
-      this.members = members;
-      this.pastMembers = pastMembers;
+      this.members = withAvatars(members, this.hass);
+      this.pastMembers = withAvatars(pastMembers, this.hass);
       this.memberships = memberships;
-      this.categories = categories;
+      this.categories = sortByName(categories, this.language);
       this.expenses = expenses;
       this.payments = payments;
       this.result = result;
@@ -1417,6 +1624,15 @@ export class SeGroupPage extends LitElement {
       }
     } finally {
       this.loading = false;
+
+      // Arrived from a dashboard's "+ expense": open it now the members are
+      // loaded, and tell the app so a later group switch does not reopen it.
+      if (this.openNewExpense && this.group) {
+        this.openExpense();
+        this.dispatchEvent(
+          new CustomEvent("new-expense-opened", { bubbles: true, composed: true }),
+        );
+      }
     }
   }
 
@@ -1519,7 +1735,8 @@ export class SeGroupPage extends LitElement {
       const payment = entry.payment;
 
       return [
-        this.localize("a_settlement"),
+        // The word the row itself shows, which is not the same one for a debt.
+        this.localize(payment.kind === "debt" ? "a_debt" : "a_settlement"),
         payment.description ?? "",
         nameOf(payment.from_member_id),
         nameOf(payment.to_member_id),
@@ -1585,6 +1802,12 @@ export class SeGroupPage extends LitElement {
    *
    * The journal closes on the way: two stacked dialogs would leave no way back
    * that is not a guess, and the history you wanted is inside the one opening.
+   *
+   * Checked again here rather than trusted, exactly as `openRelated` does: the
+   * journal was handed what may be opened, and this is where that is decided.
+   * Somebody else's expense is a row you may not press in the list, and the
+   * journal is not a way round it — the dialog has no reading-only shape, so it
+   * would offer a Save the backend then refuses.
    */
   private openFromHistory = (event: CustomEvent) => {
     const { entityType, entityId } = event.detail;
@@ -1592,7 +1815,7 @@ export class SeGroupPage extends LitElement {
     if (entityType === "expense") {
       const expense = this.expenses.find((item) => item.id === entityId);
 
-      if (expense) {
+      if (expense && this.mayEdit(expense)) {
         this.openExpense(expense);
       }
 
@@ -1601,8 +1824,25 @@ export class SeGroupPage extends LitElement {
 
     const payment = this.payments.find((item) => item.id === entityId);
 
-    if (payment) {
+    if (payment && this.mayEdit(payment)) {
       this.openPayment(undefined, payment);
+    }
+  };
+
+  /**
+   * Jump from an expense to another it points at: a refund to its purchase.
+   *
+   * The same move the journal makes, and the same reasons — one dialog at a
+   * time, and one step on the history stack for the whole chain, since `show`
+   * pushes nothing while a dialog is already open. Checked again here rather
+   * than trusted: the dialog was handed what may be opened, and this is where
+   * that is decided.
+   */
+  private openRelated = (event: CustomEvent) => {
+    const expense = this.expenses.find((item) => item.id === event.detail.expenseId);
+
+    if (expense && this.mayEdit(expense)) {
+      this.openExpense(expense);
     }
   };
 
@@ -1685,7 +1925,16 @@ export class SeGroupPage extends LitElement {
     this.error = undefined;
 
     try {
-      this.group = await this.api.archiveGroup(this.group.id, !this.group.archived);
+      const group = await this.api.archiveGroup(this.group.id, !this.group.archived);
+
+      this.group = group;
+
+      // The switcher reads its own list, filled in by `load` and by nothing
+      // else: left alone it would go on showing the tag this group has just
+      // dropped, next to groups that do wear theirs. A new array, or Lit sees
+      // the same one and draws the same thing.
+      this.groups = this.groups.map((item) => (item.id === group.id ? group : item));
+
       this.menu = undefined;
     } catch (error) {
       this.error = errorMessage(error, this.localize);

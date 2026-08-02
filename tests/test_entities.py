@@ -19,17 +19,25 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
 
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+import pytest
+
 from custom_components.shared_expenses import async_remove_config_entry_device
 from custom_components.shared_expenses.const import DOMAIN
 from custom_components.shared_expenses.coordinator import (
     GroupSnapshot,
     SharedExpensesCoordinator,
 )
+from custom_components.shared_expenses.exceptions import (
+    GroupArchivedError,
+    GroupNotFoundError,
+)
 from custom_components.shared_expenses.manager import SharedExpensesManager
 from custom_components.shared_expenses.sensor import (
     BalanceSensor,
     LastActivitySensor,
     TotalSpentSensor,
+    _is_forgotten,
 )
 from tests.conftest import ADMIN, PLAIN
 
@@ -41,14 +49,21 @@ class FakeCoordinator:
 
     `last_update_success` is what `CoordinatorEntity.available` reads, so it is
     here — a stand-in that answers less than the real one tests less than it
-    claims to.
+    claims to. Nothing of this integration's own reads it any more, and one of
+    the tests below is about exactly that.
     """
 
-    def __init__(self, data: dict[str, GroupSnapshot]) -> None:
+    def __init__(
+        self,
+        data: dict[str, GroupSnapshot],
+        *,
+        last_update_success: bool = True,
+    ) -> None:
         """Hold the snapshots the entities will read."""
 
         self.data = data
-        self.last_update_success = True
+        self.last_update_success = last_update_success
+        self.known_group_ids = frozenset(data)
         self.config_entry = SimpleNamespace(entry_id="entry-id")
 
     def async_add_listener(self, *_args: Any, **_kwargs: Any) -> Any:
@@ -238,6 +253,47 @@ def test_a_member_still_in_the_project_is_available() -> None:
 
 
 #
+# The failed read, which is what made the tiles flicker
+#
+
+
+def test_a_failed_read_does_not_take_a_project_off_the_wall() -> None:
+    """The bug somebody actually saw, in one line.
+
+    `available` used to be `super().available and ...`, and `super().available`
+    is `coordinator.last_update_success`. So one failed read — anything, on a
+    database this integration owns and nobody can unplug — said "unavailable"
+    for every entity of every project at once. With no `update_interval` there
+    was no next read either, so it said so until somebody happened to write.
+
+    The coordinator keeps its last good data through a failure. What belongs on
+    screen is the last thing that was true, and the clock replaces it.
+    """
+
+    data = {"g1": a_snapshot()}
+
+    sensor = BalanceSensor(FakeCoordinator(data, last_update_success=False), "g1", "m2")
+
+    assert sensor.available is True
+    assert sensor.native_value == -42.71
+
+
+def test_a_failed_read_does_not_put_a_closed_project_back_either() -> None:
+    """The other half, and the one that matters more.
+
+    Loosening what "available" means must not loosen the switch. A project that
+    is not in the data is not on the wall, failed read or not — there is no
+    snapshot to read a figure off in the first place.
+    """
+
+    sensor = a_balance(None)
+    sensor.coordinator.last_update_success = False
+
+    assert sensor.available is False
+    assert sensor.native_value is None
+
+
+#
 # What the project spent
 #
 
@@ -335,6 +391,41 @@ class Probe(SharedExpensesCoordinator):
 
     def __init__(self, manager: SharedExpensesManager) -> None:
         self._manager = manager
+        self.known_group_ids: frozenset[str] = frozenset()
+
+
+def test_the_coordinator_keeps_a_clock_under_the_signal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Three lines that would have caught the whole thing.
+
+    `update_interval` was None, and Home Assistant returns straight out of
+    `_schedule_refresh` when there is no interval — so after one failed read the
+    coordinator never tried again. Every entity in the house stayed unavailable
+    until somebody happened to write in a group, which is what "sometimes it
+    works" was.
+
+    The debouncer is the other half: one thing somebody does announces itself
+    several times, and every announcement was a full re-read of every project.
+    """
+
+    captured: dict[str, Any] = {}
+
+    def _capture(self: Any, hass: Any, logger: Any, **kwargs: Any) -> None:
+        captured.update(kwargs)
+
+    monkeypatch.setattr(DataUpdateCoordinator, "__init__", _capture)
+
+    SharedExpensesCoordinator(
+        SimpleNamespace(),
+        SimpleNamespace(entry_id="entry-id"),
+        SimpleNamespace(),
+    )
+
+    assert captured["update_interval"] is not None, "a failure would be forever"
+    assert captured["request_refresh_debouncer"] is not None
+    assert captured["always_update"] is False
+    assert captured["config_entry"] is not None
 
 
 async def test_the_snapshot_only_holds_projects_that_asked(
@@ -451,6 +542,110 @@ async def test_closing_the_switch_takes_the_project_back_off(
     assert await Probe(manager)._async_update_data() == {}
 
 
+async def test_the_coordinator_knows_the_projects_it_does_not_show(
+    manager: SharedExpensesManager,
+    project: dict[str, Any],
+) -> None:
+    """What exists, next to what is on the wall. The difference is the point.
+
+    Absent from the snapshots means "not on the dashboard" and says nothing
+    about whether the project is still there. Without this, closing a switch and
+    deleting a project looked identical, and both took the device down.
+    """
+
+    probe = Probe(manager)
+
+    assert await probe._async_update_data() == {}
+    assert probe.known_group_ids == {project["group"].id}
+
+
+async def test_deleting_a_project_nobody_could_see_still_says_so(
+    manager: SharedExpensesManager,
+    project: dict[str, Any],
+) -> None:
+    """The cycle where a project goes without the snapshots moving at all.
+
+    A project that closed its switch is already out of the snapshots, so
+    deleting it hands back the very same dict — and `always_update=False` means
+    Home Assistant tells the listeners nothing when the data has not moved. The
+    sensors' `_forget` is a listener, and the only thing that takes a deleted
+    project's device down: unheard, the device and its entities sat in the
+    registry, permanently unavailable, until a restart.
+    """
+
+    probe = Probe(manager)
+
+    assert await probe._async_update_data() == {}
+    assert probe.always_update is False, "nothing moved, and nothing had to"
+
+    await manager.delete_group(project["group"].id)
+
+    assert await probe._async_update_data() == {}
+    assert probe.known_group_ids == frozenset()
+    assert probe.always_update is True, "or nobody would have told the sensors"
+
+    assert await probe._async_update_data() == {}
+    assert probe.always_update is False, "one cycle, not from here on"
+
+
+async def test_a_project_deleted_mid_read_does_not_take_the_others_down(
+    manager: SharedExpensesManager,
+    project: dict[str, Any],
+) -> None:
+    """It is listed, then it is gone, and reading it raises.
+
+    That used to come out of `_async_update_data` as an unexpected error, which
+    is the coordinator failing, which is every entity of every project
+    unavailable — over one group that somebody deleted at the wrong moment.
+    """
+
+    await manager.update_group(
+        replace(project["group"], exposed=True),
+        actor_user_id=ADMIN,
+    )
+
+    second = await manager.create_group(
+        group_name="Ski",
+        admin_name="Stephane",
+        admin_user_id=ADMIN,
+    )
+
+    await manager.update_group(replace(second, exposed=True), actor_user_id=ADMIN)
+
+    real = manager.get_balances
+
+    async def vanishing(group_id: str) -> Any:
+        if group_id == second.id:
+            raise GroupNotFoundError(group_id)
+
+        return await real(group_id)
+
+    manager.get_balances = vanishing  # type: ignore[method-assign]
+
+    snapshots = await Probe(manager)._async_update_data()
+
+    assert list(snapshots) == [project["group"].id]
+
+
+async def test_a_read_that_breaks_fails_one_cycle_rather_than_the_house(
+    manager: SharedExpensesManager,
+    project: dict[str, Any],
+) -> None:
+    """A business error is `UpdateFailed`: one line in the log, one cycle lost.
+
+    Not a stack trace, and never an integration that gives up — the clock brings
+    the next read along whatever happened here.
+    """
+
+    async def broken() -> Any:
+        raise GroupArchivedError("g1")
+
+    manager.list_groups = broken  # type: ignore[method-assign]
+
+    with pytest.raises(UpdateFailed):
+        await Probe(manager)._async_update_data()
+
+
 async def test_opening_the_dashboard_is_written_in_the_journal(
     manager: SharedExpensesManager,
     project: dict[str, Any],
@@ -527,3 +722,44 @@ async def test_a_device_that_is_not_ours_may_be_deleted() -> None:
     )
 
     assert allowed is True
+
+
+async def test_an_entry_that_is_not_loaded_is_not_asked() -> None:
+    """A reload in flight, an entry on its way out: nothing left to protect."""
+
+    hass = SimpleNamespace(data={})
+
+    allowed = await async_remove_config_entry_device(
+        hass, ENTRY, _device((DOMAIN, "g1"))
+    )
+
+    assert allowed is True
+
+
+#
+# Which devices may be taken down, which is the decision that broke tiles
+#
+
+
+def test_a_project_that_only_went_quiet_keeps_its_device() -> None:
+    """The switch is not a deletion, and the two used to be one thing here.
+
+    Both drop out of the coordinator's data, so both had their device removed —
+    and removing a device removes its entities, so a tile pointing at one was
+    left pointing at nothing. It kept its name and its history for as long as
+    Home Assistant could restore the entity id, and lost them when it could not.
+    """
+
+    assert _is_forgotten("g1", frozenset({"g1"})) is False
+
+
+def test_a_deleted_project_takes_its_device_with_it() -> None:
+    """There is nothing left to point at and nothing to come back."""
+
+    assert _is_forgotten("g1", frozenset()) is True
+
+
+def test_a_device_that_is_not_ours_is_left_alone() -> None:
+    """No project behind it, so it is nobody's here to remove."""
+
+    assert _is_forgotten(None, frozenset()) is False

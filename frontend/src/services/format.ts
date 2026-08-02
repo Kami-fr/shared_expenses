@@ -71,13 +71,19 @@ export function parseMoney(value: string): number | null {
  *
  * Which day of the week it was is what tells a Saturday shop from a Monday one
  * at a glance, and no amount of staring at "15 juil." gives you that.
+ *
+ * `timeZone` is left out for a moment something happened — a revision is read
+ * in the reader's own zone, as ADR-009 asks. A day somebody picked is passed
+ * `"UTC"` instead, because that is the zone `dateToIso` wrote it in and the one
+ * the backend counts it in.
  */
-export function formatDayDate(iso: string, language: string): string {
+export function formatDayDate(iso: string, language: string, timeZone?: string): string {
   const formatted = new Intl.DateTimeFormat(language, {
     weekday: "short",
     day: "numeric",
     month: "short",
     year: "numeric",
+    timeZone,
   }).format(new Date(iso));
 
   // French yields a lowercase "lun." mid-sentence; this one opens a line.
@@ -111,18 +117,32 @@ export function today(): string {
   return `${now.getFullYear()}-${month}-${day}`;
 }
 
-/** Turn a `YYYY-MM-DD` input value into an ISO timestamp for the backend. */
+/**
+ * Turn a `YYYY-MM-DD` input value into an ISO timestamp for the backend.
+ *
+ * Noon, and noon in UTC. The backend reads the calendar day straight off the
+ * timestamp it stores — which month a statistic counts the expense in, which
+ * day the exchange rate is asked for — so that day has to be the day that was
+ * typed, wherever the household lives. Noon in local time carries an offset of
+ * up to ±11:59 without changing day and then falls off the end: at UTC+13 an
+ * Auckland household typing the 1st of January files it in December.
+ */
 export function dateToIso(value: string): string {
-  return new Date(`${value}T12:00:00`).toISOString();
+  return new Date(`${value}T12:00:00Z`).toISOString();
 }
 
-/** Turn an ISO timestamp from the backend into a `YYYY-MM-DD` input value. */
+/**
+ * Turn an ISO timestamp from the backend into a `YYYY-MM-DD` input value.
+ *
+ * Read in UTC, the zone `dateToIso` wrote the day in, so that reopening a
+ * dialog offers back the day that was typed rather than the one after it.
+ */
 export function isoToDateInput(iso: string): string {
   const date = new Date(iso);
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getDate()}`.padStart(2, "0");
+  const month = `${date.getUTCMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getUTCDate()}`.padStart(2, "0");
 
-  return `${date.getFullYear()}-${month}-${day}`;
+  return `${date.getUTCFullYear()}-${month}-${day}`;
 }
 
 /** Turn an amount in cents into a value for a money input. */
@@ -158,6 +178,29 @@ export function initials(name: string): string {
 }
 
 /**
+ * Order things by name, the way the reader's own alphabet does.
+ *
+ * The backend hands its lists back `ORDER BY name`, which SQLite reads as raw
+ * UTF-8 bytes: every lowercase name lands after every uppercase one, and every
+ * accented name after both. A French household typing "Alimentation", "Zoo",
+ * "restaurant" and "Épicerie" gets the last two filed below "Zoo", which is not
+ * the alphabetical list the order claims to be — and six of the eight languages
+ * the panel speaks produce accented names as a matter of course.
+ *
+ * `Intl.Collator` in the panel's language puts them back where they are looked
+ * for. Sorted here rather than in SQL because SQLite has no locale-aware
+ * collation to offer: `COLLATE NOCASE` folds ASCII and nothing else.
+ */
+export function sortByName<T extends { name: string }>(
+  items: readonly T[],
+  language: string,
+): T[] {
+  const collator = new Intl.Collator(language);
+
+  return [...items].sort((left, right) => collator.compare(left.name, right.name));
+}
+
+/**
  * The colours offered, and drawn from when nobody picked one.
  *
  * Muted on purpose: these sit behind white initials on both a light and a dark
@@ -187,4 +230,98 @@ export function colorFor(id: string): string {
   }
 
   return PALETTE[hash % PALETTE.length];
+}
+
+/** Anything that can be given a colour, or has been given one already. */
+export interface Colourable {
+  id: string;
+  color: string | null;
+}
+
+/**
+ * The automatic colours of a set of things, each one different from the others.
+ *
+ * `colorFor` hashes an id into twelve colours, which is right for a member —
+ * you meet them a few at a time, and the same face is always the same colour.
+ * A group's categories are read as a set, side by side down a list and as the
+ * wedges of one disc, and two of them landing on the same green happens by the
+ * fourth or fifth by the birthday problem alone. There the colour is not
+ * decoration, it is what tells the bread from the weekly shopping on a row too
+ * narrow to write it, and two categories wearing one colour is the one thing it
+ * must not do.
+ *
+ * A colour somebody chose is left exactly as it is and taken off the table, so
+ * the automatic ones do not walk into it either.
+ *
+ * The automatic ones are dealt out in the order they were created — ids are
+ * ULIDs, so sorting them is sorting by age — and each takes the colour its own
+ * hash asks for, or the next one free. That keeps two promises at once: nearly
+ * every category keeps the colour it already had, since only the ones that
+ * collided move; and a category added today can never change the colour of one
+ * that has been on screen for a year, because it is dealt last.
+ *
+ * Past the twelfth there is nothing left to be unique with, and the ones that
+ * find nothing free fall back to their hash. Twelve categories in one household
+ * is already more than the screen can tell apart.
+ */
+export function autoColors(items: readonly Colourable[]): Map<string, string> {
+  const chosen = new Set(
+    items.map((item) => item.color).filter((color) => color !== null),
+  );
+
+  const free = PALETTE.filter((color) => !chosen.has(color));
+  const colours = new Map<string, string>();
+
+  const automatic = items
+    .filter((item) => item.color === null)
+    .sort((left, right) => left.id.localeCompare(right.id));
+
+  for (const item of automatic) {
+    const wanted = colorFor(item.id);
+
+    // From the colour its own hash asks for, then round the ring. Round `free`
+    // and not the palette, so the search cannot land on something somebody
+    // picked by hand — and starting from the wanted colour's place among what
+    // is left keeps whatever spread the hash had.
+    const start = free.findIndex((color) => PALETTE.indexOf(color) >= PALETTE.indexOf(wanted));
+    const from = start === -1 ? 0 : start;
+
+    const taken = new Set(colours.values());
+    const found = free
+      .slice(from)
+      .concat(free.slice(0, from))
+      .find((color) => !taken.has(color));
+
+    colours.set(item.id, found ?? wanted);
+  }
+
+  return colours;
+}
+
+/**
+ * The colour one of a set is drawn in: what was chosen, or what is left over.
+ *
+ * Memoised on the set it was asked about, because it is asked once a row and a
+ * group's list runs to hundreds of them while its categories run to a dozen.
+ * One entry is the whole cache: every caller in a single render passes the same
+ * list, and the render after it passes the same list again.
+ */
+let lastItems = "";
+let lastColours = new Map<string, string>();
+
+export function colorOf(item: Colourable, within: readonly Colourable[]): string {
+  if (item.color !== null) {
+    return item.color;
+  }
+
+  const key = within.map((one) => `${one.id}:${one.color ?? ""}`).join("|");
+
+  if (key !== lastItems) {
+    lastItems = key;
+    lastColours = autoColors(within);
+  }
+
+  // Not in the set it was asked about — a category deleted a moment ago, or one
+  // still being typed into existence. Its own hash is the best there is.
+  return lastColours.get(item.id) ?? colorFor(item.id);
 }

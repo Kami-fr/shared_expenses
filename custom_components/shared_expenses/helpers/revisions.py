@@ -44,6 +44,13 @@ def expense_state(
         "paid_by_member_id": expense.paid_by_member_id,
         "expense_date": expense.expense_date.isoformat(),
         "category_id": expense.category_id,
+        # The purchase a refund gives money back on. It moves no money and still
+        # belongs here, twice over: the journal should say when a refund was
+        # pinned to a purchase or cut loose from one, and an update that compares
+        # states to decide whether anything moved would otherwise conclude that
+        # nothing had. `kind` was left out of the payment's state once for looking
+        # exactly this harmless, and a debt could not become a reimbursement.
+        "refund_of": expense.refund_of,
     }
 
     if shares is not None:
@@ -55,10 +62,12 @@ def expense_state(
 def payment_state(payment: Payment) -> dict[str, Any]:
     """Return a payment as plain values.
 
-    Every field that can be edited belongs here, and not only so the history can
-    read it: `update_payment` asks this what moved, and returns early when the
-    answer is nothing. A field left out is a field that cannot be changed at all
-    — the save is skipped, and the caller is told it went fine.
+    What the history reads, which is less than the row holds: the rate is not
+    here, being no news to anybody, and neither is who entered it. A field left
+    out is a field no journal line will mention, and nothing more — the save
+    itself goes ahead either way, so a rate corrected to the same number of
+    cents is still written. `update_payment` asks this whether there is anything
+    worth recording, never whether to write.
     """
 
     return {
@@ -70,6 +79,7 @@ def payment_state(payment: Payment) -> dict[str, Any]:
         "payment_date": payment.payment_date.isoformat(),
         "kind": str(payment.kind),
         "converted_amount": payment.converted_amount,
+        "expense_id": payment.expense_id,
     }
 
 
@@ -118,6 +128,7 @@ def member_state(member: Member, role: GroupRole | None = None) -> dict[str, Any
     state: dict[str, Any] = {
         "name": member.name,
         "color": member.color,
+        "use_ha_avatar": member.use_ha_avatar,
     }
 
     if role is not None:

@@ -16,20 +16,36 @@ from ..exceptions import InvalidExchangeRateError
 RATE_ONE = 1_000_000
 
 #: The most a rate can be, so a typo cannot turn 5 EUR into a fortune.
-RATE_MAX = RATE_ONE * 10_000
+#:
+#: A hundred thousand units per unit. Wide enough for every pair the panel
+#: offers — a group counting in rupiah asks some twenty thousand of them for a
+#: pound, and a ceiling under that would leave that group unable to record a
+#: foreign expense at all, by hand or by fetched rate. Narrow enough to still
+#: catch the typo it is here for: a rate pasted in millionths, 876810 for
+#: 0,87681, is refused as it always was.
+RATE_MAX = RATE_ONE * 100_000
 
 
 def validate_rate(rate: int) -> int:
     """Return the rate, refusing what cannot be one."""
 
     if isinstance(rate, bool) or not isinstance(rate, int):
-        raise InvalidExchangeRateError(f"A rate must be a whole number, got {rate!r}")
+        raise InvalidExchangeRateError(
+            f"A rate must be a whole number, got {rate!r}",
+            code="rate_not_a_rate",
+        )
 
     if rate <= 0:
-        raise InvalidExchangeRateError("A rate must be positive.")
+        raise InvalidExchangeRateError(
+            "A rate must be positive.",
+            code="rate_not_positive",
+        )
 
     if rate > RATE_MAX:
-        raise InvalidExchangeRateError("This rate is not plausible.")
+        raise InvalidExchangeRateError(
+            "This rate is not plausible.",
+            code="rate_implausible",
+        )
 
     return rate
 
@@ -42,12 +58,17 @@ def convert(amount: int, rate: int) -> int:
     involving a float. Python's own `round` would not do — it rounds halves to
     even, so 0,005 would land on 0,00 and 0,015 on 0,02, which is defensible in
     statistics and indefensible on a receipt.
+
+    A refund converts on its size and keeps its sign, so that -100 comes back as
+    exactly minus what 100 comes to. Rounding the negative number itself would
+    round a half downwards — away from zero on one side and towards it on the
+    other — and a shop refunding what it charged would leave a cent behind.
     """
 
-    if amount < 0:
-        raise InvalidExchangeRateError("Cannot convert a negative amount.")
-
     validate_rate(rate)
+
+    if amount < 0:
+        return -convert(-amount, rate)
 
     return (amount * rate + RATE_ONE // 2) // RATE_ONE
 
@@ -65,12 +86,32 @@ def apportion(amounts: Mapping[str, int], total: int) -> dict[str, int]:
     zero against a total that weighs one — the shares would no longer add up to
     what they are shares of, and the balances count both. So the converted
     total is divided instead, and it is divided exactly: the cents that
-    flooring leaves over go to the largest remainders first, ties to whoever
-    came first, so the same expense always resolves the same way.
+    flooring leaves over go to the largest remainders first, and a tie between
+    those starts on the member the total points at rather than on the first —
+    the same rotation as `_distribute`, and for the same reason. An equal split
+    ties everywhere, so the first of the list would otherwise take the odd cent
+    of every one the group ever converted. The same expense still always
+    resolves the same way.
+
+    A refund makes the whole trip the other way, shares and total together. What
+    is refused is the two disagreeing: a share pulling against its own total is
+    not a rounding question, it is a caller that has lost track of which way the
+    money went. A refund too small to convert to a cent still went that way: a
+    zero total between negative shares comes back as a zero share each, exactly
+    as the same sum spent does, since what can be handed over can be given back.
     """
 
-    if total < 0:
-        raise InvalidExchangeRateError("Cannot apportion a negative amount.")
+    if total < 0 or (total == 0 and any(value < 0 for value in amounts.values())):
+        if any(value > 0 for value in amounts.values()):
+            raise InvalidExchangeRateError("Cannot apportion a refund into a debt.")
+
+        return {
+            member_id: -share
+            for member_id, share in apportion(
+                {member_id: -value for member_id, value in amounts.items()},
+                -total,
+            ).items()
+        }
 
     if any(value < 0 for value in amounts.values()):
         raise InvalidExchangeRateError("Cannot apportion a negative share.")
@@ -80,6 +121,13 @@ def apportion(amounts: Mapping[str, int], total: int) -> dict[str, int]:
     if whole <= 0:
         raise InvalidExchangeRateError("Cannot apportion between nothing.")
 
+    count = len(amounts)
+
+    # Which member a tie starts on. The quotient rather than the total itself,
+    # exactly as in `_distribute`: a remainder-derived offset would move in step
+    # with the very count of cents it is meant to spread.
+    start = (total // count) % count
+
     shares: dict[str, int] = {}
     remainders: list[tuple[int, int, str]] = []
 
@@ -88,8 +136,8 @@ def apportion(amounts: Mapping[str, int], total: int) -> dict[str, int]:
         shares[member_id] = scaled // whole
 
         # Negated, so that sorting the whole tuple downwards still reads the
-        # order they came in upwards.
-        remainders.append((scaled % whole, -index, member_id))
+        # rotated order upwards.
+        remainders.append((scaled % whole, -((index - start) % count), member_id))
 
     left = total - sum(shares.values())
 
@@ -109,20 +157,29 @@ def rate_from_decimal(value: str) -> int:
     text = value.strip().replace(",", ".")
 
     if not text:
-        raise InvalidExchangeRateError("A rate is needed.")
+        # `rate_needed`, which the panel already says under an empty field: one
+        # sentence for one cause, whichever side notices it.
+        raise InvalidExchangeRateError("A rate is needed.", code="rate_needed")
 
     negative = text.startswith("-")
     whole, _, fraction = text.lstrip("+-").partition(".")
 
     if not whole and not fraction:
-        raise InvalidExchangeRateError(f"This is not a rate: {value!r}")
+        raise InvalidExchangeRateError(
+            f"This is not a rate: {value!r}", code="rate_not_a_rate"
+        )
 
     if not (whole + fraction).isdigit():
-        raise InvalidExchangeRateError(f"This is not a rate: {value!r}")
+        raise InvalidExchangeRateError(
+            f"This is not a rate: {value!r}", code="rate_not_a_rate"
+        )
 
     # Six digits, no more: a seventh would be silently dropped, so say so.
     if len(fraction) > 6:
-        raise InvalidExchangeRateError("A rate carries at most six decimals.")
+        raise InvalidExchangeRateError(
+            "A rate carries at most six decimals.",
+            code="rate_too_precise",
+        )
 
     scaled = int(whole or "0") * RATE_ONE + int(fraction.ljust(6, "0") or "0")
 

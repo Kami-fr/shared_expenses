@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+import asyncio
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
+from logging import getLogger
 from pathlib import Path
+from typing import Any
 
 import aiosqlite
 from homeassistant.core import HomeAssistant
 
 from ..const import DATABASE_NAME
+from ..exceptions import DatabaseNotReadyError
 from .migrations import initialize_database
 from .repositories.category_repository import CategoryRepository
 from .repositories.exchange_rate_repository import ExchangeRateRepository
@@ -19,6 +23,8 @@ from .repositories.group_repository import GroupRepository
 from .repositories.member_repository import MemberRepository
 from .repositories.payment_repository import PaymentRepository
 from .repositories.revision_repository import RevisionRepository
+
+LOGGER = getLogger(__package__)
 
 
 class Database:
@@ -33,7 +39,14 @@ class Database:
 
         self._connection: aiosqlite.Connection | None = None
 
-        self._depth = 0
+        # One connection carries one transaction, so one writer at a time. The
+        # lock is what makes that true between tasks; the owner is what lets the
+        # task holding it nest without waiting on itself.
+        self._lock = asyncio.Lock()
+        self._owner: asyncio.Task[Any] | None = None
+
+        #: What the open transaction promised to tell the house, once it lands.
+        self._after_commit: list[Callable[[], None]] = []
 
         self._group_repository: GroupRepository | None = None
         self._member_repository: MemberRepository | None = None
@@ -56,9 +69,17 @@ class Database:
 
     @property
     def connection(self) -> aiosqlite.Connection:
-        """Return the SQLite connection."""
+        """Return the SQLite connection.
 
-        assert self._connection is not None
+        Raised rather than asserted, unlike the repositories below: those are
+        `None` only before `initialize`, which is a programming mistake, while
+        this one goes back to `None` on every `close` — see
+        `DatabaseNotReadyError`.
+        """
+
+        if self._connection is None:
+            raise DatabaseNotReadyError
+
         return self._connection
 
     @property
@@ -136,42 +157,120 @@ class Database:
 
         await initialize_database(self._connection, self._hass)
 
-        self._group_repository = GroupRepository(self.connection)
-        self._member_repository = MemberRepository(self.connection)
-        self._group_member_repository = GroupMemberRepository(self.connection)
-        self._category_repository = CategoryRepository(self.connection)
-        self._expense_repository = ExpenseRepository(self.connection)
-        self._payment_repository = PaymentRepository(self.connection)
-        self._revision_repository = RevisionRepository(self.connection)
-        self._exchange_rate_repository = ExchangeRateRepository(self.connection)
+        # The database rather than the connection: a repository given the object
+        # would still hold it after `close`, and read on a shut file. Asking here
+        # each time is what makes a read after unload a `DatabaseNotReadyError`.
+        self._group_repository = GroupRepository(self)
+        self._member_repository = MemberRepository(self)
+        self._group_member_repository = GroupMemberRepository(self)
+        self._category_repository = CategoryRepository(self)
+        self._expense_repository = ExpenseRepository(self)
+        self._payment_repository = PaymentRepository(self)
+        self._revision_repository = RevisionRepository(self)
+        self._exchange_rate_repository = ExchangeRateRepository(self)
+
+    def after_commit(self, action: Callable[[], None]) -> None:
+        """Run this once the write it belongs to is really on disk.
+
+        The manager announces every change through one door, and it used to
+        announce from inside the transaction. That was safe once: the listeners
+        only scheduled work, and the work ran after the transaction had closed.
+        It stopped being safe when Home Assistant started tasks eagerly —
+        `hass.async_create_task` now runs a coroutine up to its first await, so
+        the coordinator's re-read was already queued on this very connection
+        while the transaction was still open. It read rows that had not
+        committed, and might never: a snapshot taken of a write that then rolled
+        back told the dashboard a project had gone, and the dashboard took its
+        entities down.
+
+        So the announcement waits here rather than every caller remembering to
+        send it late — which is the kind of remembering `_record` exists to take
+        away. Outside a transaction there is nothing to wait for: the connection
+        runs with `isolation_level=None`, so a lone statement has already
+        committed by the time anyone could ask.
+
+        The action must not await. It is run with the write behind it and the
+        lock released, but on the loop, and anything long here would hold up the
+        writer that has just finished.
+        """
+
+        if self._owner is not None and self._owner is asyncio.current_task():
+            self._after_commit.append(action)
+
+            return
+
+        action()
 
     @asynccontextmanager
     async def transaction(self) -> AsyncIterator[None]:
-        """Execute operations inside a transaction.
+        """Execute operations inside a transaction, one writer at a time.
 
-        Nested calls join the outermost transaction: only it commits, and a
-        failure anywhere rolls the whole thing back.
+        Nested calls from the same task join the outermost transaction: only it
+        commits, and a failure anywhere rolls the whole thing back.
+
+        A call from another task waits its turn. It used to join as well, on a
+        depth counter shared by every coroutine on the one connection, and the
+        arithmetic was a lottery: `BEGIN` was awaited before the counter went
+        up, so two writers starting together both believed they were first. One
+        of their `BEGIN`s failed, and whichever left last committed the other's
+        unfinished work or rolled it back from under them. Those were the
+        sporadic `OperationalError`s — and, before the clock in `coordinator`,
+        every one of them left the whole dashboard unavailable for good.
+
+        What `after_commit` was promised goes out once the COMMIT is through,
+        and is dropped when there was none. Nothing learns of a write that did
+        not happen.
         """
 
-        if self._depth == 0:
-            await self.connection.execute("BEGIN")
+        task = asyncio.current_task()
 
-        self._depth += 1
-
-        try:
+        if self._owner is not None and self._owner is task:
+            # Inside this task's own transaction: nothing to open and nothing to
+            # close, the outermost `async with` holds both ends.
             yield
-        except Exception:
-            self._depth -= 1
 
-            if self._depth == 0:
-                await self.connection.rollback()
+            return
 
-            raise
-        else:
-            self._depth -= 1
+        async with self._lock:
+            self._owner = task
 
-            if self._depth == 0:
+            try:
+                await self.connection.execute("BEGIN")
+
+                try:
+                    yield
+                except BaseException:
+                    await self.connection.rollback()
+
+                    raise
+
                 await self.connection.commit()
+            except BaseException:
+                self._after_commit.clear()
+
+                raise
+            finally:
+                self._owner = None
+
+            # Taken while the lock is still held: the next writer starts
+            # promising things of its own the moment it is released, and its
+            # promises are not this transaction's to send.
+            promised, self._after_commit = self._after_commit, []
+
+        self._speak(promised)
+
+    def _speak(self, promised: list[Callable[[], None]]) -> None:
+        """Say what the transaction promised, now that it has happened.
+
+        One listener that throws must not take the others with it, and least of
+        all the write: it is committed, and nothing here can un-commit it.
+        """
+
+        for action in promised:
+            try:
+                action()
+            except Exception:
+                LOGGER.exception("Failed to announce a change that was written")
 
     async def close(self) -> None:
         """Close the database."""

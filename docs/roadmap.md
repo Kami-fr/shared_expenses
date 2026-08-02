@@ -52,8 +52,9 @@
 - [x] `hacs.json`
 - [x] CI (ruff, pytest, hassfest, HACS, frontend build)
 - [x] README
-- [ ] Screenshots
-- [ ] Publish to HACS
+- [x] Screenshots
+- [ ] Publish to HACS. Everything the store asks for is in place and every HACS
+      check is green (Sprint 17); what is left is the submission itself.
 
 ## Sprint 7 — Accountability
 
@@ -236,10 +237,436 @@ member could delete the whole group.
       CI (`ignore: brands`) until that lands. The icon drawn for it is the
       integration's own mark — a coin split in two, a person on each half, in the
       money green — rather than a borrowed glyph.
+
+      **Superseded**, and the pull request was never opened: see Sprint 17. Left
+      standing as the record of what was true when it was written.
 - [x] The sidebar dropped `cash-multiple` for `account-cash`. A person and their
       money says more of what the panel is than a stack of notes, and it echoes
       the new mark. The balance and activity sensors keep their own icons — a
       different surface, each already saying its own thing.
+
+## Sprint 17 — Going public
+
+- [x] The `LICENSE` file was empty, so GitHub read no licence from it —
+      NOASSERTION — and HACS refused the repository over it, though
+      `pyproject.toml` had said MIT since the first commit. The MIT text fills it
+      now, the copyright on the repository's own handle rather than a name.
+- [x] Version 1.0.0, the number a first GitHub release carries.
+- [x] Seven shots of the panel on a phone, as a contained gallery near the top of
+      the README, where HACS shows it too. The six dashboard recipes that had
+      grown there moved to `docs/dashboard.md`, linked in a line: useful, but more
+      than a first read wants. The feature list lost its second sentences — the
+      what kept, the why let go.
+- [x] **The brand icon ships in the integration, and there is no pull request to
+      open.** Home Assistant stopped taking brands pull requests for custom
+      integrations with the Brands Proxy API (2026.3): an integration carries its
+      own icon now, in a `brand/` folder, and Home Assistant serves it from
+      there. The coin lands in `custom_components/shared_expenses/brand` —
+      `icon.png` at 256, `icon@2x.png` at 512 — and shows up without a single
+      external step. This is what supersedes the last bullet of Sprint 16.
+- [x] Every HACS check runs. `hacsjson` and `integration_manifest` were fetched
+      over `raw.githubusercontent.com`, which hands out nothing for a private
+      repository, so both came back empty and failed whatever the files held;
+      they were set aside until the repo was public, where they are meant to run.
+      `brands` was the last ignore and it is gone. The action validates the whole
+      thing, exactly as the default store will when the submission lands.
+- [x] The HACS check runs with the workflow's token. Unauthenticated, its calls
+      shared the runner IP's 60-per-hour allowance, and once spent GitHub
+      answered 503 — which HACS reports as "repository not loaded properly"
+      though nothing here is wrong.
+
+## Sprint 18 — What a full group turned up
+
+Opening the panel on a group with real history in it, on a real phone.
+
+- [x] The group switcher did nothing. The app keeps a single page element and
+      only swaps its `groupId`, so Lit reused the element and `connectedCallback`
+      never fired again: the page went on showing the group it first loaded. It
+      read as the switcher being broken, and it was. The way in through "all
+      groups", which unmounts and remounts, had been hiding it.
+- [x] The last expense hid under the floating add button — the newest row, the
+      one you came to read, sat beneath the plus. The page carries a foot of
+      padding now, the button's own height and no more, so it lifts that one row
+      clear and leaves the list's own rhythm alone.
+- [x] The word on screen is "group" again. It had read "project" everywhere a
+      reader met it, a deliberate turn once to keep clear of Home Assistant's own
+      groups, and reversed for the plainer word. Only the noun a reader sees: every
+      key, id, URL, table and command still says group, because those answer to
+      the schema, not to the eye. Redone across all eight languages, the
+      integration's own translations and the README — with the genders the swap
+      turns over, das Projekt to die Gruppe, het to de, projekt to grupa and its
+      declensions.
+- [x] Editing a foreign-currency expense quietly refetched today's rate and let it
+      stand in for the one it was saved with, so saving rewrote the debt at a rate
+      that had nothing to do with the day it was owed. The dialog hands the stored
+      rate to the field, which holds it as authoritative; changing the currency or
+      the day still fetches a fresh one. A default to keep, not a wall.
+- [x] A stored equal split reopened as "share part of it". Every rule pins its
+      payer onto the remainder so that "everyone" cannot draw in whoever joins the
+      group later; on an equal split that remainder is inert, and `modeOf` was
+      reading it as an intention. No money moves — only the mode the editor opens
+      on — and it mends what is already stored, with no migration.
+- [x] The hairline that sets the split apart from the fields above it was drawn
+      only where there was a history under it, so the one screen that most wants
+      it — the expense filled in from nothing — ran the two together.
+- [x] The uncategorised row drew an empty square where every other row carries a
+      glyph, and so did any category saved without an icon of its own.
+
+## Sprint 19 — The dashboard, further
+
+- [x] The balance card gains a visual editor: the group as a list, only the ones
+      this account belongs to, and an optional title for telling two cards apart
+      on one dashboard. Adding it no longer means pasting a `group_id` out of
+      Developer tools.
+- [x] The exposure switch says what it governs. It read as though it ruled the
+      whole dashboard, when the card speaks to the logged-in account over the
+      authenticated socket, leaks nothing, and needs no exposure at all. It says
+      "Dashboard sensors" now and spells that out.
+- [x] A group that drops off the dashboard has its device removed outright,
+      entities and all. They were never cleaned up, so a closed switch left a
+      device sitting unavailable to rot with no way to delete it by hand either.
+- [x] The card's title opens the group in the panel, and a button beside it lands
+      straight on a new expense — on a tablet on the wall: see what is owed, tap,
+      write down the shopping. The card only says where to go, the panel owns the
+      dialogs, and the address carries that intent, which the panel reads once and
+      drops so a reload or a step back does not reopen the form.
+- [x] An add-expense card and badge that do only that: one for the body of a
+      dashboard, one for the row along the top, each as tall as a native tile and
+      wearing the same hairline. A tile with no group means "wherever the reader
+      is", which the remembered group makes answerable — it used to be refused
+      outright and wear Home Assistant's red error card for it.
+- [x] Both cards draw a live preview in the picker, built from their own stub
+      config, where they had sat in the gallery as a name and a line of prose
+      among core cards showing the real thing.
+- [x] The colour control everywhere — members, categories, tiles — became a
+      searchable combobox of named colours in place of a spread of swatches, so a
+      colour is a word away rather than a hunt, and it reads the way Home
+      Assistant's own colour field does. It expands in place rather than floating
+      over the page, so dropped in a dialog that scrolls it is never clipped. The
+      same muted set, which is the point, and a plain hex still stored.
+- [x] Where the money went can be read as a disc as well as a ranking of bars:
+      one answers "how much of it" and the other "what fraction of everything",
+      with the rows below kept as the legend. The choice is remembered by the
+      browser that made it — it belongs to the screen looking, not to the
+      household.
+- [x] Amount and date shared a row only above 380 CSS pixels, so the same dialog
+      wore two designs on two phones, decided by a display-zoom setting nobody
+      remembers choosing. Two columns everywhere, measured to fit at 360px.
+- [x] Every write fires `shared_expenses_changed` on the bus, so an automation can
+      notify, remind, or light a lamp on it. The two actions let an automation
+      write a group and nothing let one hear back. It rides the journal's own
+      door: a save that moves no field stays silent, and a group's deletion — the
+      one write that journals nothing — still announces itself, because an
+      automation watching for it is a different listener.
+
+## Sprint 20 — A face on every row
+
+- [x] A member can wear their Home Assistant photo, everywhere a member shows:
+      expense rows, balances, the dashboard card, statistics, the split editor.
+      The choice sits on the member and is seen the same by everybody, exactly as
+      the colour already is, and goes through the same door. Offered only when
+      there is a photo to offer, so nobody's circle ever comes up blank. It is
+      joined on the client from the person entities, so every avatar downstream
+      reads a plain resolved picture and knows nothing of Home Assistant. Schema
+      v13.
+- [x] Both kinds of row in the group list read the same way now — a face, with
+      what the row is about on its corner. An expense wears its category's icon
+      and colour, which had never been seen outside the dialog where they were
+      chosen; a reimbursement or a debt wears its kind, over the face whose money
+      left or who owes it. On the corner rather than beside, because a third
+      circle would have been paid for by the width of the title.
+- [x] The journal carries a mark per line: green where something appeared, the
+      theme's own colour where it changed, red where it went away — so finding
+      the one deletion among forty lines no longer means reading forty lines. And
+      the face beside it is a real one, in the list where knowing who did
+      something matters most.
+- [x] Every one of those marks is hidden from screen readers. The sentence
+      underneath says all of it in the reader's language, and hearing it twice is
+      not hearing it better.
+- [x] The remembered group has a durable copy in Home Assistant's own per-user
+      frontend storage. `localStorage` alone meant the companion app's WebView
+      threw it away whenever the phone wanted the room back, so every few weeks
+      the panel greeted its most regular reader like a stranger. The cache stays,
+      to land without waiting on anything. The side effect is deliberate: the
+      current group follows the account rather than the device, so a phone and a
+      desktop open on the same one.
+- [x] A member the project does not let manage it is no longer handed an editable
+      project. The backend refused correctly and quietly, so nothing was ever
+      changed — but from where the reader sat, the switch the admin had just
+      closed looked like it had done nothing at all. The dialog reads as what it
+      is, and stays reachable: a project you may not rename is not a project you
+      may not read.
+
+## Sprint 21 — Money a shop gave back
+
+- [x] An expense may be negative. Money handed back is the same expense as the one
+      it undoes with the money going the other way: `paid_by_member_id` reads as
+      whoever received it, and every share is owed backwards, so it comes off what
+      that member bore. Zero is the only amount refused, and it says why — that is
+      not a small expense, it is no expense.
+- [x] The sign is turned round at the door rather than threaded through the
+      arithmetic. `resolve_shares` reads the rule on the size of what came back,
+      `apportion` makes the whole trip reversed, and the TypeScript resolver does
+      exactly the same — which is what keeps the figure the panel promises and the
+      figure the backend stores the same one. Two signed code paths would be two
+      chances for the two to disagree. The rule itself is untouched: every figure
+      in it is a size and never a direction, so 60% of a refund is 60% of it.
+- [x] A refund is in the total and not in the count. It comes off what the period
+      cost, which is the whole point of entering it, but nobody went shopping —
+      counting it would put the average of two trips over three. The charts are
+      drawn on what they mean: bars measured against the largest size, the disc
+      adding up to the wedges it actually draws, monthly bars floored at nothing.
+- [x] A purchase is red and a refund green, for every reader alike, and the refund
+      drops its minus on both figures. The rule is the group's own edge: money
+      leaving the group or coming back to it is a direction, true of the row
+      whoever reads it, while money moving between two members is a position and
+      takes its colour from where the reader stands. The list answers two
+      questions in one column on purpose, and the comment says so, so that neither
+      gets "corrected" into the other later.
+- [x] A refund may name the purchase it gives money back on (v15). The field
+      appears the moment the amount turns negative and never before — a purchase
+      answers no other purchase, so asking sooner would put a field nobody can use
+      on every expense anybody ever enters. It is a picker rather than a dropdown
+      of text, because a purchase is recognised by the face that paid it and the
+      mark of what it was.
+- [x] Naming one takes the purchase's split with it, handed over as a rule and not
+      as the figures it happens to produce: an expense shared equally opens its
+      refund on "equally", and its editor says so. The stored shares are the
+      fallback for the one case a rule cannot answer — amounts typed by hand,
+      where the proportions really were chosen, so they are scaled: 40 borne 30/10
+      with 20 given back is 15/5. That scaling is `apportion`, which existed only
+      in Python and now exists in TypeScript too, with a parity harness over 112
+      generated cases whose sabotage test breaks not the arithmetic but *which*
+      member takes the cent that will not divide.
+- [x] And the purchase's own words fill what is empty: title, description and
+      category, since a refund of the bakery is about the bakery. The category is
+      taken outright rather than offered, because a new expense opens on the
+      group's default and never on nothing, so "only when empty" would never fire
+      and money back on the bakery would be counted against the shopping.
+- [x] Four things are refused, each saying which: only a refund gives money back,
+      a purchase from another project is out of reach, a refund of a refund says
+      nothing anybody means, and a shop cannot hand back more than it was given —
+      compared in the group's own money, since the two need not share a currency.
+- [x] A purchase says what has come back on it, folded away as the history is and
+      for the same reason: most of the time an expense is opened to fix a typo.
+      The total sits on the head, since that is the whole of what most people
+      want. Nothing at all when nothing has come back. No command lists them — the
+      page holds every expense of the group, so this is a filter rather than
+      another round trip.
+- [x] The link is a plain id with no foreign key. A deleted expense really leaves
+      the table, its revision being the only place it still exists, and it comes
+      back under the same id — so `ON DELETE SET NULL` would cut every refund
+      loose the moment somebody deleted a purchase, and restoring it would not tie
+      them again. Held plainly, the link waits: it points at nothing while the
+      purchase is away, and reads again the day it returns.
+- [x] A category refunded past what it cost came out of the statistics with a
+      negative total and took the percentage beside its bar with it. "-12 %" of
+      what the group spent is not a fact about anything, so it is floored at zero;
+      the bar is drawn on the size, so the category still shows one.
+
+## Sprint 22 — Under the floor
+
+A dashboard full of tiles went unavailable and stayed there. Four things had to
+be wrong for that, and they were.
+
+- [x] One writer at a time. The depth counter meant to nest transactions went up
+      only after the BEGIN had been awaited, so two writers starting together both
+      believed they were first: one of their BEGINs failed, and whichever left
+      last committed the other's unfinished work or rolled it back from under
+      them, both silently. A lock now holds the connection for the length of the
+      outermost transaction and the task holding it is remembered, so a nested
+      `transaction()` from that task joins as it always did and one from any other
+      task waits its turn.
+- [x] Nothing is said before the write lands. Home Assistant began running a
+      coroutine up to its first await, so the coordinator's re-read was already
+      queued on the very connection the transaction still held open: it read rows
+      that had not committed and might never. `Database.after_commit` holds the
+      announcement until the write is on disk and throws it away when it never
+      lands, and a listener that throws takes neither the others nor the write
+      with it.
+- [x] The coordinator keeps an interval again. With none, Home Assistant returns
+      straight out of `_schedule_refresh` and never reschedules after a failure,
+      so a single failed read left every entity of every project unavailable for
+      good. Ten minutes under the signal — not polling for freshness, which the
+      signal gives, but the longest anything here can be wrong without saying so.
+- [x] `available` is gone. The database is this integration's own and nobody can
+      unplug it, so "I could not read it" is a bug to log rather than a state to
+      broadcast to every tile in the house; Home Assistant's own integrations that
+      own their storage do not implement the property at all. The coordinator
+      keeps its last good data through a failure, so what stays on screen is the
+      last thing that was true.
+- [x] `DatabaseNotReadyError` replaces an assert on the connection. A read still
+      in flight when the entry unloads finds the file closed under it, which is a
+      moment rather than a mistake — and an assert says so only until somebody
+      runs Python with `-O`.
+- [x] The odd cents of an uneven split no longer all land on the same member. They
+      went to the first of the pool, and the pool arrives in the group's own
+      order, so it was never a member, it was always the same member: three of
+      them over a thousand expenses bore 6,67 € of cents on one side and not a
+      centime on the other. No test noticed, because every test asked whether the
+      shares added up and none asked who they landed on. The rotation is the
+      quotient of the division and not the amount — `amount % count` *is* the
+      count of leftover cents, so at two members every odd amount would have
+      handed its cent to the second and never to the first. It is derived from the
+      amount and from nothing else, and it has to be: the expense has no id while
+      the dialog is still adding it up, and the panel must resolve exactly what
+      the backend will store.
+- [x] CI tests against the Python Home Assistant actually needs. The job asked for
+      3.13, which 2026.7.4 refuses, so pip could only resolve backwards and the
+      suite ran green against an older Home Assistant than the one this is written
+      for. `requires-python` and ruff's target followed.
+- [x] `www/index.js` no longer buries the change it carries. It is versioned
+      because HACS ships the repository as it is and never runs a build, and it is
+      minified — and a minifier allocates its short names in order of appearance,
+      so a three-line change to a row arrived as fifteen hundred lines of diff.
+      `-diff` keeps git from printing it, `--text` still opens it, and the
+      staleness check in CI reads an exit code and is unaffected.
+
+## Sprint 23 — An error that says why
+
+- [x] An error may carry a `code`, finer than its class, and `error_code()`
+      prefers it over the table of classes. `InvalidExpenseError` is raised ten
+      times over for ten different reasons, and all ten reached a reader as "this
+      expense is invalid" while the sentence that would have told them something
+      sat unused in the raise — refunding 15,00 against a 6,95 purchase said
+      nothing about either figure.
+- [x] Three lines of mechanism, and no existing raise touched: one without a code
+      resolves exactly as it did, and the panel falls through to the English
+      message for a code it does not know. That is what made it safe to spread a
+      cause at a time rather than in one sweep.
+- [x] 29 causes carry theirs, translated into all eight languages — the four a
+      refund can hit, the five on an expense and its shares, the two on a payment,
+      the ten ways a split rule can be refused, and the rate service's six causes
+      folded into the two things there are to do about them. Two of them borrowed
+      a sentence the panel already showed rather than writing a synonym under a
+      new name, so one mistake reads the same whichever side catches it.
+- [x] Translations go in one block per pass, where codes need not.
+      `Key = keyof typeof EN` makes the other seven languages `Record<Key,
+      string>`, so a key added to English alone takes `tsc` red.
+- [x] Left generic by decision and now by test: every `*NotFoundError`, whose
+      class is already the whole of the reason, and the internal guards — the
+      deserialisation checks in `splits.py`, the migration `RuntimeError`s,
+      `DatabaseNotReadyError`, the shares-add-up assertion, `apportion`'s
+      refusals. Those report a bug rather than a mistake somebody made, and
+      dressing them as sentences would give a defect the air of a choice.
+- [x] 23 tests, because the failure mode is silent: a code with no key degrades to
+      its English sentence, nothing goes red, and seven of the eight languages
+      quietly stop being translated for that cause. The test reads both real
+      sources — the package's syntax tree for every `code=` raised, `EN` for every
+      sentence offered — and copies neither, so a code added tomorrow without its
+      key fails here instead of in front of a reader. Through the tree rather than
+      a regex, because `frankfurter.py` names its two in module constants.
+
+## Sprint 24 — One entry names another
+
+An expense, a refund and a handover are three ways of writing down one
+afternoon, and each of them knew about the others without being a way to them.
+
+- [x] A refund and its purchase open each other. The refund has named its
+      purchase since Sprint 21 and the purchase has listed what came back on it,
+      each showing the other and neither being a door. What somebody looking at
+      15,00 given back wants next is what the 60,00 was, and it was a dialog
+      away in every direction but the one they were facing.
+- [x] The move the journal already makes: one dialog at a time, closing on the
+      way, because two stacked leave no way back that is not a guess. One step
+      on the history stack for the whole chain, since `show` pushes nothing
+      while a dialog is already open.
+- [x] The expense dialog is `keyed` on the expense. Jumping expense to expense
+      leaves the page on the same dialog, so Lit reused the element and it went
+      on showing what it had read in `connectedCallback` — the group-switcher
+      bug of Sprint 18, in a second place.
+- [x] Leaving is asked about when there is something to lose. Cancel and the
+      phone's back button drop what was typed and always have, but those say
+      "leave" and a link says "open that one". Armed once, in place, the way a
+      deletion is. What counts as something to lose is what somebody did, not
+      what the form holds: comparing the form against what is stored reads
+      better and cries wolf, since the currency field hands back a rate from its
+      first update and an expense saved before `9a35dc2` re-resolves a cent away
+      from its own stored shares.
+- [x] Whether an entry may be opened stays the page's rule, since it takes the
+      group's permissions and the reader's role. It arrives as the ids of every
+      expense that may be opened rather than an answer about one, because the
+      purchase a refund names is chosen in the dialog. No link where there is
+      nowhere to go: a link that does nothing is worse than plain text.
+- [x] The row a picker offers, a purchase's refunds and the group page's list
+      are one row, in `components/expense-row.ts` — a plain function and a block
+      of CSS, the shape `renderAvatar` has, so each host frames it itself. It
+      was already written twice and this was the third place asking.
+- [x] **A payment can name the expense it is about** (v16). "Antonin gives me
+      20,00 for the shopping on the 3rd" is a sentence with an expense in it,
+      and money moving between two members is a payment, never an expense — so
+      the link a refund gained did nothing for the commonest handover there is.
+- [x] That column existed once before and saying why it left is the honest way
+      to bring it back. v14 added it, v15 dropped it on the finding that what
+      wanted a link was the shop's refund. That finding was right; it answered
+      where the link belonged and mistook that for whether this one belonged
+      too. The difference is that this one is read — and there is a test that
+      reads it back.
+- [x] The expense side says nothing in return, by decision, so there is no index
+      where v14 had one: an index answers "which payments name this expense",
+      and nothing asks. Every expense of the group is offered, refunds included,
+      because a payment is not a share of what it names — one handover settles a
+      month of them, and somebody pays half of what they owe.
+- [x] `payment_state` gains the field, which is not bookkeeping: naming an
+      expense moves no money, so every other field is identical either side of
+      that save, and left out of the state `update_payment` diffs the write
+      would be skipped and the caller told it went fine. That is exactly how the
+      kind was once unsaveable.
+- [x] 14 tests, twelve on the manager and two through the schema — where a field
+      the door does not know dies with "extra keys not allowed". They cover the
+      two silences: a field missing from the state, and a column nobody reads.
+
+## Sprint 25 — What the screen was not saying
+
+Three things this panel knew and did not show.
+
+- [x] **Every category gets a colour of its own.** `colorFor` hashes an id into
+      twelve, which is right for a member — you meet them a few at a time. A
+      group's categories are read as a set, and by the birthday problem twelve
+      of them came out in eight colours, eight in six, six in five. The mark on
+      a row is what tells the bread from the weekly shopping where the row is
+      too narrow to write either.
+- [x] A chosen colour is left as it is and taken off the table first; the rest
+      are dealt in the order they were created — ids are ULIDs, so sorting them
+      is sorting by age — each taking the colour its own hash asks for or the
+      next one free. Dealing by age keeps two promises at once: nearly every
+      category keeps the colour it had, and one added today can never change the
+      colour of one that has been on screen for a year. Past the twelfth there
+      is nothing left to be unique with, and the rest fall back to their hash.
+- [x] The legend under the disc keeps its bars. They were left off on the
+      grounds that a wedge had already said it, and it has not: the disc draws
+      only what came out positive, and writes a share on a wedge only where
+      there is room — so the smallest categories, which are what a ranking is
+      read for, were a colour and a name. Both charts draw the same row against
+      the same longest category now.
+- [x] **Which way an expense goes is asked outright.** A minus in the amount was
+      the whole of how you said a shop had given money back. It worked, and
+      there was no way to find out it worked: nothing on screen said a refund
+      was a thing this panel does. The one figure a reader checks twice was
+      carrying a second meaning on top of its own.
+- [x] The field holds a size now and never a direction; `signedAmount()` is the
+      one place the two are put back together, and the model still stores a
+      refund as one signed figure, which is what lets one resolver serve both.
+      Typing a minus still enters a refund — it moves the selector and leaves
+      the field. Taking the gesture away outright was the one thing not to do:
+      -20 would have become an expense of 20, silently, for exactly the people
+      who knew the trick.
+- [x] The picker for the purchase a refund answers stops waiting for a figure,
+      which turns out to be the better order: name the purchase and its words,
+      its category, its payer and its split come with it, and the amount fills
+      in as the whole of the purchase until somebody types a smaller one.
+- [x] `se-segmented`, and the payment dialog takes it too. A dropdown asks two
+      gestures for a choice between two and shows one of them at a time, and
+      what is asked here is a fork with two named sides. A switch is worse the
+      other way round: off, one of the two natures is never written anywhere.
+      Not an invention — the statistics have drawn their period this way since
+      they were written; this is that control with a label and an API.
+- [x] Measured rather than reasoned about. With no frontend tests, the built
+      bundle was served to a headless browser and the segments measured at 360
+      CSS pixels: "Remboursement d'enseigne" wanted 199 of the 160 it had, and
+      so did Spanish, Italian and Portuguese. Four of the eight would have
+      shipped ellipsed on a control whose whole job is to name both choices.
+      The word alone fits everywhere and loses nothing.
 
 ## Later
 
@@ -249,6 +676,29 @@ member could delete the whole group.
       holding the actions back for.
 - [ ] Frontend tests. Every bug above that reached a user lived in the panel,
       where neither `tsc` nor the build nor the Python suite can see. Layout,
-      at least, is measurable: Chrome headless against the built bundle catches
-      what the eye does not — that is how the balance card was found spilling
-      its figures on a phone.
+      at least, is measurable: a headless browser against the built bundle
+      catches what the eye does not — that is how the balance card was found
+      spilling its figures on a phone, and how four of eight languages were
+      caught shipping an ellipsed segment in Sprint 25. Both times it was a
+      throwaway script. The measurement is ten minutes and the harness is the
+      part nobody has written: serve the bundle over HTTP, since ES modules do
+      not load from `file://`, and read the answer out of the DOM rather than
+      out of a screenshot.
+- [ ] Tests for what is already pure. `autoColors` is a function of a list and
+      nothing else, and it was checked with a script that should have been a
+      test file. `resolveShares` and `apportion` have harnesses; the panel's own
+      helpers have none.
+- [ ] A native read of the translations. Twenty-one keys across eight languages
+      by one non-native hand, the newest being Sprints 24 and 25. FR is the one
+      this household reads and will catch for itself; DE, NL, ES, IT, PL and PT
+      deserve a second pair of eyes.
+- [ ] Whether an expense should say which payments were about it. Sprint 24
+      settled that it says nothing, deliberately, and left the index off for the
+      same reason. If it turns out somebody wants "who has paid me back for
+      this", the column is there and the index is one line.
+- [ ] An amount that recurs unchanged still hands its odd cent to the same member.
+      Folding the date in would give the daily bread its turn, and would make
+      editing a date move a cent — not a trade worth making silently.
+- [ ] `formatSignedMoney` would put a "+" back on a refund, and keep a second
+      signal for whoever reads colour poorly, if that turns out to matter more
+      than the quiet figure does.

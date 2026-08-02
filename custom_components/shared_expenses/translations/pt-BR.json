@@ -35,11 +35,11 @@
         },
         "amount": {
           "name": "Valor",
-          "description": "Em unidades inteiras de dinheiro, não em centavos. 85,42 e não 8542."
+          "description": "Em unidades inteiras de dinheiro, não em centavos. 85,42 e não 8542. Um valor negativo é um reembolso de uma loja: -12,90 devolve 12,90 ao grupo."
         },
         "paid_by_member_id": {
           "name": "Pago por",
-          "description": "O id do membro que pagou."
+          "description": "O id do membro que pagou. Em um reembolso, quem recebeu o dinheiro de volta."
         },
         "expense_date": {
           "name": "Data",

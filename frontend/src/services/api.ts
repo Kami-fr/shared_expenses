@@ -70,6 +70,13 @@ export interface CreateExpenseInput {
   /** Rule applied to this expense only. */
   split_rule?: SplitRule | null;
   /**
+   * The purchase a refund gives money back on.
+   *
+   * Null unlinks on an update, where leaving a field out changes nothing: taking
+   * a refund off the purchase it named has to be said out loud.
+   */
+  refund_of?: string | null;
+  /**
    * The rate to convert at, in millionths.
    *
    * Sent when the panel has shown one and had it accepted, so that what was
@@ -98,6 +105,13 @@ export interface CreatePaymentInput {
    * finds one itself.
    */
   exchange_rate?: number;
+  /**
+   * The expense this is about, or null for none.
+   *
+   * Null and not left out on an update: leaving it out means "do not touch it",
+   * so taking the link off would be unsayable.
+   */
+  expense_id?: string | null;
 }
 
 export class SharedExpensesApi {
@@ -211,7 +225,7 @@ export class SharedExpensesApi {
   public updateMember(
     groupId: string,
     memberId: string,
-    changes: { name?: string; color?: string | null },
+    changes: { name?: string; color?: string | null; use_ha_avatar?: boolean },
   ): Promise<Member> {
     return this.call("update_member", {
       group_id: groupId,

@@ -35,11 +35,11 @@
         },
         "amount": {
           "name": "Importo",
-          "description": "In moneta intera, non in centesimi. 85,42 e non 8542."
+          "description": "In moneta intera, non in centesimi. 85,42 e non 8542. Un importo negativo è un rimborso di un negozio: -12,90 restituisce 12,90 al gruppo."
         },
         "paid_by_member_id": {
           "name": "Pagato da",
-          "description": "L'identificatore del membro che ha pagato."
+          "description": "L'identificatore del membro che ha pagato. In un rimborso, chi ha riavuto i soldi."
         },
         "expense_date": {
           "name": "Data",

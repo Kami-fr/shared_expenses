@@ -150,6 +150,33 @@ There used to be an `owner` above the admin. v11 removed it — see ADR-013.
 | exchange_rate | INTEGER | The rate applied, in millionths: 0.87681 is 876810 |
 | rate_as_of | TEXT | The day the rate is from, ISO-8601 date (nullable) |
 | created_by_member_id | TEXT | Who entered it, → members.id (nullable) |
+| refund_of | TEXT | The purchase a refund answers, **no FK** (nullable) |
+
+`refund_of` says which purchase a refund gives money back on. Only a refund may
+carry it — an expense with a negative `amount` — and even a refund need not: a
+shop handing money back is often about a basket rather than one line of it. The
+manager refuses three things: a purchase carrying it at all, a purchase belonging
+to another project, and a refund of a refund.
+
+It is read and never counted, the shares being the money. What it buys is the
+panel opening a refund on the split its purchase was borne under — the same
+*proportions*, so 40,00 shared 30/10 with 20,00 given back offers 15/5, and a
+refund of the whole thing offers exactly 30/10. That is `apportion`, which reads
+the stored shares rather than the rule that made them and so behaves the same
+whether the purchase was split equally, by percentages, or by hand. It exists in
+TypeScript as well, and the two are checked against each other — see ADR-012.
+
+**And it is the one expense column with no foreign key**, deliberately. A deleted
+expense really leaves this table; its revision is the only place it still exists,
+and a restore brings it back under the same id. `ON DELETE SET NULL` would cut
+every refund loose the moment somebody deleted the purchase, and restoring that
+purchase would not tie them again — losing exactly what the journal spends its
+time keeping. `REFERENCES` with no action would refuse the deletion outright, a
+rule nobody asked for. So the id is held plainly and waits: while the purchase is
+away it points at nothing, which the panel reads as "not here", and the day it
+comes back the link reads again with nobody having repaired it.
+`idx_expenses_refund_of` answers what the purchase side asks — how much of this
+has come back.
 
 `created_by_member_id` is who typed it in, which is not always who paid it, and
 it is read by exactly one thing: whether this is theirs to edit without the
@@ -220,6 +247,7 @@ the same tomorrow is not a balance.
 | exchange_rate | INTEGER | The rate applied, in millionths |
 | rate_as_of | TEXT | The day the rate is from, ISO-8601 date (nullable) |
 | created_by_member_id | TEXT | Who wrote it down, → members.id (nullable) |
+| expense_id | TEXT | The expense a reimbursement is about, **no FK** (nullable) |
 
 `created_by_member_id` works exactly as an expense's. A payment is theirs if
 they wrote it down **or** if it is about them — either party. A debt you owe is
@@ -239,6 +267,21 @@ settled on the day they owed it.
 settlement looks at it. "Michel owes 46,25 to Dupont" shown as a transfer read
 as "Dupont paid Michel" — true of a loan, and nonsense for a debt somebody is
 only writing down. The word was the whole of what was missing.
+
+`expense_id` says which expense a handover is about — "Antonin gives me 20,00 for
+the shopping on the 3rd". It is offered on a debt as much as on a reimbursement,
+both being the same movement of money with different words on it, and it stays
+optional: money handed over at the end of a month answers no single expense, and
+that is the commonest reimbursement there is. The manager refuses one thing, the
+expense of another project, an id being enough to ask with.
+
+The link is one way. The payment names the expense and opens it, and the expense
+side says nothing back — which is why there is no index here where `refund_of`
+has one: an index answers "which payments name this expense", and nothing asks.
+It carries no foreign key for the reason `refund_of` carries none, a deleted
+expense really leaving its table and coming back under the same id. The id is
+held plainly and waits, pointing at nothing while the expense is away, and reads
+again the day it returns.
 
 ---
 
@@ -370,6 +413,27 @@ connection runs with `isolation_level=None`, so a repository statement outside a
 transaction commits on its own instead of sitting in an implicit transaction that
 nothing would ever commit.
 
+**One connection carries one transaction, so one writer at a time.** A lock is
+held for the length of the outermost transaction, and the task holding it is
+remembered so a nested `transaction()` joins rather than waiting on itself. This
+was a depth counter shared by every coroutine, and the counter went up only
+after the `BEGIN` had been awaited: two writers starting together both believed
+they were first, one of their `BEGIN`s failed, and whichever left last committed
+the other's unfinished work or rolled it back from under them. Both were silent.
+
+**What a write promises is said after it lands.** `Database.after_commit()`
+holds a callback until the outermost transaction has committed, and drops it
+when there was no commit. That is how `_announce` reaches the coordinator, the
+dashboard card and the bus: everything that hears a change comes back to this
+connection to read, and a listener told before the COMMIT reads a write that has
+not happened.
+
+**Known and left alone:** reads do not take the lock. They share the connection,
+so a read landing in the middle of somebody's write sees uncommitted rows for a
+few milliseconds. Nothing acts on that any more — the announcement waits, so
+nobody is sent to look at the wrong moment — and closing it properly would mean
+a second connection for reading. Not worth it yet.
+
 ---
 
 ## Split rules
@@ -439,7 +503,14 @@ creates `schema_v1.sql` on an empty database, then applies `migration_v<n>.sql`
 one by one up to `DATABASE_VERSION`. Each migration file bumps the version
 itself. Downgrades are refused.
 
-**Current version: 12.**
+Each script runs inside a transaction of its own, written into the script as
+`BEGIN`/`COMMIT` rather than opened around the call — `executescript` commits
+whatever is pending before it starts, so a `BEGIN` issued on the connection
+would be gone by the first statement. A migration that dies halfway therefore
+leaves the database at the version it began at, and the next start runs the
+whole of it again instead of tripping over the half already applied.
+
+**Current version: 16.**
 
 | Version | What it added |
 |---------|---------------|
@@ -455,6 +526,27 @@ itself. Downgrades are refused.
 | 10 | The four `groups.allow_` columns, and `created_by_member_id` on expenses and payments |
 | 11 | Two roles instead of three: `owner` goes, `admin` stays |
 | 12 | `groups.exposed`: whether a project puts its figures on the dashboard |
+| 13 | `members.use_ha_avatar`: a member wears their Home Assistant photo |
+| 14 | `payments.expense_id`, never read and taken back by v15 |
+| 15 | `expenses.refund_of` and its index: the purchase a refund answers |
+| 16 | `payments.expense_id` again: the expense a reimbursement is about |
+
+**v14 is the exception to that, and v15 is why.** A column went onto `payments`
+on a reading of "reimbursement" that turned out to be the wrong one — what wanted
+a link was the shop's refund, which is an expense, not money moving between
+members. Nothing read it. v15 drops it rather than leaving it lying there, so
+that a database migrated through v14 and one created tomorrow are the same
+database: a schema that differs by when you installed it is a schema nobody can
+reason about. SQLite refuses to drop an indexed column, so the index goes first.
+
+**v16 brings the same column back, and the reading is what changed.** v15's
+finding was true and shipped, and it was not the whole of it: "Antonin gives me
+20,00 for the shopping on the 3rd" is money moving between two members, which is
+a payment and never an expense, and the sentence has an expense in it the panel
+could not write down. What is different is that something reads it — the payment
+names the expense and opens it, and that is the whole of the feature. The expense
+side says nothing back, deliberately, so v16 adds no index where v14 had one, and
+v15's index-first drop is not a step anybody has to repeat.
 
 Migrations are additive. Every existing row must come out of one meaning what it
 meant going in — v7 converts every past expense to itself at a rate of one,

@@ -34,6 +34,8 @@ belong to, and nothing else.
 - **Who may do what** — four switches (members, categories, the group, others'
   expenses), the same for everyone, with one admin above them who can hand it on.
 - **Expenses** — a title, an amount, who paid, a date, a category, and a split.
+- **Refunds** — a shop giving money back is the same expense the other way: it
+  comes off the total and off each share, split exactly as the purchase was.
 - **Split rules** — equally, by fixed amounts or percentages, or an envelope
   shared between some with the rest to whoever paid; categories carry their own.
 - **Other currencies** — pay in another currency; the day's rate is fetched and
@@ -149,6 +151,10 @@ tap_action:
 **More recipes** — a reimbursement tile, a monthly gauge, calling from an
 automation, and where the ids come from — are in
 **[docs/dashboard.md](docs/dashboard.md)**.
+
+And the other direction: every write fires a `shared_expenses_changed` event on
+the bus, so an automation can notify, remind, or react when an expense lands or a
+debt is settled — **[docs/events.md](docs/events.md)**.
 
 ## Requirements
 

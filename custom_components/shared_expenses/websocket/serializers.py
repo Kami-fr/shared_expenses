@@ -51,6 +51,7 @@ def member_to_dict(member: Member) -> dict[str, Any]:
         "user_id": member.user_id,
         "name": member.name,
         "color": member.color,
+        "use_ha_avatar": member.use_ha_avatar,
         "created_at": member.created_at.isoformat(),
     }
 
@@ -112,6 +113,10 @@ def expense_to_dict(
         "rate_as_of": (
             None if expense.rate_as_of is None else expense.rate_as_of.isoformat()
         ),
+        # The purchase this refund gives money back on, or null. No command lists
+        # the refunds of one purchase: the panel already holds every expense of
+        # the group, so that is a filter rather than another round trip.
+        "refund_of": expense.refund_of,
         "split_rule": rule_to_dict(expense.split_rule),
     }
 
@@ -147,6 +152,7 @@ def payment_to_dict(payment: Payment) -> dict[str, Any]:
         "payment_date": payment.payment_date.isoformat(),
         "created_at": payment.created_at.isoformat(),
         "kind": str(payment.kind),
+        "expense_id": payment.expense_id,
         "created_by_member_id": payment.created_by_member_id,
         "converted_amount": payment.converted_amount,
         "exchange_rate": payment.exchange_rate,

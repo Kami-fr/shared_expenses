@@ -81,6 +81,38 @@ class RevisionRepository(BaseRepository):
 
         return [self._from_row(row) for row in rows]
 
+    async def has_deletion(self, group_id: str, *entity_types: RevisionEntity) -> bool:
+        """Return whether the group ever put away one of these kinds of thing.
+
+        A deletion is the last place what it took still exists, and a restore is
+        built from it — so this answers whether anything could still come back.
+        Asked rather than listed: what is wanted is a yes or a no, and a group's
+        whole history is a long way to go for one.
+        """
+
+        kinds = ", ".join("?" for _ in entity_types)
+
+        cursor = await self._connection.execute(
+            f"""
+            SELECT 1
+            FROM revisions
+            WHERE group_id = ?
+              AND action = ?
+              AND entity_type IN ({kinds})
+            LIMIT 1
+            """,
+            (
+                group_id,
+                str(RevisionAction.DELETED),
+                *(str(entity_type) for entity_type in entity_types),
+            ),
+        )
+
+        row = await cursor.fetchone()
+        await cursor.close()
+
+        return row is not None
+
     async def list_by_entity(self, entity_id: str) -> list[Revision]:
         """Return the history of one expense or payment, newest first."""
 

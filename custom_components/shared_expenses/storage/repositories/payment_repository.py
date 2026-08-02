@@ -23,7 +23,8 @@ _COLUMNS = """
     converted_amount,
     exchange_rate,
     rate_as_of,
-    created_by_member_id
+    created_by_member_id,
+    expense_id
 """
 
 
@@ -49,9 +50,10 @@ class PaymentRepository(BaseRepository):
                 converted_amount,
                 exchange_rate,
                 rate_as_of,
-                created_by_member_id
+                created_by_member_id,
+                expense_id
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 payment.id,
@@ -68,6 +70,7 @@ class PaymentRepository(BaseRepository):
                 payment.exchange_rate,
                 payment.rate_as_of.isoformat() if payment.rate_as_of else None,
                 payment.created_by_member_id,
+                payment.expense_id,
             ),
         )
 
@@ -130,7 +133,8 @@ class PaymentRepository(BaseRepository):
                 kind = ?,
                 converted_amount = ?,
                 exchange_rate = ?,
-                rate_as_of = ?
+                rate_as_of = ?,
+                expense_id = ?
             WHERE id = ?
             """,
             (
@@ -144,6 +148,7 @@ class PaymentRepository(BaseRepository):
                 payment.converted_amount,
                 payment.exchange_rate,
                 payment.rate_as_of.isoformat() if payment.rate_as_of else None,
+                payment.expense_id,
                 payment.id,
             ),
         )
@@ -180,4 +185,5 @@ class PaymentRepository(BaseRepository):
                 date.fromisoformat(row["rate_as_of"]) if row["rate_as_of"] else None
             ),
             created_by_member_id=row["created_by_member_id"],
+            expense_id=row["expense_id"],
         )

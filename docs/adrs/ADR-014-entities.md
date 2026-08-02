@@ -96,11 +96,10 @@ rules were never a wall against them. Refusing here would buy nothing and cost
 the tag on the fridge. It is not silent either: the journal records the actor it
 was given, which is nobody, and reads as "Someone added the expense".
 
-### Refreshed on a signal, never on a clock
+### Refreshed on a signal, with a clock underneath
 
-A shared expense changes when somebody types it in. So `update_interval` is None
-and the only thing that refreshes the coordinator is a group actually having
-changed.
+A shared expense changes when somebody types it in, so the signal is what makes
+a tile move as the expense lands.
 
 The signal is sent from `_record`, which every write worth accounting for
 already went through — one door rather than a `_notify` sprinkled down thirty
@@ -108,6 +107,44 @@ methods, one of which would be forgotten. A change nobody journals is a change
 nobody needed to be told about: the two questions have the same answer, which is
 why they share a door. `delete_group` is the one exception and says so itself,
 being the one write that journals nothing.
+
+**And it is sent after the commit, not before.** It used to go out from inside
+the transaction, on the reasoning that the listeners only scheduled work and the
+work ran once the transaction had closed. That stopped being true when Home
+Assistant began starting tasks eagerly: `hass.async_create_task` now runs a
+coroutine up to its first await, so the coordinator's re-read was already queued
+on the very connection the transaction was still holding open. It read rows that
+had not committed and might never. `Database.after_commit` holds the
+announcement until the write is on disk, and throws it away when it never lands
+— so nothing in the house learns of a write that did not happen.
+
+**`update_interval` was None, and that was the mistake.** A coordinator with no
+interval never reschedules itself after a failure: Home Assistant returns
+straight out of `_schedule_refresh` when there is none. So a single failed read
+— anything at all — left every entity of every project unavailable until
+somebody happened to write in a group, which is exactly the "sometimes it works"
+this integration was reported for.
+
+Ten minutes now sits under the signal. It is not polling for freshness, which
+the signal already gives: it is the longest anything here can be wrong without
+saying so. Home Assistant's own pushed-at integrations keep one for the same
+reason — `flux_led` reads every ten seconds, `esphome` every five minutes — and
+a `Debouncer` folds the burst of announcements one action can make into a single
+read. `always_update=False` keeps the clock from writing an unchanged figure to
+the recorder every ten minutes.
+
+### Unavailable means unavailable, not unreadable
+
+`available` was `coordinator.last_update_success and snapshot is not None`, and
+the first half was wrong. The database is this integration's own; nobody can
+unplug it, so "I could not read it" is a bug to log rather than a state to
+broadcast to every tile in the house. Home Assistant's own integrations that
+own their storage — `local_todo`, `local_calendar` — do not implement the
+property at all.
+
+So the snapshot is the whole of it. The coordinator keeps its last good data
+through a failure, which means what stays on screen is the last thing that was
+true, and the clock above replaces it.
 
 The coordinator redoes every exposed group rather than the one that changed. A
 household has a handful of projects holding a few hundred expenses, so the whole
@@ -127,6 +164,15 @@ to prove the suite catches its absence.
 unavailable. That is Home Assistant's own habit: a card pointing at one keeps
 pointing at it and says so, rather than vanishing and taking the card's meaning
 with it. Somebody who wants them gone deletes them from the registry.
+
+For a while the code did the opposite, and closing the switch took the device
+down and its entities with it. It bought nothing — an unavailable sensor holds
+no figure either — and it cost the tile, which came back pointing at an entity
+id that no longer existed, and the household's own names and rooms with it.
+Only a project that has actually been deleted loses its device now; the
+coordinator carries every group's id, exposed or not, so the two can be told
+apart. Which matters more than the tidiness: telling them apart is what stops a
+half-read database from destroying anything.
 
 **The wiring is not tested.** Forwarding the platforms, the entity registry,
 entities appearing as a project starts exposing itself — that needs a running

@@ -35,11 +35,11 @@
         },
         "amount": {
           "name": "Bedrag",
-          "description": "In hele munt, niet in centen. 85,42 en niet 8542."
+          "description": "In hele munt, niet in centen. 85,42 en niet 8542. Een negatief bedrag is een terugbetaling van een winkel: -12,90 geeft 12,90 terug aan de groep."
         },
         "paid_by_member_id": {
           "name": "Betaald door",
-          "description": "De id van het lid dat betaald heeft."
+          "description": "De id van het lid dat betaald heeft. Bij een terugbetaling: wie het geld terugkreeg."
         },
         "expense_date": {
           "name": "Datum",
