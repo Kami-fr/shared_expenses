@@ -18,6 +18,7 @@ import "../dialogs/se-statistics-dialog";
 import type { SharedExpensesApi } from "../services/api";
 import {
   colorFor,
+  colorOf,
   formatDayDate,
   formatMoney,
   moneyNeedles,
@@ -1140,7 +1141,7 @@ export class SeGroupPage extends LitElement {
                 aria-hidden="true"
                 .icon=${category.icon}
                 .fallback=${category.name.charAt(0).toUpperCase()}
-                .color=${category.color ?? colorFor(category.id)}
+                .color=${colorOf(category, this.categories)}
                 .size=${18}
                 .glyph=${0.82}
               ></se-icon>`

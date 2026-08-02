@@ -3,7 +3,7 @@ import { customElement, property, state } from "lit/decorators.js";
 
 import "./se-icon";
 import type { SharedExpensesApi } from "../services/api";
-import { colorFor, formatMoney, formatMonth } from "../services/format";
+import { colorOf, formatMoney, formatMonth } from "../services/format";
 import { errorMessage, type Key, type Localizer } from "../services/localize";
 import { sharedStyles } from "../styles/shared";
 import type { Category, CategoryTotal, GroupStatistics, Member } from "../types";
@@ -882,7 +882,7 @@ export class SeStatistics extends LitElement {
       return NO_CATEGORY_COLOUR;
     }
 
-    return category.color ?? colorFor(category.id);
+    return colorOf(category, this.categories);
   }
 
   private categoryName(id: string | null): string {

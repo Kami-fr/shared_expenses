@@ -7,7 +7,7 @@ import "../components/se-icon";
 import "./se-category-dialog";
 import "./se-group-rule-dialog";
 import type { SharedExpensesApi } from "../services/api";
-import { colorFor } from "../services/format";
+import { colorOf } from "../services/format";
 import { describeRule } from "../services/split-summary";
 import { errorMessage, type Localizer } from "../services/localize";
 import { sharedStyles } from "../styles/shared";
@@ -113,6 +113,7 @@ export class SeCategoriesDialog extends LitElement {
           .group=${this.group}
           .members=${this.members}
           .category=${this.editing}
+          .categories=${this.categories}
           .language=${this.language}
           @dialog-cancelled=${this.closeEditor}
           @category-saved=${this.handleSaved}
@@ -151,7 +152,7 @@ export class SeCategoriesDialog extends LitElement {
         <se-icon
           .icon=${category.icon}
           .fallback=${category.name.charAt(0).toUpperCase()}
-          .color=${category.color ?? colorFor(category.id)}
+          .color=${colorOf(category, this.categories)}
           .size=${34}
         ></se-icon>
         <div class="info">

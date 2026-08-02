@@ -18,7 +18,7 @@ import { css } from "lit";
 
 import "./se-icon";
 import { renderAvatar } from "./avatar";
-import { colorFor, formatDayDate, formatMoney } from "../services/format";
+import { colorOf, formatDayDate, formatMoney } from "../services/format";
 import type { Category, Expense, Member } from "../types";
 
 /** What the row needs to name the people and the marks it draws. */
@@ -46,7 +46,7 @@ export function renderExpenseRow(
             aria-hidden="true"
             .icon=${category.icon}
             .fallback=${category.name.charAt(0).toUpperCase()}
-            .color=${category.color ?? colorFor(category.id)}
+            .color=${colorOf(category, context.categories)}
             .size=${14}
             .glyph=${0.82}
           ></se-icon>`

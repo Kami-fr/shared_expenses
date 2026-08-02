@@ -188,3 +188,97 @@ export function colorFor(id: string): string {
 
   return PALETTE[hash % PALETTE.length];
 }
+
+/** Anything that can be given a colour, or has been given one already. */
+export interface Colourable {
+  id: string;
+  color: string | null;
+}
+
+/**
+ * The automatic colours of a set of things, each one different from the others.
+ *
+ * `colorFor` hashes an id into twelve colours, which is right for a member —
+ * you meet them a few at a time, and the same face is always the same colour.
+ * A group's categories are read as a set, side by side down a list and as the
+ * wedges of one disc, and two of them landing on the same green happens by the
+ * fourth or fifth by the birthday problem alone. There the colour is not
+ * decoration, it is what tells the bread from the weekly shopping on a row too
+ * narrow to write it, and two categories wearing one colour is the one thing it
+ * must not do.
+ *
+ * A colour somebody chose is left exactly as it is and taken off the table, so
+ * the automatic ones do not walk into it either.
+ *
+ * The automatic ones are dealt out in the order they were created — ids are
+ * ULIDs, so sorting them is sorting by age — and each takes the colour its own
+ * hash asks for, or the next one free. That keeps two promises at once: nearly
+ * every category keeps the colour it already had, since only the ones that
+ * collided move; and a category added today can never change the colour of one
+ * that has been on screen for a year, because it is dealt last.
+ *
+ * Past the twelfth there is nothing left to be unique with, and the ones that
+ * find nothing free fall back to their hash. Twelve categories in one household
+ * is already more than the screen can tell apart.
+ */
+export function autoColors(items: readonly Colourable[]): Map<string, string> {
+  const chosen = new Set(
+    items.map((item) => item.color).filter((color) => color !== null),
+  );
+
+  const free = PALETTE.filter((color) => !chosen.has(color));
+  const colours = new Map<string, string>();
+
+  const automatic = items
+    .filter((item) => item.color === null)
+    .sort((left, right) => left.id.localeCompare(right.id));
+
+  for (const item of automatic) {
+    const wanted = colorFor(item.id);
+
+    // From the colour its own hash asks for, then round the ring. Round `free`
+    // and not the palette, so the search cannot land on something somebody
+    // picked by hand — and starting from the wanted colour's place among what
+    // is left keeps whatever spread the hash had.
+    const start = free.findIndex((color) => PALETTE.indexOf(color) >= PALETTE.indexOf(wanted));
+    const from = start === -1 ? 0 : start;
+
+    const taken = new Set(colours.values());
+    const found = free
+      .slice(from)
+      .concat(free.slice(0, from))
+      .find((color) => !taken.has(color));
+
+    colours.set(item.id, found ?? wanted);
+  }
+
+  return colours;
+}
+
+/**
+ * The colour one of a set is drawn in: what was chosen, or what is left over.
+ *
+ * Memoised on the set it was asked about, because it is asked once a row and a
+ * group's list runs to hundreds of them while its categories run to a dozen.
+ * One entry is the whole cache: every caller in a single render passes the same
+ * list, and the render after it passes the same list again.
+ */
+let lastItems = "";
+let lastColours = new Map<string, string>();
+
+export function colorOf(item: Colourable, within: readonly Colourable[]): string {
+  if (item.color !== null) {
+    return item.color;
+  }
+
+  const key = within.map((one) => `${one.id}:${one.color ?? ""}`).join("|");
+
+  if (key !== lastItems) {
+    lastItems = key;
+    lastColours = autoColors(within);
+  }
+
+  // Not in the set it was asked about — a category deleted a moment ago, or one
+  // still being typed into existence. Its own hash is the best there is.
+  return lastColours.get(item.id) ?? colorFor(item.id);
+}
