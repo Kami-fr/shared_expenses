@@ -1,9 +1,8 @@
 import { LitElement, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
-import "./se-icon";
-import { renderAvatar } from "./avatar";
-import { colorFor, formatDayDate, formatMoney } from "../services/format";
+import { expenseRowStyles, renderExpenseRow } from "./expense-row";
+import { colorFor } from "../services/format";
 import type { Localizer } from "../services/localize";
 import { sharedStyles } from "../styles/shared";
 import type { Category, Expense, Member } from "../types";
@@ -45,6 +44,7 @@ export class SeExpensePicker extends LitElement {
 
   public static styles = [
     sharedStyles,
+    expenseRowStyles,
     css`
       :host {
         display: block;
@@ -99,11 +99,8 @@ export class SeExpensePicker extends LitElement {
         box-shadow: 0 6px 16px rgba(0, 0, 0, 0.24);
       }
 
-      /* The group page's own row, at the size a dropdown can carry. */
+      /* The frame around the row: a button with the payer's colour down it. */
       .row {
-        display: flex;
-        align-items: center;
-        gap: 10px;
         width: 100%;
         box-sizing: border-box;
         background: none;
@@ -111,8 +108,6 @@ export class SeExpensePicker extends LitElement {
         border-left: 3px solid transparent;
         color: inherit;
         font-family: inherit;
-        font-size: 14px;
-        text-align: left;
         padding: 8px 10px;
         cursor: pointer;
       }
@@ -124,68 +119,6 @@ export class SeExpensePicker extends LitElement {
       .row:hover,
       .row.chosen {
         background: var(--secondary-background-color, #f1f1f1);
-      }
-
-      /* The pair the group page draws: a face, with what it was on its corner. */
-      .face {
-        position: relative;
-        flex: 0 0 auto;
-        line-height: 0;
-      }
-
-      .face .avatar {
-        width: 28px;
-        height: 28px;
-        font-size: 11px;
-      }
-
-      .face .pip {
-        position: absolute;
-        right: -4px;
-        bottom: -4px;
-        border-radius: 50%;
-        border: 2px solid var(--card-background-color, #fff);
-      }
-
-      /* Two lines, so the shop and the day never fight for the same one. */
-      .info {
-        flex: 1;
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-      }
-
-      /* What it was, carrying the line, exactly as on the group page. */
-      .what {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .when {
-        font-size: 12px;
-        color: var(--secondary-text-color);
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      /*
-       * What somebody wrote about it, in the group page's own note: smaller and
-       * quieter than the shop it follows, so the two are told apart without
-       * either being decorated. Copied down to the 6px, since a picker that
-       * styled the same fact differently would read as a different fact.
-       */
-      .note {
-        font-size: 12px;
-        font-weight: 400;
-        color: var(--secondary-text-color);
-        margin-left: 6px;
-      }
-
-      .figure {
-        flex: 0 0 auto;
-        font-variant-numeric: tabular-nums;
       }
 
       .none {
@@ -201,13 +134,13 @@ export class SeExpensePicker extends LitElement {
       ${this.label ? html`<label>${this.label}</label>` : nothing}
 
       <button
-        class="field"
+        class="field expense-row"
         aria-haspopup="listbox"
         aria-expanded=${this.open ? "true" : "false"}
         @click=${() => (this.open = !this.open)}
       >
         ${chosen
-          ? this.renderExpense(chosen)
+          ? renderExpenseRow(chosen, this)
           : html`<span class="none">${this.placeholder}</span>`}
       </button>
 
@@ -220,65 +153,19 @@ export class SeExpensePicker extends LitElement {
               ${this.expenses.map(
                 (expense) => html`
                   <button
-                    class=${`row ${expense.id === this.value ? "chosen" : ""}`}
+                    class=${`row expense-row ${expense.id === this.value ? "chosen" : ""}`}
                     role="option"
                     aria-selected=${expense.id === this.value ? "true" : "false"}
                     style=${`border-left-color:${this.colourOf(expense)}`}
                     @click=${() => this.choose(expense.id)}
                   >
-                    ${this.renderExpense(expense)}
+                    ${renderExpenseRow(expense, this)}
                   </button>
                 `,
               )}
             </div>
           `
         : nothing}
-    `;
-  }
-
-  /** One purchase, as the group page draws it. */
-  private renderExpense(expense: Expense) {
-    const payer = this.members.find(
-      (member) => member.id === expense.paid_by_member_id,
-    );
-    const category = this.categories.find((item) => item.id === expense.category_id);
-
-    return html`
-      <span class="face">
-        ${renderAvatar(payer, payer?.name ?? "?", expense.paid_by_member_id)}
-        ${category
-          ? html`<se-icon
-              class="pip"
-              aria-hidden="true"
-              .icon=${category.icon}
-              .fallback=${category.name.charAt(0).toUpperCase()}
-              .color=${category.color ?? colorFor(category.id)}
-              .size=${14}
-              .glyph=${0.82}
-            ></se-icon>`
-          : nothing}
-      </span>
-      <!--
-        The shop, then what was written about it, then the day — the group page's
-        own order, and kept deliberately. A picker that reordered the same facts
-        would make somebody read a row twice: once to find it, once to be sure it
-        is the one they just scrolled past.
-
-        The description is here because the group page shows it too, and because
-        two visits to the same shop in one week are told apart by nothing else.
-      -->
-      <span class="info">
-        <span class="what">
-          ${expense.title}
-          ${expense.description
-            ? html`<span class="note">${expense.description}</span>`
-            : nothing}
-        </span>
-        <span class="when">${formatDayDate(expense.expense_date, this.language)}</span>
-      </span>
-      <span class="figure">
-        ${formatMoney(expense.amount, expense.currency, this.language)}
-      </span>
     `;
   }
 

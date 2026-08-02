@@ -1,5 +1,6 @@
 import { LitElement, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import { keyed } from "lit/directives/keyed.js";
 
 import { renderAvatar } from "../components/avatar";
 import { withAvatars } from "../services/avatar";
@@ -1246,23 +1247,32 @@ export class SeGroupPage extends LitElement {
     }
 
     if (this.dialog === "expense") {
-      return html`
-        <se-expense-dialog
-          .api=${this.api}
-          .localize=${this.localize}
-          .group=${this.group}
-          .members=${this.membersFor(this.editedExpense)}
-          .categories=${this.categories}
-          .expense=${this.editedExpense}
-          .expenses=${this.expenses}
-          .refunds=${this.refundsOf(this.editedExpense)}
-          .meId=${this.meId()}
-          .language=${this.language}
-          @dialog-cancelled=${this.closeDialog}
-          @expense-saved=${this.handleChanged}
-          @expense-deleted=${this.handleChanged}
-        ></se-expense-dialog>
-      `;
+      // Keyed on the expense, because a refund opens the purchase it answers
+      // without the dialog ever closing: one element left standing would keep
+      // the expense it first loaded, having read it in connectedCallback and
+      // never again. The same reuse that made the group switcher do nothing.
+      return keyed(
+        this.editedExpense?.id ?? "new",
+        html`
+          <se-expense-dialog
+            .api=${this.api}
+            .localize=${this.localize}
+            .group=${this.group}
+            .members=${this.membersFor(this.editedExpense)}
+            .categories=${this.categories}
+            .expense=${this.editedExpense}
+            .expenses=${this.expenses}
+            .refunds=${this.refundsOf(this.editedExpense)}
+            .openable=${this.openableExpenses()}
+            .meId=${this.meId()}
+            .language=${this.language}
+            @dialog-cancelled=${this.closeDialog}
+            @expense-saved=${this.handleChanged}
+            @expense-deleted=${this.handleChanged}
+            @open-expense=${this.openRelated}
+          ></se-expense-dialog>
+        `,
+      );
     }
 
     if (this.dialog === "payment") {
@@ -1446,6 +1456,21 @@ export class SeGroupPage extends LitElement {
     }
 
     return this.expenses.filter((item) => item.refund_of === expense.id);
+  }
+
+  /**
+   * Which expenses may be opened rather than only read, by id.
+   *
+   * For every expense of the group and not for the one on screen: the expense
+   * dialog offers a way through to the purchase a refund answers, and which
+   * purchase that is gets chosen in the dialog, where this page cannot see it.
+   * The rule stays here — it takes the group's permissions and your role, and a
+   * second copy of it would be a second thing to keep in step.
+   */
+  private openableExpenses(): string[] {
+    return this.expenses
+      .filter((expense) => this.mayEdit(expense))
+      .map((expense) => expense.id);
   }
 
   /**
@@ -1743,6 +1768,23 @@ export class SeGroupPage extends LitElement {
 
     if (payment) {
       this.openPayment(undefined, payment);
+    }
+  };
+
+  /**
+   * Jump from an expense to another it points at: a refund to its purchase.
+   *
+   * The same move the journal makes, and the same reasons — one dialog at a
+   * time, and one step on the history stack for the whole chain, since `show`
+   * pushes nothing while a dialog is already open. Checked again here rather
+   * than trusted: the dialog was handed what may be opened, and this is where
+   * that is decided.
+   */
+  private openRelated = (event: CustomEvent) => {
+    const expense = this.expenses.find((item) => item.id === event.detail.expenseId);
+
+    if (expense && this.mayEdit(expense)) {
+      this.openExpense(expense);
     }
   };
 

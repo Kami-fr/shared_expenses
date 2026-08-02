@@ -10,11 +10,11 @@ import "../components/se-entity-history";
 import "../components/se-field";
 import "../components/se-select";
 import "../components/se-split-rule-editor";
+import { expenseRowStyles, renderExpenseRow } from "../components/expense-row";
 import type { CreateExpenseInput, SharedExpensesApi } from "../services/api";
 import {
   centsToInput,
   dateToIso,
-  formatDayDate,
   formatMoney,
   isoToDateInput,
   parseMoney,
@@ -27,9 +27,38 @@ import { sharedStyles } from "../styles/shared";
 import type { Category, Expense, Group, Member, SplitRule } from "../types";
 
 /**
+ * Whether two sets of shares put the same figures on the same people.
+ *
+ * Nobody's share is zero on either side: the resolver leaves out whoever takes
+ * nothing, so a member absent from one and down for nothing in the other are
+ * saying the same thing. Shares that could not be resolved at all count as
+ * different from anything, including from each other — there is nothing there
+ * to call the same.
+ */
+function sameShares(
+  left: Record<string, number> | null,
+  right: Record<string, number> | null,
+): boolean {
+  if (left === null || right === null) {
+    return false;
+  }
+
+  const held = (shares: Record<string, number>) =>
+    Object.entries(shares).filter(([, amount]) => amount !== 0);
+
+  const ours = held(left);
+
+  return (
+    ours.length === held(right).length &&
+    ours.every(([memberId, amount]) => right[memberId] === amount)
+  );
+}
+
+/**
  * Dialog creating or editing an expense.
  *
- * Fires `expense-saved` on success and `expense-deleted` after a deletion.
+ * Fires `expense-saved` on success and `expense-deleted` after a deletion, and
+ * `open-expense` when the reader asks for the purchase a refund answers.
  */
 @customElement("se-expense-dialog")
 export class SeExpenseDialog extends LitElement {
@@ -62,6 +91,17 @@ export class SeExpenseDialog extends LitElement {
    * its own.
    */
   @property({ attribute: false }) public refunds: Expense[] = [];
+
+  /**
+   * Which expenses this reader may open, by id.
+   *
+   * Whether an entry may be opened is the page's rule and stays there — it
+   * takes the group's permissions and your role, neither of which this dialog
+   * has any business knowing. The answer comes for every expense of the group
+   * rather than for one, because the purchase a refund names is chosen here and
+   * the page cannot know in advance which it will be.
+   */
+  @property({ attribute: false }) public openable: string[] = [];
 
   /** Which member you are, to fill in who paid. Null: nobody in this group. */
   @property({ type: String }) public meId: string | null = null;
@@ -98,6 +138,30 @@ export class SeExpenseDialog extends LitElement {
   /** Whether the refunds of this purchase are unfolded. Closed, as history is. */
   @state() private showRefunds = false;
 
+  /**
+   * The expense a jump is armed on, once asked for and not yet confirmed.
+   *
+   * Held as the id rather than as a flag, so arming a jump and then asking for
+   * a different one re-arms rather than going straight there.
+   */
+  @state() private leavingTo?: string;
+
+  /**
+   * Whether the reader has changed anything that leaving would throw away.
+   *
+   * Set by the gestures themselves rather than worked out by comparing the form
+   * against what is stored, which was tried and is wrong twice over: the
+   * currency field hands back a rate the moment it mounts, and an expense saved
+   * before the odd cents were made to rotate re-resolves a cent away from its
+   * own stored shares. Both would have armed the warning on a dialog nobody had
+   * touched — and a warning that cries wolf is one nobody reads.
+   *
+   * The two things that speak for themselves are handled where they arrive: a
+   * rate only counts when it actually moves, and a rule only when the shares it
+   * comes out as move.
+   */
+  @state() private touched = false;
+
   @state() private busy = false;
 
   @state() private error?: string;
@@ -118,6 +182,7 @@ export class SeExpenseDialog extends LitElement {
 
   public static styles = [
     sharedStyles,
+    expenseRowStyles,
     css`
       .split-head {
         display: flex;
@@ -162,6 +227,58 @@ export class SeExpenseDialog extends LitElement {
         align-items: center;
         justify-content: space-between;
         gap: 8px;
+      }
+
+      /*
+       * The frame a refund's row sits in here. The picker's is a button with
+       * the payer's colour down its side, because there it is a choice; this
+       * one is a line, held apart from its neighbours the way the picker's list
+       * holds its own.
+       */
+      .refund {
+        padding: 8px 0;
+      }
+
+      .refund + .refund {
+        border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+      }
+
+      /* A line that leads somewhere, dressed as the journal dresses its own. */
+      .refund-button {
+        width: 100%;
+        border: none;
+        background: none;
+        color: inherit;
+        cursor: pointer;
+      }
+
+      .refund-button:hover {
+        background: var(--secondary-background-color, #f6f6f6);
+      }
+
+      /*
+       * Armed, and wearing the colour of the banner that has just appeared over
+       * the dialog. The delete says what it is about to do by changing the word
+       * on its button; a row has no word of its own to change — every part of it
+       * is a fact about the refund — so it says it in the one way left, and says
+       * it in the same colour as the sentence asking about it.
+       */
+      .refund-button.arming {
+        color: var(--error-color, #db4437);
+      }
+
+      .chevron {
+        flex: 0 0 auto;
+        color: var(--secondary-text-color);
+      }
+
+      /*
+       * The way to the purchase, under the field that names it. On its own
+       * line, as "+ add a description" is: a link tucked against the side of a
+       * field reads as part of the control rather than as somewhere to go.
+       */
+      .jump {
+        margin-top: 6px;
       }
     `,
   ];
@@ -259,6 +376,14 @@ export class SeExpenseDialog extends LitElement {
    * is checked against.
    */
   private resolved(amount: number | null): Record<string, number> | null {
+    return this.resolvedWith(this.rule ?? this.defaultRule(), amount);
+  }
+
+  /** The same, on a rule that is not this dialog's yet. */
+  private resolvedWith(
+    rule: SplitRule,
+    amount: number | null,
+  ): Record<string, number> | null {
     if (amount === null || !this.paidBy || this.members.length === 0) {
       return null;
     }
@@ -267,7 +392,7 @@ export class SeExpenseDialog extends LitElement {
       amount,
       payerId: this.paidBy,
       memberIds: this.members.map((member) => member.id),
-      rule: this.rule ?? this.defaultRule(),
+      rule,
     });
   }
 
@@ -291,7 +416,8 @@ export class SeExpenseDialog extends LitElement {
             .value=${this.expenseTitle}
             required
             placeholder=${refund ? "Retour Decathlon" : "Courses Carrefour"}
-            @value-changed=${(e: CustomEvent) => (this.expenseTitle = e.detail.value)}
+            @value-changed=${(e: CustomEvent) =>
+              this.typed("expenseTitle", e.detail.value)}
           ></se-field>
 
           <div class="pair">
@@ -330,7 +456,7 @@ export class SeExpenseDialog extends LitElement {
               .label=${translate("date")}
               type="date"
               .value=${this.date}
-              @value-changed=${(e: CustomEvent) => (this.date = e.detail.value)}
+              @value-changed=${(e: CustomEvent) => this.typed("date", e.detail.value)}
             ></se-field>
           </div>
 
@@ -340,7 +466,7 @@ export class SeExpenseDialog extends LitElement {
               .label=${translate(refund ? "refunded_to" : "paid_by")}
               .value=${this.paidBy}
               .options=${this.members.map((m) => ({ value: m.id, label: m.name }))}
-              @value-changed=${(e: CustomEvent) => (this.paidBy = e.detail.value)}
+              @value-changed=${(e: CustomEvent) => this.typed("paidBy", e.detail.value)}
             ></se-select>
 
             <se-select
@@ -373,7 +499,7 @@ export class SeExpenseDialog extends LitElement {
                   .value=${this.description}
                   placeholder=${translate("description_placeholder")}
                   @value-changed=${(e: CustomEvent) =>
-                    (this.description = e.detail.value)}
+                    this.typed("description", e.detail.value)}
                 ></se-field>
               `
             : html`
@@ -396,19 +522,22 @@ export class SeExpenseDialog extends LitElement {
           -->
           ${amount !== null && amount < 0
             ? html`
-                <se-expense-picker
-                  .localize=${this.localize}
-                  .label=${translate("refund_of")}
-                  .placeholder=${translate("refund_of_nothing")}
-                  .value=${this.refundOf}
-                  .expenses=${this.expenses.filter(
-                    (item) => item.amount > 0 && item.id !== this.expense?.id,
-                  )}
-                  .members=${this.members}
-                  .categories=${this.categories}
-                  .language=${this.language}
-                  @value-changed=${this.pickRefundOf}
-                ></se-expense-picker>
+                <div>
+                  <se-expense-picker
+                    .localize=${this.localize}
+                    .label=${translate("refund_of")}
+                    .placeholder=${translate("refund_of_nothing")}
+                    .value=${this.refundOf}
+                    .expenses=${this.expenses.filter(
+                      (item) => item.amount > 0 && item.id !== this.expense?.id,
+                    )}
+                    .members=${this.members}
+                    .categories=${this.categories}
+                    .language=${this.language}
+                    @value-changed=${this.pickRefundOf}
+                  ></se-expense-picker>
+                  ${this.renderJump()}
+                </div>
               `
             : nothing}
 
@@ -448,20 +577,16 @@ export class SeExpenseDialog extends LitElement {
                     </button>
                   </div>
 
+                  <!--
+                    The same row the picker offers and the group page lists,
+                    rather than a sentence spelling the same three facts out in
+                    grey. A refund is recognised by the face that took the money
+                    back and the mark of what it was, and it was recognisable
+                    everywhere but here — the one place it is read beside the
+                    purchase it answers.
+                  -->
                   ${this.showRefunds
-                    ? this.refunds.map(
-                        (refund) => html`
-                          <div class="muted">
-                            ${formatDayDate(refund.expense_date, this.language)} ·
-                            ${refund.title} ·
-                            ${formatMoney(
-                              Math.abs(refund.amount),
-                              refund.currency,
-                              this.language,
-                            )}
-                          </div>
-                        `,
-                      )
+                    ? this.refunds.map((item) => this.renderRefund(item))
                     : nothing}
                 </div>
               `
@@ -488,6 +613,14 @@ export class SeExpenseDialog extends LitElement {
         ${this.confirmingDelete
           ? html`<div slot="banner" class="warning">
               ${translate(refund ? "confirm_delete_refund" : "confirm_delete_expense")}
+            </div>`
+          : nothing}
+
+        <!-- Only while what was armed is still somewhere on screen. -->
+        ${this.leavingTo !== undefined &&
+        this.visibleTargets(refund).includes(this.leavingTo)
+          ? html`<div slot="banner" class="warning">
+              ${translate("confirm_leave_expense")}
             </div>`
           : nothing}
 
@@ -615,14 +748,24 @@ export class SeExpenseDialog extends LitElement {
           .language=${this.language}
           .amount=${amount}
           .payerId=${this.paidBy}
-          @rule-changed=${(e: CustomEvent) => (this.rule = e.detail.rule)}
+          @rule-changed=${this.takeRule}
         ></se-split-rule-editor>
       `,
     );
   }
 
+  /** Take what somebody typed into a field, and remember that they typed it. */
+  private typed(
+    field: "expenseTitle" | "description" | "date" | "paidBy",
+    value: string,
+  ): void {
+    this[field] = value;
+    this.touched = true;
+  }
+
   private pickCategory = (event: CustomEvent) => {
     this.categoryId = event.detail.value;
+    this.touched = true;
 
     // Let the new category's rule take over: the editor is rebuilt from it.
     this.rule = null;
@@ -646,6 +789,7 @@ export class SeExpenseDialog extends LitElement {
   private pickCurrency = (event: Event) => {
     this.currency = (event.target as HTMLSelectElement).value;
     this.rate = this.currency === this.group.currency ? RATE_ONE : null;
+    this.touched = true;
   };
 
   /**
@@ -678,8 +822,22 @@ export class SeExpenseDialog extends LitElement {
     return this.resolved(amount) !== null;
   }
 
-  /** The currency field settled on something, or on nothing. */
+  /**
+   * The currency field settled on something, or on nothing.
+   *
+   * It says so the moment it mounts, before anybody has touched anything —
+   * taking up a stored rate and announcing what it comes to. So this counts as
+   * an edit only when the figure actually moves: a rate that arrives equal to
+   * the one already held is the field reporting, not somebody typing.
+   */
   private handleRate = (event: CustomEvent) => {
+    if (
+      event.detail.currency !== this.currency ||
+      event.detail.rate !== this.rate
+    ) {
+      this.touched = true;
+    }
+
     this.currency = event.detail.currency;
     this.rate = event.detail.rate;
   };
@@ -694,12 +852,18 @@ export class SeExpenseDialog extends LitElement {
    */
   private setAmount = (event: CustomEvent) => {
     this.amountInput = event.detail.value;
+    this.touched = true;
     this.applyRefundSplit();
   };
 
   /** Take a purchase to give money back on, and open on the way it was borne. */
   private pickRefundOf = (event: CustomEvent) => {
     this.refundOf = event.detail.value;
+    this.touched = true;
+
+    // Whatever was armed was armed on the purchase that has just been replaced,
+    // and picking one is itself an edit — so the question has to be put again.
+    this.leavingTo = undefined;
 
     const purchase = this.expenses.find((item) => item.id === this.refundOf);
 
@@ -862,6 +1026,141 @@ export class SeExpenseDialog extends LitElement {
     };
   }
 
+  /**
+   * The way through to the purchase this refund gives money back on.
+   *
+   * The refund has named it and shown it since the picker arrived, and there
+   * was no way to go and read it — the one thing somebody looking at a refund
+   * of 15,00 wants next is what the 60,00 was.
+   *
+   * Only when there is somewhere to go: a purchase since deleted, or one this
+   * reader may not open, gets no link at all. A link that does nothing is worse
+   * than a line of plain text, which is what the journal decided too.
+   */
+  private renderJump() {
+    if (!this.mayOpen(this.refundOf)) {
+      return nothing;
+    }
+
+    const armed = this.leavingTo === this.refundOf;
+
+    return html`
+      <button class="link jump" @click=${() => this.jumpTo(this.refundOf)}>
+        ${this.localize(armed ? "confirm_leave" : "open_purchase")}
+      </button>
+    `;
+  }
+
+  /**
+   * One refund of this purchase, and the way through to it.
+   *
+   * The other end of the same journey: a purchase says what has come back on
+   * it, and "which one was that" is the question the section raises by
+   * answering the first one. A button only when there is somewhere to go, and
+   * a chevron to say so — the journal's rule, and the journal's mark for it.
+   */
+  private renderRefund(refund: Expense) {
+    const row = renderExpenseRow(refund, this);
+
+    if (!this.mayOpen(refund.id)) {
+      return html`<div class="refund expense-row">${row}</div>`;
+    }
+
+    const armed = this.leavingTo === refund.id;
+
+    return html`
+      <button
+        class=${`refund refund-button expense-row ${armed ? "arming" : ""}`}
+        @click=${() => this.jumpTo(refund.id)}
+      >
+        ${row}
+        <span class="chevron" aria-hidden="true">›</span>
+      </button>
+    `;
+  }
+
+  /** Whether an expense is there to be opened, and this reader's to open. */
+  private mayOpen(expenseId: string): boolean {
+    return expenseId !== "" && this.openable.includes(expenseId);
+  }
+
+  /**
+   * The jumps that can be asked for from where the dialog currently stands.
+   *
+   * What is armed has to still be on screen. Picking another purchase, turning
+   * the amount back round, or folding the refunds away all leave a warning
+   * standing over a question nobody is being asked any more.
+   */
+  private visibleTargets(isRefund: boolean): string[] {
+    const targets = isRefund ? [this.refundOf] : [];
+
+    if (this.showRefunds) {
+      targets.push(...this.refunds.map((refund) => refund.id));
+    }
+
+    return targets.filter((id) => this.mayOpen(id));
+  }
+
+  /**
+   * Open another expense, closing this one on the way.
+   *
+   * Dialog to dialog, as the journal already goes: two stacked would leave no
+   * way back that is not a guess, and the purchase you asked for is inside the
+   * one opening.
+   *
+   * Asked about first when there is something to lose. Leaving by Cancel or by
+   * the phone's back button drops what was typed and always has — but those say
+   * "leave" and this says "open that one", and somebody who has just corrected
+   * an amount is not asking for it to be thrown away. Armed once, in place, the
+   * way a deletion is.
+   */
+  private jumpTo(expenseId: string) {
+    if (this.leavingTo !== expenseId && this.touched) {
+      this.leavingTo = expenseId;
+
+      // One question at a time. Both are armed in place and both speak in the
+      // banner, so a delete waiting to be confirmed and a jump waiting to be
+      // confirmed would stack two warnings over one dialog.
+      this.confirmingDelete = false;
+
+      return;
+    }
+
+    this.dispatchEvent(
+      new CustomEvent("open-expense", {
+        detail: { expenseId },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
+  /**
+   * Take the split the editor reports, and notice whether it is news.
+   *
+   * The editor announces its rule from `firstUpdated`, before anybody has
+   * touched anything, and again whenever the payer moves — so taking every
+   * `rule-changed` as an edit would arm the warning on a dialog nobody has
+   * typed into. What it announces is compared by the shares it comes out as:
+   * the same cents on the same people is not a change anybody made, whatever
+   * shape the rule has been rewritten into on the way.
+   */
+  private takeRule = (event: CustomEvent) => {
+    const rule = event.detail.rule as SplitRule | null;
+    const amount = parseMoney(this.amountInput);
+
+    if (
+      !sameShares(
+        this.resolvedWith(rule ?? this.defaultRule(), amount),
+        this.resolved(amount),
+      )
+    ) {
+      this.touched = true;
+    }
+
+    this.rule = rule;
+  };
+
   private cancel = () => {
     this.dispatchEvent(
       new CustomEvent("dialog-cancelled", { bubbles: true, composed: true }),
@@ -944,6 +1243,7 @@ export class SeExpenseDialog extends LitElement {
     // Deleting an expense cannot be undone: ask once, in place.
     if (!this.confirmingDelete) {
       this.confirmingDelete = true;
+      this.leavingTo = undefined;
       return;
     }
 
