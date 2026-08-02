@@ -7,6 +7,7 @@ import "../components/se-dialog";
 import "../components/se-entity-history";
 import "../components/se-expense-picker";
 import "../components/se-field";
+import "../components/se-segmented";
 import "../components/se-select";
 import type { CreatePaymentInput, SharedExpensesApi } from "../services/api";
 import { CURRENCIES, RATE_ONE } from "../services/currency";
@@ -184,7 +185,7 @@ export class SePaymentDialog extends LitElement {
         <div class="stack">
           ${this.error ? html`<div class="error">${this.error}</div>` : nothing}
 
-          <se-select
+          <se-segmented
             .label=${translate("kind_label")}
             .value=${this.kind}
             .options=${[
@@ -192,7 +193,7 @@ export class SePaymentDialog extends LitElement {
               { value: "debt", label: translate("kind_debt") },
             ]}
             @value-changed=${this.pickKind}
-          ></se-select>
+          ></se-segmented>
 
           <!--
             The two halves of one sentence, so they sit on one line and read as

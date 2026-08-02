@@ -8,6 +8,7 @@ import "../components/se-dialog";
 import "../components/se-expense-picker";
 import "../components/se-entity-history";
 import "../components/se-field";
+import "../components/se-segmented";
 import "../components/se-select";
 import "../components/se-split-rule-editor";
 import { expenseRowStyles, renderExpenseRow } from "../components/expense-row";
@@ -451,7 +452,7 @@ export class SeExpenseDialog extends LitElement {
             nothing on screen said so. Typing one still does it; it now moves
             this instead of hiding in the figure.
           -->
-          <se-select
+          <se-segmented
             .label=${translate("kind_label")}
             .value=${this.refunding ? "refund" : "expense"}
             .options=${[
@@ -459,7 +460,7 @@ export class SeExpenseDialog extends LitElement {
               { value: "refund", label: translate("kind_shop_refund") },
             ]}
             @value-changed=${this.pickWay}
-          ></se-select>
+          ></se-segmented>
 
           <se-field
             .label=${translate("expense_title")}
