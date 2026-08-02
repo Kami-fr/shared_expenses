@@ -1223,7 +1223,10 @@ class SharedExpensesManager:
         group = await self._get_active_group(group_id)
 
         if amount == 0:
-            raise InvalidExpenseError("An expense amount cannot be zero.")
+            raise InvalidExpenseError(
+                "An expense amount cannot be zero.",
+                code="expense_amount_zero",
+            )
 
         await self.get_member(paid_by_member_id)
 
@@ -1320,22 +1323,28 @@ class SharedExpensesManager:
 
         if converted >= 0:
             raise InvalidExpenseError(
-                "Only a refund can give money back on another expense."
+                "Only a refund can give money back on another expense.",
+                code="refund_only",
             )
 
         purchase = await self.get_expense(refund_of)
 
         if purchase.group_id != group_id:
             raise InvalidExpenseError(
-                "An expense of another project cannot be refunded here."
+                "An expense of another project cannot be refunded here.",
+                code="refund_other_project",
             )
 
         if purchase.amount < 0:
-            raise InvalidExpenseError("A refund cannot give money back on a refund.")
+            raise InvalidExpenseError(
+                "A refund cannot give money back on a refund.",
+                code="refund_of_refund",
+            )
 
         if -converted > purchase.converted_amount:
             raise InvalidExpenseError(
-                "A refund cannot give back more than the expense it is refunding."
+                "A refund cannot give back more than the expense it is refunding.",
+                code="refund_exceeds_expense",
             )
 
         return refund_of
@@ -1394,7 +1403,10 @@ class SharedExpensesManager:
         group = await self.get_group(expense.group_id)
 
         if expense.amount == 0:
-            raise InvalidExpenseError("An expense amount cannot be zero.")
+            raise InvalidExpenseError(
+                "An expense amount cannot be zero.",
+                code="expense_amount_zero",
+            )
 
         await self.get_member(expense.paid_by_member_id)
 
@@ -2208,10 +2220,16 @@ def _validate_payment(
     """Check the invariants of a payment."""
 
     if amount <= 0:
-        raise InvalidPaymentError("A payment amount must be positive.")
+        raise InvalidPaymentError(
+            "A payment amount must be positive.",
+            code="payment_amount_positive",
+        )
 
     if from_member_id == to_member_id:
-        raise InvalidPaymentError("A member cannot pay themselves.")
+        raise InvalidPaymentError(
+            "A member cannot pay themselves.",
+            code="payment_to_self",
+        )
 
 
 def _explicit_amounts(shares: Sequence[ExpenseShare], amount: int) -> dict[str, int]:
@@ -2228,16 +2246,28 @@ def _explicit_amounts(shares: Sequence[ExpenseShare], amount: int) -> dict[str, 
         amounts[share.member_id] = amounts.get(share.member_id, 0) + share.amount
 
     if not amounts:
-        raise InvalidExpenseSharesError("An expense needs at least one share.")
+        raise InvalidExpenseSharesError(
+            "An expense needs at least one share.",
+            code="shares_none",
+        )
 
     if amount > 0 and any(value < 0 for value in amounts.values()):
-        raise InvalidExpenseSharesError("A share cannot be negative.")
+        raise InvalidExpenseSharesError(
+            "A share cannot be negative.",
+            code="share_negative",
+        )
 
     if amount < 0 and any(value > 0 for value in amounts.values()):
-        raise InvalidExpenseSharesError("A share of a refund cannot be positive.")
+        raise InvalidExpenseSharesError(
+            "A share of a refund cannot be positive.",
+            code="refund_share_positive",
+        )
 
     if sum(amounts.values()) != amount:
-        raise InvalidExpenseSharesError("Shares do not add up to the expense amount.")
+        raise InvalidExpenseSharesError(
+            "Shares do not add up to the expense amount.",
+            code="shares_do_not_add_up",
+        )
 
     return {member_id: value for member_id, value in amounts.items() if value != 0}
 

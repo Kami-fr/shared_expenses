@@ -298,6 +298,11 @@ async def _require(
 def error_code(err: SharedExpensesError) -> str:
     """Return the frontend error code of a business error."""
 
+    # The reason the raise gave, when it gave one: it says why, where the class
+    # says only what kind. See `SharedExpensesError.code`.
+    if err.code is not None:
+        return err.code
+
     for error_type, code in ERROR_CODES.items():
         if type(err) is error_type:
             return code

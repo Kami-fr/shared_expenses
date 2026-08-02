@@ -4,7 +4,32 @@ from __future__ import annotations
 
 
 class SharedExpensesError(Exception):
-    """Base exception."""
+    """Base exception.
+
+    `code` says *why*, where the class says only what kind of thing went wrong.
+    `InvalidExpenseError` is raised ten times over for ten different reasons, and
+    the panel translates the class — so every one of them reached a reader as
+    "this expense is invalid", while the sentence that would have told them
+    something sat unused in the raise.
+
+    Set it and the panel gets that reason instead, as a key it can translate. A
+    reason with no translation yet is not a step backwards: the panel falls
+    through to the message, so an untranslated cause reads as its English
+    sentence rather than as the generic line it reads as today.
+
+    Left unset, everything behaves exactly as before — the class table in
+    `websocket/api.py` answers, and no existing raise has to change.
+    """
+
+    code: str | None = None
+
+    def __init__(self, *args: object, code: str | None = None) -> None:
+        """Raise with an optional reason, finer than the class."""
+
+        super().__init__(*args)
+
+        if code is not None:
+            self.code = code
 
 
 #
