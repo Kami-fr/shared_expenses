@@ -557,6 +557,117 @@ be wrong for that, and they were.
       key fails here instead of in front of a reader. Through the tree rather than
       a regex, because `frankfurter.py` names its two in module constants.
 
+## Sprint 24 — One entry names another
+
+An expense, a refund and a handover are three ways of writing down one
+afternoon, and each of them knew about the others without being a way to them.
+
+- [x] A refund and its purchase open each other. The refund has named its
+      purchase since Sprint 21 and the purchase has listed what came back on it,
+      each showing the other and neither being a door. What somebody looking at
+      15,00 given back wants next is what the 60,00 was, and it was a dialog
+      away in every direction but the one they were facing.
+- [x] The move the journal already makes: one dialog at a time, closing on the
+      way, because two stacked leave no way back that is not a guess. One step
+      on the history stack for the whole chain, since `show` pushes nothing
+      while a dialog is already open.
+- [x] The expense dialog is `keyed` on the expense. Jumping expense to expense
+      leaves the page on the same dialog, so Lit reused the element and it went
+      on showing what it had read in `connectedCallback` — the group-switcher
+      bug of Sprint 18, in a second place.
+- [x] Leaving is asked about when there is something to lose. Cancel and the
+      phone's back button drop what was typed and always have, but those say
+      "leave" and a link says "open that one". Armed once, in place, the way a
+      deletion is. What counts as something to lose is what somebody did, not
+      what the form holds: comparing the form against what is stored reads
+      better and cries wolf, since the currency field hands back a rate from its
+      first update and an expense saved before `9a35dc2` re-resolves a cent away
+      from its own stored shares.
+- [x] Whether an entry may be opened stays the page's rule, since it takes the
+      group's permissions and the reader's role. It arrives as the ids of every
+      expense that may be opened rather than an answer about one, because the
+      purchase a refund names is chosen in the dialog. No link where there is
+      nowhere to go: a link that does nothing is worse than plain text.
+- [x] The row a picker offers, a purchase's refunds and the group page's list
+      are one row, in `components/expense-row.ts` — a plain function and a block
+      of CSS, the shape `renderAvatar` has, so each host frames it itself. It
+      was already written twice and this was the third place asking.
+- [x] **A payment can name the expense it is about** (v16). "Antonin gives me
+      20,00 for the shopping on the 3rd" is a sentence with an expense in it,
+      and money moving between two members is a payment, never an expense — so
+      the link a refund gained did nothing for the commonest handover there is.
+- [x] That column existed once before and saying why it left is the honest way
+      to bring it back. v14 added it, v15 dropped it on the finding that what
+      wanted a link was the shop's refund. That finding was right; it answered
+      where the link belonged and mistook that for whether this one belonged
+      too. The difference is that this one is read — and there is a test that
+      reads it back.
+- [x] The expense side says nothing in return, by decision, so there is no index
+      where v14 had one: an index answers "which payments name this expense",
+      and nothing asks. Every expense of the group is offered, refunds included,
+      because a payment is not a share of what it names — one handover settles a
+      month of them, and somebody pays half of what they owe.
+- [x] `payment_state` gains the field, which is not bookkeeping: naming an
+      expense moves no money, so every other field is identical either side of
+      that save, and left out of the state `update_payment` diffs the write
+      would be skipped and the caller told it went fine. That is exactly how the
+      kind was once unsaveable.
+- [x] 14 tests, twelve on the manager and two through the schema — where a field
+      the door does not know dies with "extra keys not allowed". They cover the
+      two silences: a field missing from the state, and a column nobody reads.
+
+## Sprint 25 — What the screen was not saying
+
+Three things this panel knew and did not show.
+
+- [x] **Every category gets a colour of its own.** `colorFor` hashes an id into
+      twelve, which is right for a member — you meet them a few at a time. A
+      group's categories are read as a set, and by the birthday problem twelve
+      of them came out in eight colours, eight in six, six in five. The mark on
+      a row is what tells the bread from the weekly shopping where the row is
+      too narrow to write either.
+- [x] A chosen colour is left as it is and taken off the table first; the rest
+      are dealt in the order they were created — ids are ULIDs, so sorting them
+      is sorting by age — each taking the colour its own hash asks for or the
+      next one free. Dealing by age keeps two promises at once: nearly every
+      category keeps the colour it had, and one added today can never change the
+      colour of one that has been on screen for a year. Past the twelfth there
+      is nothing left to be unique with, and the rest fall back to their hash.
+- [x] The legend under the disc keeps its bars. They were left off on the
+      grounds that a wedge had already said it, and it has not: the disc draws
+      only what came out positive, and writes a share on a wedge only where
+      there is room — so the smallest categories, which are what a ranking is
+      read for, were a colour and a name. Both charts draw the same row against
+      the same longest category now.
+- [x] **Which way an expense goes is asked outright.** A minus in the amount was
+      the whole of how you said a shop had given money back. It worked, and
+      there was no way to find out it worked: nothing on screen said a refund
+      was a thing this panel does. The one figure a reader checks twice was
+      carrying a second meaning on top of its own.
+- [x] The field holds a size now and never a direction; `signedAmount()` is the
+      one place the two are put back together, and the model still stores a
+      refund as one signed figure, which is what lets one resolver serve both.
+      Typing a minus still enters a refund — it moves the selector and leaves
+      the field. Taking the gesture away outright was the one thing not to do:
+      -20 would have become an expense of 20, silently, for exactly the people
+      who knew the trick.
+- [x] The picker for the purchase a refund answers stops waiting for a figure,
+      which turns out to be the better order: name the purchase and its words,
+      its category, its payer and its split come with it, and the amount fills
+      in as the whole of the purchase until somebody types a smaller one.
+- [x] `se-segmented`, and the payment dialog takes it too. A dropdown asks two
+      gestures for a choice between two and shows one of them at a time, and
+      what is asked here is a fork with two named sides. A switch is worse the
+      other way round: off, one of the two natures is never written anywhere.
+      Not an invention — the statistics have drawn their period this way since
+      they were written; this is that control with a label and an API.
+- [x] Measured rather than reasoned about. With no frontend tests, the built
+      bundle was served to a headless browser and the segments measured at 360
+      CSS pixels: "Remboursement d'enseigne" wanted 199 of the 160 it had, and
+      so did Spanish, Italian and Portuguese. Four of the eight would have
+      shipped ellipsed on a control whose whole job is to name both choices.
+      The word alone fits everywhere and loses nothing.
+
 ## Later
 
 - [ ] Weighted splits (by shares, rather than by amount or percentage)
@@ -565,13 +676,26 @@ be wrong for that, and they were.
       holding the actions back for.
 - [ ] Frontend tests. Every bug above that reached a user lived in the panel,
       where neither `tsc` nor the build nor the Python suite can see. Layout,
-      at least, is measurable: Chrome headless against the built bundle catches
-      what the eye does not — that is how the balance card was found spilling
-      its figures on a phone.
-- [ ] A native read of the translations. The error sentences of Sprint 23 were
-      written across eight languages by one non-native hand. FR is the one this
-      household reads and will catch for itself; DE, NL, ES, IT, PL and PT
+      at least, is measurable: a headless browser against the built bundle
+      catches what the eye does not — that is how the balance card was found
+      spilling its figures on a phone, and how four of eight languages were
+      caught shipping an ellipsed segment in Sprint 25. Both times it was a
+      throwaway script. The measurement is ten minutes and the harness is the
+      part nobody has written: serve the bundle over HTTP, since ES modules do
+      not load from `file://`, and read the answer out of the DOM rather than
+      out of a screenshot.
+- [ ] Tests for what is already pure. `autoColors` is a function of a list and
+      nothing else, and it was checked with a script that should have been a
+      test file. `resolveShares` and `apportion` have harnesses; the panel's own
+      helpers have none.
+- [ ] A native read of the translations. Twenty-one keys across eight languages
+      by one non-native hand, the newest being Sprints 24 and 25. FR is the one
+      this household reads and will catch for itself; DE, NL, ES, IT, PL and PT
       deserve a second pair of eyes.
+- [ ] Whether an expense should say which payments were about it. Sprint 24
+      settled that it says nothing, deliberately, and left the index off for the
+      same reason. If it turns out somebody wants "who has paid me back for
+      this", the column is there and the index is one line.
 - [ ] An amount that recurs unchanged still hands its odd cent to the same member.
       Folding the date in would give the daily bread its turn, and would make
       editing a date move a cent — not a trade worth making silently.
