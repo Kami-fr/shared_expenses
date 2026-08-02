@@ -652,27 +652,37 @@ export class SeStatistics extends LitElement {
 
   /** Biggest first, each against the biggest, so the ranking is the shape. */
   private renderBars() {
-    const result = this.result!;
+    const biggest = this.biggestCategory();
 
-    // On size, so a category that came out refunded still draws a bar as long
-    // as what it gave back. The figure beside it carries the minus; a bar of
-    // negative length draws nothing at all, which would read as "no expense".
-    const biggest =
-      Math.max(...result.by_category.map((item) => Math.abs(item.total))) || 1;
+    return html`${this.result!.by_category.map((item) =>
+      this.renderCategoryRow(item, biggest),
+    )}`;
+  }
 
-    return html`${result.by_category.map((item) => this.renderCategoryRow(item, biggest))}`;
+  /**
+   * What every bar is drawn against.
+   *
+   * On size, so a category that came out refunded still draws a bar as long as
+   * what it gave back. The figure beside it carries the minus; a bar of negative
+   * length draws nothing at all, which would read as "no expense".
+   */
+  private biggestCategory(): number {
+    return (
+      Math.max(...this.result!.by_category.map((item) => Math.abs(item.total))) || 1
+    );
   }
 
   /**
    * The same figures as a disc, each category a wedge in its own colour, laid
    * out clockwise from noon and from the biggest, since the list already
    * arrives sorted. Its share is written on it where there is room to write it,
-   * and the rows below stay the legend: a wedge alone says nothing about what
-   * it is.
+   * and the rows below stay the legend, whole: a wedge alone says nothing about
+   * what it is, and the ones too small to carry a figure say least of all.
    */
   private renderPie() {
     const result = this.result!;
     const slices = result.by_category.filter((item) => item.total > 0);
+    const biggest = this.biggestCategory();
 
     // The disc adds up to what it draws, not to what the group spent. Refunds
     // pull the total under the sum of the categories still standing, and the
@@ -710,16 +720,23 @@ export class SeStatistics extends LitElement {
           `;
         })}
       </svg>
-      ${result.by_category.map((item) => this.renderCategoryRow(item, null))}
+      ${result.by_category.map((item) => this.renderCategoryRow(item, biggest))}
     `;
   }
 
   /**
    * One category, the same line under either chart: its mark, its name, what it
-   * cost and what share of everything that is. The bar is drawn only when it is
-   * the chart — under the disc, the wedge has already said it.
+   * cost, its bar, and what share of everything that is.
+   *
+   * The bar stays under the disc, where it used to be left off on the grounds
+   * that the wedge had already said it. It has not: the disc draws only what
+   * came out positive and writes a figure on a wedge only where there is room
+   * for one, so the smallest categories — the ones a ranking is read for — were
+   * a colour and nothing else. And a row that gains and loses a part of itself
+   * depending on the chart above it makes the two lists read as two different
+   * lists, which they are not.
    */
-  private renderCategoryRow(item: CategoryTotal, biggest: number | null) {
+  private renderCategoryRow(item: CategoryTotal, biggest: number) {
     const result = this.result!;
     const category = this.category(item.category_id);
     const colour = this.categoryColour(item.category_id);
@@ -742,13 +759,11 @@ export class SeStatistics extends LitElement {
             <span class="nm">${this.categoryName(item.category_id)}</span>
             <span class="amt">${this.money(item.total)}</span>
           </div>
-          ${biggest === null
-            ? nothing
-            : html`<div class="track">
-                <i
-                  style=${`width:${Math.max(3, (Math.abs(item.total) / biggest) * 100)}%;background:${colour}`}
-                ></i>
-              </div>`}
+          <div class="track">
+            <i
+              style=${`width:${Math.max(3, (Math.abs(item.total) / biggest) * 100)}%;background:${colour}`}
+            ></i>
+          </div>
         </div>
         <!--
           Never below nothing. A category refunded past what it cost comes out
