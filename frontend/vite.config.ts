@@ -2,8 +2,10 @@ import { resolve } from "node:path";
 import { defineConfig } from "vite";
 
 // This project lives outside the integration on purpose: only its output ships.
-// Home Assistant serves the bundle as a single ES module from the `www/` folder
-// of the integration, at /shared_expenses_frontend/index.js.
+// The integration serves the bundle as a single ES module: from its own `www/`
+// at /shared_expenses_frontend/index.js, and from a copy it makes in the
+// configuration's `www/`, at /local/shared_expenses/index.js, which Home
+// Assistant serves before any integration has loaded (ADR-016).
 export default defineConfig({
   build: {
     outDir: resolve(__dirname, "../custom_components/shared_expenses/www"),

@@ -11,7 +11,11 @@ from homeassistant.helpers import device_registry as dr
 from .const import DOMAIN, PLATFORMS
 from .coordinator import SharedExpensesCoordinator
 from .manager import SharedExpensesManager
-from .panel import async_register_panel, async_unregister_panel
+from .panel import (
+    async_register_panel,
+    async_unregister_panel,
+    async_withdraw_bundle,
+)
 from .services import async_setup_services, async_unload_services
 from .storage.database import Database
 from .websocket import async_setup as async_setup_websocket
@@ -121,3 +125,15 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         async_unregister_panel(hass)
 
     return True
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Clean up after the entry is deleted, which an unload is not.
+
+    The bundle copied into `www/` and the Lovelace resource that names it were
+    made for a dashboard opened before this integration loads. Without the
+    integration they would have a dashboard load a card that has nothing to
+    talk to, so they go with it.
+    """
+
+    await async_withdraw_bundle(hass)

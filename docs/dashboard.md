@@ -38,6 +38,16 @@ Add or edit the card from the dashboard's own UI and a group picker fills the
 `group_id` in for you — it lists only the groups you belong to. To write it by
 hand, see **Where the ids come from** below.
 
+**Nothing to install for it.** The integration copies its bundle to
+`www/shared_expenses/index.js` in your configuration and declares it as a
+dashboard resource, so a dashboard opened while Home Assistant is still
+starting — after an update, say — finds the card rather than a red "Custom
+element doesn't exist". Both appear on their own; if your configuration had no
+`www/` folder before, the second restart is the one that starts serving it.
+Dashboards in **YAML mode** keep their resources in YAML, where only you can
+write: add the line the log prints at startup, as a `module`, and bump its
+`?v=` when you update.
+
 ## Add an expense, from a card or a badge
 
 Two smaller pieces do just one thing — open a new expense in a group. A card,
