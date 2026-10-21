@@ -43,23 +43,18 @@ directory, restart Home Assistant, then add the integration as in step 2.
 
 ## 📸 A look around
 
-<table>
-  <tr>
-    <td align="center" width="33%"><img src="docs/screenshots/01-groups.jpg" alt="The groups you belong to" width="230"><br><sub>🏡 Your groups, one tap in</sub></td>
-    <td align="center" width="33%"><img src="docs/screenshots/02-balances.jpg" alt="Balances and the expense list" width="230"><br><sub>💰 Who owes what, from where you stand</sub></td>
-    <td align="center" width="33%"><img src="docs/screenshots/03-trip-currency.jpg" alt="A trip settled in another currency" width="230"><br><sub>✈️ Two of you, in a currency the group doesn't count in</sub></td>
-  </tr>
-  <tr>
-    <td align="center"><img src="docs/screenshots/04-split-part.jpg" alt="Sharing part of an expense" width="230"><br><sub>✂️ Share part of it, the rest to whoever paid</sub></td>
-    <td align="center"><img src="docs/screenshots/05-edit-currency.jpg" alt="Editing a foreign-currency expense" width="230"><br><sub>🧊 The rate, frozen the day it was owed</sub></td>
-    <td align="center"><img src="docs/screenshots/06-statistics.jpg" alt="Statistics" width="230"><br><sub>📊 Where the money went</sub></td>
-  </tr>
-  <tr>
-    <td align="center"><img src="docs/screenshots/07-reimbursement.jpg" alt="Recording a reimbursement" width="230"><br><sub>🤝 Record money paid back</sub></td>
-    <td></td>
-    <td></td>
-  </tr>
-</table>
+<p align="center">
+  <img src="docs/screenshots/01-groups.jpg" width="176" alt="Your groups, one tap in" title="Your groups, one tap in">&nbsp;
+  <img src="docs/screenshots/02-balances.jpg" width="176" alt="Who owes what, from where you stand" title="Who owes what, from where you stand">&nbsp;
+  <img src="docs/screenshots/03-trip-currency.jpg" width="176" alt="Two of you, in a currency the group doesn't count in" title="Two of you, in a currency the group doesn't count in">&nbsp;
+  <img src="docs/screenshots/04-split-part.jpg" width="176" alt="Share part of it, the rest to whoever paid" title="Share part of it, the rest to whoever paid">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/05-edit-currency.jpg" width="176" alt="The rate, frozen the day it was owed" title="The rate, frozen the day it was owed">&nbsp;
+  <img src="docs/screenshots/06-statistics.jpg" width="176" alt="Where the money went" title="Where the money went">&nbsp;
+  <img src="docs/screenshots/07-reimbursement.jpg" width="176" alt="Record money paid back" title="Record money paid back">
+</p>
 
 ## 🧰 What is in the box
 
