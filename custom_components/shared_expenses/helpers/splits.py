@@ -100,6 +100,41 @@ def resolve_shares(
     return resolved
 
 
+def ensure_resolvable(rule: SplitRule | None, member_ids: Sequence[str]) -> None:
+    """Refuse a rule that could never resolve, before it is kept as a default.
+
+    A rule on a category or a group is only ever read when an expense is
+    entered, so a rule that cannot resolve is refused weeks after it was
+    written, on somebody's lunch, with a message about the lunch. The panel
+    makes it survivable — the dialog asks for whoever is missing — but a script
+    calling the service has no dialog, and "Nobody takes the remainder" there
+    names nothing the caller can see. So the rule is run once here, as the
+    expense would run it, and refused in the dialog that is writing it.
+
+    Run on an amount that reaches every part of the rule: past the envelope,
+    so the remainder is read at all, and far enough past the fixed amounts
+    that none of them exceeds what is left. What is refused on that amount is
+    refused on nearly every amount — a remainder with nobody to take it, a
+    share and an amount on one member, shares over the whole, a member the
+    group does not hold — and never a rule that merely wants a bigger bill.
+    """
+
+    if rule is None:
+        return
+
+    pool = tuple(dict.fromkeys(member_ids))
+
+    if not pool:
+        raise InvalidSplitRuleError(
+            "The group has no member to split between.",
+            code="split_no_members",
+        )
+
+    amount = (rule.envelope or 0) + 2 * sum(rule.remainder.fixed.values()) + 10_000
+
+    resolve_shares(amount=amount, payer_id=pool[0], member_ids=pool, rule=rule)
+
+
 def _envelope(rule: SplitRule, amount: int) -> int:
     """Return the amount shared equally.
 

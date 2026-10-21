@@ -321,7 +321,10 @@ async def test_an_explicit_rule_beats_the_category_rule(manager: SharedExpensesM
 
 async def test_a_split_rule_survives_sqlite(manager: SharedExpensesManager):
     group = await make_group(manager)
-    rule = SplitRule(envelope=1000, participants=("a",))
+    admin = await admin_of(manager, group.id)
+    # A real member: a default rule is run once before it is kept, and a
+    # placeholder would be refused as somebody the group does not hold.
+    rule = SplitRule(envelope=1000, participants=(admin.id,))
 
     category = await manager.create_category(
         group_id=group.id,
@@ -2134,3 +2137,103 @@ async def test_a_rate_corrected_to_the_same_cents_is_still_saved(
     await manager.update_payment(replace(reloaded, amount=2_000))
 
     assert (await manager.get_payment(payment.id)).converted_amount == 1_801
+
+
+#
+# A default rule is refused where it is written, not on the first expense
+#
+
+#: Envelope 0 and nobody for the rest: what a real database was found holding.
+NOBODY = SplitRule(envelope=0, remainder=Remainder(members=()))
+
+
+async def test_a_category_rule_nobody_can_take_is_refused(
+    manager: SharedExpensesManager,
+):
+    """The rule a real database held: envelope 0, nobody for the rest.
+
+    The panel survived it by asking who, on every expense. A script calling
+    the service has nobody to ask, and was told about its lunch.
+    """
+
+    group = await make_group(manager)
+    await manager.create_group_member(group_id=group.id, name="Antonin")
+
+    with pytest.raises(InvalidSplitRuleError) as refusal:
+        await manager.create_category(
+            group_id=group.id,
+            name="Perso",
+            split_rule=NOBODY,
+        )
+
+    assert refusal.value.code == "split_remainder_nobody"
+    assert await manager.list_categories(group.id) == []
+
+
+async def test_a_category_cannot_be_updated_to_a_rule_nobody_can_take(
+    manager: SharedExpensesManager,
+):
+    group = await make_group(manager)
+    perso = await manager.create_category(group_id=group.id, name="Perso")
+
+    with pytest.raises(InvalidSplitRuleError) as refusal:
+        await manager.update_category(
+            replace(perso, split_rule=NOBODY)
+        )
+
+    assert refusal.value.code == "split_remainder_nobody"
+    assert (await manager.get_category(perso.id)).split_rule is None
+
+
+async def test_a_category_rule_naming_somebody_who_left_is_refused(
+    manager: SharedExpensesManager,
+):
+    """The pool is who an expense may be split between today."""
+
+    group = await make_group(manager)
+    admin = await admin_of(manager, group.id)
+    antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
+
+    courses = await manager.create_category(
+        group_id=group.id,
+        name="Courses",
+        split_rule=SplitRule(participants=(admin.id, antonin.id)),
+    )
+
+    memberships = await manager.list_group_memberships(group.id)
+    await manager.remove_member_from_group(
+        next(m for m in memberships if m.member_id == antonin.id)
+    )
+
+    with pytest.raises(InvalidSplitRuleError) as refusal:
+        await manager.update_category(replace(courses, name="Supermarché"))
+
+    assert refusal.value.code == "split_unknown_member"
+
+
+async def test_a_group_rule_nobody_can_take_is_refused(manager: SharedExpensesManager):
+    group = await make_group(manager)
+
+    with pytest.raises(InvalidSplitRuleError) as refusal:
+        await manager.update_group(
+            replace(group, split_rule=NOBODY)
+        )
+
+    assert refusal.value.code == "split_remainder_nobody"
+
+    with pytest.raises(InvalidSplitRuleError) as refusal:
+        await make_group(
+            manager,
+            group_name="Vacances",
+            split_rule=NOBODY,
+        )
+
+    assert refusal.value.code == "split_remainder_nobody"
+
+
+async def test_a_group_can_be_born_with_a_rule_its_admin_can_take(
+    manager: SharedExpensesManager,
+):
+    group = await make_group(manager, split_rule=SplitRule(envelope=1000))
+
+    assert group.split_rule == SplitRule(envelope=1000)

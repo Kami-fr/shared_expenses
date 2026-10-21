@@ -6,6 +6,7 @@ import pytest
 
 from custom_components.shared_expenses.exceptions import InvalidSplitRuleError
 from custom_components.shared_expenses.helpers.splits import (
+    ensure_resolvable,
     resolve_shares,
     rule_from_dict,
     rule_from_json,
@@ -613,3 +614,59 @@ def test_a_share_must_be_an_integer():
 
     with pytest.raises(InvalidSplitRuleError):
         rule_from_dict({"remainder": {"percent": {STEPHANE: 33.33}}})
+
+
+#
+# A rule kept as a default has to resolve before it is kept
+#
+
+
+def test_a_default_rule_nobody_can_take_is_refused():
+    """The remainder is behind an envelope; the probe has to get past it."""
+
+    rule = SplitRule(envelope=5000, remainder=Remainder(members=()))
+
+    # Fine on a small bill, where the envelope swallows everything.
+    assert resolve_shares(amount=3000, payer_id=STEPHANE, member_ids=PAIR, rule=rule)
+
+    with pytest.raises(InvalidSplitRuleError) as refusal:
+        ensure_resolvable(rule, PAIR)
+
+    assert refusal.value.code == "split_remainder_nobody"
+
+
+def test_a_default_rule_with_a_stranger_is_refused():
+    with pytest.raises(InvalidSplitRuleError) as refusal:
+        ensure_resolvable(SplitRule(participants=(STEPHANE, "member-marc")), PAIR)
+
+    assert refusal.value.code == "split_unknown_member"
+
+
+def test_a_default_rule_that_only_wants_a_bigger_bill_is_accepted():
+    """A fixed amount larger than a small expense is not a broken rule."""
+
+    rule = SplitRule(
+        envelope=0,
+        remainder=Remainder(members=EVERYONE, fixed={CLARA: 50_000}),
+    )
+
+    with pytest.raises(InvalidSplitRuleError):
+        resolve_shares(amount=3000, payer_id=STEPHANE, member_ids=EVERYONE, rule=rule)
+
+    ensure_resolvable(rule, EVERYONE)
+
+
+def test_the_usual_default_rules_are_accepted():
+    ensure_resolvable(None, PAIR)
+    ensure_resolvable(SplitRule(), PAIR)
+    ensure_resolvable(SplitRule(envelope=1000), PAIR)
+    all_on_antonin = Remainder(members=PAIR, percent={ANTONIN: 10_000})
+    ensure_resolvable(SplitRule(envelope=0, remainder=all_on_antonin), PAIR)
+    ensure_resolvable(SplitRule(participants=(ANTONIN,)), PAIR)
+
+
+def test_a_default_rule_needs_somebody_to_split_between():
+    with pytest.raises(InvalidSplitRuleError) as refusal:
+        ensure_resolvable(SplitRule(), ())
+
+    assert refusal.value.code == "split_no_members"

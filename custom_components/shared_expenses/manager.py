@@ -36,7 +36,7 @@ from .helpers import revisions
 from .helpers.balances import GroupBalances, compute_balances, simplify_settlements
 from .helpers.currency import RATE_ONE, apportion, convert, validate_rate
 from .helpers.ids import new_id
-from .helpers.splits import resolve_shares
+from .helpers.splits import ensure_resolvable, resolve_shares
 from .helpers.statistics import GroupStatistics, compute_statistics
 from .models import (
     Category,
@@ -146,6 +146,11 @@ class SharedExpensesManager:
             left_at=None,
             created_at=now,
         )
+
+        # The one member the group has at birth. A rule naming anybody else
+        # names somebody who is not here, and a rule nobody can take is refused
+        # now rather than on the first expense.
+        ensure_resolvable(split_rule, [admin.id])
 
         async with self._database.transaction():
             await self._database.group_repository.create(group)
@@ -524,6 +529,8 @@ class SharedExpensesManager:
             # caller, and a foreign key alone would take any category in the
             # house.
             await self._get_group_category(group.id, group.default_category_id)
+
+        ensure_resolvable(group.split_rule, await self._pool(group.id))
 
         changes = revisions.diff(
             revisions.group_state(before),
@@ -939,6 +946,8 @@ class SharedExpensesManager:
 
         await self._get_active_group(group_id)
 
+        ensure_resolvable(split_rule, await self._pool(group_id))
+
         category = Category(
             id=new_id(),
             group_id=group_id,
@@ -990,6 +999,8 @@ class SharedExpensesManager:
         """Update a category, and account for what moved."""
 
         before = await self.get_category(category.id)
+
+        ensure_resolvable(category.split_rule, await self._pool(category.group_id))
 
         changes = revisions.diff(
             revisions.category_state(before),
@@ -2268,6 +2279,19 @@ class SharedExpensesManager:
             raise CategoryNotFoundError(category_id)
 
         return category
+
+    async def _pool(self, group_id: str) -> list[str]:
+        """Return who a rule may split between today: the active members.
+
+        The same pool an expense is resolved against, so a default rule is held
+        to exactly what it will meet. Somebody who left is not in it — a rule
+        still naming them would fail on the next expense, and is refused on the
+        category instead, where the name can be taken off.
+        """
+
+        members = await self._database.member_repository.list_by_group(group_id)
+
+        return [member.id for member in members]
 
     async def _roster(self, group_id: str) -> set[str]:
         """Return everybody the group has ever held, those who left included.
