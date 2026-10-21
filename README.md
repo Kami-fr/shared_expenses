@@ -44,6 +44,12 @@ directory, restart Home Assistant, then add the integration as in step 2.
 ## 📸 A look around
 
 <p align="center">
+  <img src="docs/screenshots/tour.gif" width="270" alt="A quick tour: the apartment's balances, a 36 dollar wine and cheese of which 20 is shared, the weekend in London in pounds, then where the money went, as bars and as a ring" title="Balances, a bill shared in part, a trip in pounds, and where it all went">
+</p>
+
+<p align="center"><sub>Balances, a bill shared in part, a trip in pounds, and where it all went.</sub></p>
+
+<p align="center">
   <img src="docs/screenshots/01-groups.jpg" width="176" alt="Your groups, one tap in" title="Your groups, one tap in">&nbsp;
   <img src="docs/screenshots/02-balances.jpg" width="176" alt="Who owes what, from where you stand" title="Who owes what, from where you stand">&nbsp;
   <img src="docs/screenshots/03-trip-currency.jpg" width="176" alt="Two of you, in a currency the group doesn't count in" title="Two of you, in a currency the group doesn't count in">&nbsp;
