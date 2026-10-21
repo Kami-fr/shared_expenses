@@ -135,6 +135,7 @@ class SharedExpensesManager:
             name=admin_name,
             color=None,
             created_at=now,
+            use_ha_avatar=admin_user_id is not None,
         )
 
         group_member = GroupMember(
@@ -662,6 +663,7 @@ class SharedExpensesManager:
             name=name,
             color=color,
             created_at=datetime.now(UTC),
+            use_ha_avatar=user_id is not None,
         )
 
         await self._database.member_repository.create(member)
@@ -861,6 +863,7 @@ class SharedExpensesManager:
             name=name,
             color=color,
             created_at=now,
+            use_ha_avatar=user_id is not None,
         )
 
         group_member = GroupMember(

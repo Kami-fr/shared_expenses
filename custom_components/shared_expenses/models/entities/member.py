@@ -23,4 +23,7 @@ class Member:
     # Whether this member wears their Home Assistant photo rather than the
     # coloured initials. Only ever true for an account: a guest has no photo to
     # borrow, and the panel falls back to the initials when there is none.
+    # The manager turns it on for every member created with an account; the
+    # False here is what a guest gets, and what a stored row read without it
+    # would have meant.
     use_ha_avatar: bool = False

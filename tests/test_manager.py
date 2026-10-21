@@ -702,6 +702,47 @@ async def test_members_without_an_account_can_pile_up(manager: SharedExpensesMan
     assert first.user_id is None and second.user_id is None
 
 
+async def test_a_member_with_an_account_wears_their_photo_from_the_start(
+    manager: SharedExpensesManager,
+):
+    """Every way a member is born, the photo is on when there is an account.
+
+    The admin of a new group, an account picked into a group, an account linked
+    on its own: the panel shows the person as Home Assistant already does, and
+    the initials are a choice made afterwards. Without an account there is no
+    photo to borrow, so a guest is born with the initials in each case too.
+    """
+
+    group = await manager.create_group(
+        group_name="The Flat",
+        admin_name="Stephane",
+        admin_user_id="ha-admin",
+    )
+    admin = await manager.get_member_for_user("ha-admin")
+    picked = await manager.create_group_member(
+        group_id=group.id, name="Antonin", user_id="ha-picked"
+    )
+    linked = await manager.link_user(user_id="ha-linked", name="Clara")
+
+    guest_in_group = await manager.create_group_member(group_id=group.id, name="Marc")
+    guest_alone = await manager.create_member(name="Lea")
+    admin_alone = await manager.create_group(group_name="Paper", admin_name="Nobody")
+    (paper_admin,) = await manager.list_group_members(admin_alone.id)
+
+    assert admin is not None
+    assert admin.use_ha_avatar is True
+    assert picked.use_ha_avatar is True
+    assert linked.use_ha_avatar is True
+
+    assert guest_in_group.use_ha_avatar is False
+    assert guest_alone.use_ha_avatar is False
+    assert paper_admin.use_ha_avatar is False
+
+    # What was written is what is read back, not just what was returned.
+    stored = await manager.get_member(picked.id)
+    assert stored.use_ha_avatar is True
+
+
 async def test_a_user_only_sees_their_own_groups(manager: SharedExpensesManager):
     mine = await make_group(manager, group_name="Appartement", admin_user_id="ha-1")
     await make_group(manager, group_name="Vacances", admin_user_id="ha-2")
