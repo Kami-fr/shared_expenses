@@ -4,15 +4,15 @@ Thank you for your interest in Shared Expenses.
 
 ## Development Workflow
 
-- Create a branch from `develop`.
+- Create a branch from `main`.
 - Follow the coding guidelines.
 - Keep commits small and focused.
 - Use Conventional Commits.
 
 ## Branches
 
-- `main` → Stable releases
-- `develop` → Active development
+- `main` → The one permanent branch. Every commit on it passes CI; a release is a tag on it.
+- Work happens on short-lived branches from `main`, merged back when green.
 
 ## Commit examples
 

@@ -166,11 +166,9 @@ Only panel registration.
 
 main
 
-Stable releases only.
-
-develop
-
-Daily development.
+The one permanent branch. Every commit on it passes CI; releases are
+tags on it. Work on a short-lived branch from `main` when a change spans
+more than one commit.
 
 Commit messages follow Conventional Commits.
 
