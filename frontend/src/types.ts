@@ -377,6 +377,14 @@ export interface HomeAssistant {
       callback: (message: T) => void,
       subscribeMessage: object,
     ): Promise<() => Promise<void>>;
+    /**
+     * The socket's own events. `ready` fires each time it is (re)opened, and
+     * is the one word anything that read through a connection needs to hear:
+     * what it read may have changed while there was none, and what it
+     * subscribed to may not have come back with it.
+     */
+    addEventListener(eventType: "ready" | "disconnected", callback: () => void): void;
+    removeEventListener(eventType: "ready" | "disconnected", callback: () => void): void;
   };
 }
 

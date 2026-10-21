@@ -13339,7 +13339,10 @@ var ts = Object.defineProperty, rs = Object.getOwnPropertyDescriptor, we = (e, t
 const is = 3e4;
 let le = class extends _ {
   constructor() {
-    super(...arguments), this.balances = [], this.settlements = [], this.members = [], this.currency = "EUR", this.loading = !0, this.generation = 0, this.settleUp = () => Je(this.config.group_id), this.openGroup = () => Je(this.config.group_id), this.addExpense = () => Je(this.config.group_id, rt);
+    super(...arguments), this.balances = [], this.settlements = [], this.members = [], this.currency = "EUR", this.loading = !0, this.generation = 0, this.reconnected = () => {
+      const e = this.loadedFor;
+      e && this.isConnected && this.start(e);
+    }, this.settleUp = () => Je(this.config.group_id), this.openGroup = () => Je(this.config.group_id), this.addExpense = () => Je(this.config.group_id, rt);
   }
   /**
    * Which project to show.
@@ -13385,7 +13388,7 @@ let le = class extends _ {
     super.connectedCallback(), this.refresh();
   }
   disconnectedCallback() {
-    super.disconnectedCallback(), this.loadedFor = void 0, this.stop();
+    super.disconnectedCallback(), this.loadedFor = void 0, this.listeningTo?.removeEventListener("ready", this.reconnected), this.listeningTo = void 0, this.stop();
   }
   willUpdate() {
     this.refresh();
@@ -13399,14 +13402,14 @@ let le = class extends _ {
    */
   refresh() {
     const e = this.config?.group_id;
-    !this.hass || !e || !this.isConnected || this.loadedFor === e || (this.loadedFor = e, this.start(e));
+    !this.hass || !e || !this.isConnected || this.loadedFor === e || (this.listeningTo || (this.listeningTo = this.hass.connection, this.listeningTo.addEventListener("ready", this.reconnected)), this.loadedFor = e, this.start(e));
   }
   async start(e) {
     const t = ++this.generation;
     await this.stop(), await this.load(e);
     try {
       const r = await this.api.subscribeGroup(e, () => {
-        this.load(e);
+        this.reload(e, t);
       });
       if (!this.isConnected || t !== this.generation) {
         await r().catch(() => {
@@ -13431,6 +13434,18 @@ let le = class extends _ {
     this.retryTimer = window.setTimeout(() => {
       this.retryTimer = void 0, this.isConnected && t === this.generation && this.start(e);
     }, is);
+  }
+  /**
+   * Read again because the group moved, and keep trying if the read fails.
+   *
+   * A ping arrives whenever somebody writes to the group, including while the
+   * integration is being reloaded under it — and a read refused then left the
+   * card saying "The integration is not loaded." until the next ping, which on
+   * a quiet group is the next shopping trip. The subscription was fine the
+   * whole time; it was only the one read that had nothing to answer it.
+   */
+  async reload(e, t) {
+    await this.load(e), this.error && this.isConnected && t === this.generation && this.retryTimer === void 0 && this.retryLater(e, t);
   }
   async stop() {
     const e = this.unsubscribe;

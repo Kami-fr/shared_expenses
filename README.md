@@ -194,7 +194,9 @@ The dashboard card is the same bundle and the same conversation — it runs in a
 browser too, so it asks over the WebSocket API and is answered as whoever is
 looking. It has to be one bundle: Home Assistant is a single page, and two would
 each define `se-balance-card`, the second throwing and taking the panel with it.
-See ADR-015.
+See ADR-015. It is served from the configuration's `www/`, copied there by the
+integration, because that is the one place Home Assistant serves before a custom
+integration has loaded — ADR-016 says why a dashboard opened during boot needs it.
 
 The entities go the other way and are a separate surface. They belong to the
 instance rather than to an account, which is why a group has to ask for them —

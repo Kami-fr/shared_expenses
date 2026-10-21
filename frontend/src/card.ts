@@ -83,6 +83,9 @@ export class SharedExpensesCard extends LitElement {
   /** The project this card is already showing, so it is not reloaded forever. */
   private loadedFor?: string;
 
+  /** The connection whose `ready` this card is listening for, if any. */
+  private listeningTo?: HomeAssistant["connection"];
+
   /**
    * Which project to show.
    *
@@ -145,6 +148,9 @@ export class SharedExpensesCard extends LitElement {
     // one, and its old subscription would outlive it on the connection.
     this.loadedFor = undefined;
 
+    this.listeningTo?.removeEventListener("ready", this.reconnected);
+    this.listeningTo = undefined;
+
     void this.stop();
   }
 
@@ -166,10 +172,38 @@ export class SharedExpensesCard extends LitElement {
       return;
     }
 
+    // Here rather than in connectedCallback, which `hass` may not have reached
+    // yet. The connection object outlives its socket — Home Assistant reopens
+    // the socket and keeps the object — so once is enough.
+    if (!this.listeningTo) {
+      this.listeningTo = this.hass.connection;
+      this.listeningTo.addEventListener("ready", this.reconnected);
+    }
+
     this.loadedFor = groupId;
 
     void this.start(groupId);
   }
+
+  /**
+   * Start over on a socket that has just come back.
+   *
+   * Home Assistant restarting is the usual way one goes. The connection
+   * re-sends every subscription when it reopens, but it reopens as soon as the
+   * WebSocket API is up, which is long before this integration has loaded —
+   * so ours is refused, and the connection drops a refused one without a word.
+   * Left there, the card would show the balances as they stood before the
+   * restart for as long as the tablet stayed on, looking current the whole
+   * time. Starting over reads them afresh and asks to listen again; if the
+   * integration is still on its way, the read says so and tries again later.
+   */
+  private reconnected = () => {
+    const groupId = this.loadedFor;
+
+    if (groupId && this.isConnected) {
+      void this.start(groupId);
+    }
+  };
 
   private async start(groupId: string): Promise<void> {
     const generation = ++this.generation;
@@ -182,7 +216,7 @@ export class SharedExpensesCard extends LitElement {
     // they were when the page was loaded, and look perfectly current doing it.
     try {
       const unsubscribe = await this.api!.subscribeGroup(groupId, () => {
-        void this.load(groupId);
+        void this.reload(groupId, generation);
       });
 
       // Everything above took a while, and the card may be off the view or on
@@ -223,6 +257,28 @@ export class SharedExpensesCard extends LitElement {
         void this.start(groupId);
       }
     }, RETRY_DELAY);
+  }
+
+  /**
+   * Read again because the group moved, and keep trying if the read fails.
+   *
+   * A ping arrives whenever somebody writes to the group, including while the
+   * integration is being reloaded under it — and a read refused then left the
+   * card saying "The integration is not loaded." until the next ping, which on
+   * a quiet group is the next shopping trip. The subscription was fine the
+   * whole time; it was only the one read that had nothing to answer it.
+   */
+  private async reload(groupId: string, generation: number): Promise<void> {
+    await this.load(groupId);
+
+    if (
+      this.error &&
+      this.isConnected &&
+      generation === this.generation &&
+      this.retryTimer === undefined
+    ) {
+      this.retryLater(groupId, generation);
+    }
   }
 
   private async stop(): Promise<void> {
