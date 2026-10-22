@@ -12217,10 +12217,10 @@ let b = class extends _ {
    * another. No close button: the dim around them closes, as back does.
    */
   renderChoices() {
-    const e = this.localize, t = (a, r, i, s, n) => o`
-      <button class="choice" role="menuitem" @click=${n}>
+    const e = this.localize, t = (a, r, i, s, n, p) => o`
+      <button class="choice" role="menuitem" @click=${p}>
         <span class="label">${a}<span class="hint">${r}</span></span>
-        <span class="disc">
+        <span class="disc" style=${`background:${n}`}>
           <se-icon plain .icon=${i} fallback=${s} .size=${22}></se-icon>
         </span>
       </button>
@@ -12238,6 +12238,7 @@ let b = class extends _ {
       e("fab_debt_hint"),
       "mdi:note-edit-outline",
       "✎",
+      "#c98b3e",
       () => this.pickPayment("debt")
     )}
         ${t(
@@ -12245,6 +12246,7 @@ let b = class extends _ {
       e("fab_reimburse_hint"),
       "mdi:swap-horizontal",
       "⇄",
+      "#8b5fbf",
       () => this.pickPayment("reimbursement")
     )}
         ${t(
@@ -12252,6 +12254,7 @@ let b = class extends _ {
       e("fab_refund_hint"),
       "mdi:storefront-outline",
       "↩",
+      "var(--se-positive)",
       () => this.pickExpense(!0)
     )}
       </div>
@@ -12313,6 +12316,7 @@ let b = class extends _ {
           in the menu: the statistics were the richest screen here and the
           hardest to find, behind a menu shared with renaming and deleting.
         -->
+        <div class="actions">
         <button
           class="icon"
           aria-label=${e(this.searching ? "search_close" : "search_open")}
@@ -12337,6 +12341,7 @@ let b = class extends _ {
         >
           <se-icon plain .icon=${"mdi:dots-vertical"} fallback="⋮" .size=${22}></se-icon>
         </button>
+        </div>
 
         ${this.menu ? this.renderMenu() : d}
         </div>
@@ -13204,7 +13209,9 @@ b.styles = [
       .header {
         display: flex;
         align-items: center;
-        gap: 12px;
+        /* 8 and not 12: with three buttons on the bar, the title needs it to
+           stay on one line in French at 360 pixels (165 for 160 at 12). */
+        gap: 8px;
         padding: 4px 16px;
         min-height: var(--header-height, 56px);
         box-sizing: border-box;
@@ -13304,8 +13311,26 @@ b.styles = [
         min-width: 0;
       }
 
+      /*
+       * One line, always. The bar gained the magnifier and the statistics, and
+       * "Dépenses partagées" went onto two lines on a phone, pushing the whole
+       * page down by one. Cut with an ellipsis as a last resort — the longest
+       * of the eight, the Portuguese, on the narrowest glass — rather than
+       * wrapped.
+       */
       .titles h1 {
         font-size: 18px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* The bar's buttons side by side, without the header's gap between them:
+         each keeps its own padding to be pressed, and the title gets the room. */
+      .actions {
+        display: flex;
+        flex: none;
+        margin-right: -6px;
       }
 
       .switcher {
@@ -13470,8 +13495,7 @@ b.styles = [
         display: flex;
         align-items: center;
         justify-content: center;
-        background: var(--card-background-color, #fff);
-        color: var(--primary-text-color);
+        color: #fff;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
       }
 

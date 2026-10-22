@@ -218,7 +218,9 @@ export class SeGroupPage extends LitElement {
       .header {
         display: flex;
         align-items: center;
-        gap: 12px;
+        /* 8 and not 12: with three buttons on the bar, the title needs it to
+           stay on one line in French at 360 pixels (165 for 160 at 12). */
+        gap: 8px;
         padding: 4px 16px;
         min-height: var(--header-height, 56px);
         box-sizing: border-box;
@@ -318,8 +320,26 @@ export class SeGroupPage extends LitElement {
         min-width: 0;
       }
 
+      /*
+       * One line, always. The bar gained the magnifier and the statistics, and
+       * "Dépenses partagées" went onto two lines on a phone, pushing the whole
+       * page down by one. Cut with an ellipsis as a last resort — the longest
+       * of the eight, the Portuguese, on the narrowest glass — rather than
+       * wrapped.
+       */
       .titles h1 {
         font-size: 18px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* The bar's buttons side by side, without the header's gap between them:
+         each keeps its own padding to be pressed, and the title gets the room. */
+      .actions {
+        display: flex;
+        flex: none;
+        margin-right: -6px;
       }
 
       .switcher {
@@ -484,8 +504,7 @@ export class SeGroupPage extends LitElement {
         display: flex;
         align-items: center;
         justify-content: center;
-        background: var(--card-background-color, #fff);
-        color: var(--primary-text-color);
+        color: #fff;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
       }
 
@@ -824,16 +843,21 @@ export class SeGroupPage extends LitElement {
    */
   private renderChoices() {
     const translate = this.localize;
+    // A colour each, so the four read apart at a glance and the same one is
+    // found in the same place next time: drawn from the palette the members'
+    // initials sit on, which is chosen to carry white. The shop's refund wears
+    // the green the list gives money coming back.
     const choice = (
       label: string,
       hint: string,
       icon: string,
       fallback: string,
+      colour: string,
       pick: () => void,
     ) => html`
       <button class="choice" role="menuitem" @click=${pick}>
         <span class="label">${label}<span class="hint">${hint}</span></span>
-        <span class="disc">
+        <span class="disc" style=${`background:${colour}`}>
           <se-icon plain .icon=${icon} fallback=${fallback} .size=${22}></se-icon>
         </span>
       </button>
@@ -852,6 +876,7 @@ export class SeGroupPage extends LitElement {
           translate("fab_debt_hint"),
           "mdi:note-edit-outline",
           "✎",
+          "#c98b3e",
           () => this.pickPayment("debt"),
         )}
         ${choice(
@@ -859,6 +884,7 @@ export class SeGroupPage extends LitElement {
           translate("fab_reimburse_hint"),
           "mdi:swap-horizontal",
           "⇄",
+          "#8b5fbf",
           () => this.pickPayment("reimbursement"),
         )}
         ${choice(
@@ -866,6 +892,7 @@ export class SeGroupPage extends LitElement {
           translate("fab_refund_hint"),
           "mdi:storefront-outline",
           "↩",
+          "var(--se-positive)",
           () => this.pickExpense(true),
         )}
       </div>
@@ -963,6 +990,7 @@ export class SeGroupPage extends LitElement {
           in the menu: the statistics were the richest screen here and the
           hardest to find, behind a menu shared with renaming and deleting.
         -->
+        <div class="actions">
         <button
           class="icon"
           aria-label=${translate(this.searching ? "search_close" : "search_open")}
@@ -987,6 +1015,7 @@ export class SeGroupPage extends LitElement {
         >
           <se-icon plain .icon=${"mdi:dots-vertical"} fallback="⋮" .size=${22}></se-icon>
         </button>
+        </div>
 
         ${this.menu ? this.renderMenu() : nothing}
         </div>
