@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 
 from custom_components.shared_expenses.helpers.statistics import compute_statistics
 from custom_components.shared_expenses.manager import SharedExpensesManager
-from custom_components.shared_expenses.models import Expense, ExpenseShare
+from custom_components.shared_expenses.models import Expense, ExpenseShare, Payment
 
 NOW = datetime(2026, 7, 14, 12, 0, tzinfo=UTC)
 
@@ -40,6 +40,23 @@ def expense(
         created_at=NOW,
         converted_amount=amount if converted is None else converted,
         split_rule=None,
+    )
+
+
+def payment(
+    payment_id: str, giver: str, taker: str, amount: int, *, date: datetime = NOW
+) -> Payment:
+    return Payment(
+        id=payment_id,
+        group_id="g1",
+        description=None,
+        from_member_id=giver,
+        to_member_id=taker,
+        amount=amount,
+        currency="EUR",
+        payment_date=date,
+        created_at=NOW,
+        converted_amount=amount,
     )
 
 
@@ -310,6 +327,40 @@ def test_every_month_is_offered_whatever_the_period():
         assert [(m.month, m.total) for m in result.months] == everything
 
 
+def test_what_each_member_handed_over_and_got_back_in_the_period():
+    """Reimbursements beside each member, never in a total.
+
+    What the month really cost m2 is what they paid, plus what they handed to
+    m1, less what came back: 0 + 4000 - 1000. Against their share of 4500 that
+    is 1500 short, which is exactly how far their balance fell over the month.
+    """
+
+    expenses = [expense("e1", 9000, payer="m1", date=datetime(2026, 7, 3, tzinfo=UTC))]
+    shares = [share("e1", "m1", 4500), share("e1", "m2", 4500)]
+    payments = [
+        payment("p1", "m2", "m1", 4000, date=datetime(2026, 7, 20, tzinfo=UTC)),
+        payment("p2", "m1", "m2", 1000, date=datetime(2026, 7, 21, tzinfo=UTC)),
+        # August's: outside the month, and outside its figures.
+        payment("p3", "m2", "m1", 500, date=datetime(2026, 8, 1, tzinfo=UTC)),
+        # A third member who only ever received money is still a row.
+        payment("p4", "m1", "m3", 200, date=datetime(2026, 7, 22, tzinfo=UTC)),
+    ]
+
+    result = compute_statistics(
+        expenses=expenses, shares=shares, payments=payments, month="2026-07"
+    )
+
+    assert result.total == 9000
+    assert result.count == 1
+    assert [
+        (m.member_id, m.paid, m.share, m.given, m.received) for m in result.by_member
+    ] == [
+        ("m1", 9000, 4500, 1200, 4000),
+        ("m2", 0, 4500, 4000, 1000),
+        ("m3", 0, 0, 0, 200),
+    ]
+
+
 def test_no_expense_no_month():
     assert compute_statistics(expenses=[], shares=[]).months == ()
 
@@ -428,3 +479,33 @@ async def test_a_month_through_the_manager(manager: SharedExpensesManager):
         ("2026-06", 1000),
         ("2026-07", 4000),
     ]
+
+
+async def test_reimbursements_reach_a_member_through_the_manager(
+    manager: SharedExpensesManager,
+):
+    group = await make_group(manager, group_name="Appartement")
+    admin = (await manager.list_group_members(group.id))[0]
+    antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
+
+    await manager.create_expense(
+        group_id=group.id,
+        title="Courses",
+        amount=9000,
+        paid_by_member_id=admin.id,
+        expense_date=NOW,
+    )
+    await manager.create_payment(
+        group_id=group.id,
+        from_member_id=antonin.id,
+        to_member_id=admin.id,
+        amount=4500,
+        payment_date=NOW,
+    )
+
+    july = await manager.get_statistics(group.id, month="2026-07")
+    rows = {m.member_id: m for m in july.by_member}
+
+    assert july.total == 9000
+    assert (rows[admin.id].given, rows[admin.id].received) == (0, 4500)
+    assert (rows[antonin.id].given, rows[antonin.id].received) == (4500, 0)

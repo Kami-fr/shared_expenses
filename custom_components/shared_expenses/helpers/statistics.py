@@ -4,17 +4,21 @@ Pure functions, like the balances: they read expenses and their shares and
 return totals. Nothing here touches the database, so what a figure claims can be
 tested on its own.
 
-Payments are deliberately absent. A reimbursement moves money between members,
-it does not spend any: counting it would say the household spent 100 EUR on a
-90 EUR shop.
+Payments are deliberately absent from every total. A reimbursement moves money
+between members, it does not spend any: counting it would say the household
+spent 100 EUR on a 90 EUR shop. They appear in one place only, beside each
+member, as what that member handed over and got back: that is what turns "paid
+for the group" into "out of my own pocket", and a member's month is not told
+without it.
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 
-from ..models import Expense, ExpenseShare
+from ..models import Expense, ExpenseShare, Payment
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +48,14 @@ class MemberTotal:
     member_id: str
     paid: int
     share: int
+
+    #: Reimbursements over the period, both kinds, in the group's currency:
+    #: what this member handed to another, and what another handed to them.
+    #: A debt recorded is money lent, so it left a pocket as surely as a
+    #: reimbursement did. `paid + given - received` is what the period really
+    #: cost them; less `share`, it is how far their balance moved.
+    given: int = 0
+    received: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,6 +93,7 @@ def compute_statistics(
     *,
     expenses: Iterable[Expense],
     shares: Iterable[ExpenseShare],
+    payments: Iterable[Payment] = (),
     year: int | None = None,
     month: str | None = None,
 ) -> GroupStatistics:
@@ -91,13 +104,13 @@ def compute_statistics(
     key `by_month` is written in.
     """
 
+    def in_period(day: datetime) -> bool:
+        return (year is None or day.year == year) and (
+            month is None or _month_key(day) == month
+        )
+
     everything = list(expenses)
-    kept = [
-        e
-        for e in everything
-        if (year is None or e.expense_date.year == year)
-        and (month is None or _month_of(e) == month)
-    ]
+    kept = [e for e in everything if in_period(e.expense_date)]
     ids = {expense.id for expense in kept}
 
     by_category: dict[str | None, int] = {}
@@ -126,6 +139,21 @@ def compute_statistics(
 
         consumed[share.member_id] = consumed.get(share.member_id, 0) + share.amount
 
+    given: dict[str, int] = {}
+    received: dict[str, int] = {}
+
+    for payment in payments:
+        if not in_period(payment.payment_date):
+            continue
+
+        # What it came to for the group, as the balances count it.
+        given[payment.from_member_id] = (
+            given.get(payment.from_member_id, 0) + payment.converted_amount
+        )
+        received[payment.to_member_id] = (
+            received.get(payment.to_member_id, 0) + payment.converted_amount
+        )
+
     return GroupStatistics(
         total=sum(expense.converted_amount for expense in kept),
         # What was actually bought over the period. A reimbursement is no more a
@@ -150,18 +178,28 @@ def compute_statistics(
                 member_id=member_id,
                 paid=paid.get(member_id, 0),
                 share=consumed.get(member_id, 0),
+                given=given.get(member_id, 0),
+                received=received.get(member_id, 0),
             )
-            for member_id in sorted(paid.keys() | consumed.keys())
+            for member_id in sorted(
+                paid.keys() | consumed.keys() | given.keys() | received.keys()
+            )
         ),
         years=tuple(sorted({e.expense_date.year for e in everything}, reverse=True)),
         months=_months(everything),
     )
 
 
+def _month_key(day: datetime) -> str:
+    """Return the `YYYY-MM` a day is counted in."""
+
+    return f"{day.year:04d}-{day.month:02d}"
+
+
 def _month_of(expense: Expense) -> str:
     """Return the `YYYY-MM` an expense is counted in, on the date typed."""
 
-    return f"{expense.expense_date.year:04d}-{expense.expense_date.month:02d}"
+    return _month_key(expense.expense_date)
 
 
 def _months(expenses: Iterable[Expense]) -> tuple[MonthTotal, ...]:

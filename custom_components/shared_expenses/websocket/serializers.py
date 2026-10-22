@@ -178,7 +178,13 @@ def statistics_to_dict(statistics: GroupStatistics) -> dict[str, Any]:
             {"month": item.month, "total": item.total} for item in statistics.by_month
         ],
         "by_member": [
-            {"member_id": item.member_id, "paid": item.paid, "share": item.share}
+            {
+                "member_id": item.member_id,
+                "paid": item.paid,
+                "share": item.share,
+                "given": item.given,
+                "received": item.received,
+            }
             for item in statistics.by_member
         ],
         "years": list(statistics.years),

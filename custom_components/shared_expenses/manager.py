@@ -2069,6 +2069,7 @@ class SharedExpensesManager:
             shares=await self._database.expense_repository.list_shares_by_group(
                 group_id
             ),
+            payments=await self._database.payment_repository.list_by_group(group_id),
             year=year,
             month=month,
         )
