@@ -851,6 +851,28 @@ something false about people.
       tour's expense dialog now reads in English, since 1.1.2 translated its
       examples.
 
+## Sprint 31 — What is used most, where the thumb is
+
+- [x] The statistics and the search are buttons on the bar. The statistics
+      were the richest screen and one entry in a menu shared with deleting the
+      group; the search box took a line of the phone at all times. It opens
+      under its magnifier now, and closing it forgets the query.
+- [x] The menu is three groups under a rule each: the history; members,
+      categories and the group; archiving and deleting, apart and last.
+- [x] The list is cut into months, each under its name and what the group
+      spent in it, the statistics' figure for the same month. Rows keep their
+      dates in full and their faces.
+- [x] A shop refund is called one, in full and in every language: in five of
+      the eight, "refund" alone was the word for a reimbursement between
+      members too. se-segmented gives a long option a second line rather than
+      an ellipsis. Equal shares, folded, read as one line.
+- [x] **The plus offers what it adds.** A press opens four choices, each named
+      and said in a few words: an expense, a shop refund, paying someone back,
+      writing down a debt. The expense takes the plus's own place, so two
+      presses where the thumb already is add one — the user's idea, better
+      than the close button it replaced. Back and the dim around them close.
+      The drag to reimburse stays for whoever learnt it.
+
 ## Later
 
 - [ ] Weighted splits (by shares, rather than by amount or percentage)

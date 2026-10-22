@@ -3,10 +3,10 @@
  * Copyright 2019 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const pt = globalThis, Pt = pt.ShadowRoot && (pt.ShadyCSS === void 0 || pt.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype, It = Symbol(), Zt = /* @__PURE__ */ new WeakMap();
+const pt = globalThis, Pt = pt.ShadowRoot && (pt.ShadyCSS === void 0 || pt.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype, Rt = Symbol(), Zt = /* @__PURE__ */ new WeakMap();
 let xa = class {
   constructor(t, a, r) {
-    if (this._$cssResult$ = !0, r !== It) throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");
+    if (this._$cssResult$ = !0, r !== Rt) throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");
     this.cssText = t, this.t = a;
   }
   get styleSheet() {
@@ -22,13 +22,13 @@ let xa = class {
     return this.cssText;
   }
 };
-const Wa = (e) => new xa(typeof e == "string" ? e : e + "", void 0, It), w = (e, ...t) => {
+const Wa = (e) => new xa(typeof e == "string" ? e : e + "", void 0, Rt), x = (e, ...t) => {
   const a = e.length === 1 ? e[0] : t.reduce((r, i, s) => r + ((n) => {
     if (n._$cssResult$ === !0) return n.cssText;
     if (typeof n == "number") return n;
     throw Error("Value passed to 'css' function must be a 'css' function result: " + n + ". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.");
   })(i) + e[s + 1], e[0]);
-  return new xa(a, e, It);
+  return new xa(a, e, Rt);
 }, Ha = (e, t) => {
   if (Pt) e.adoptedStyleSheets = t.map((a) => a instanceof CSSStyleSheet ? a : a.styleSheet);
   else for (const a of t) {
@@ -45,7 +45,7 @@ const Wa = (e) => new xa(typeof e == "string" ? e : e + "", void 0, It), w = (e,
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const { is: Ka, defineProperty: Fa, getOwnPropertyDescriptor: Va, getOwnPropertyNames: Za, getOwnPropertySymbols: Ja, getPrototypeOf: Qa } = Object, yt = globalThis, Qt = yt.trustedTypes, Ya = Qt ? Qt.emptyScript : "", Xa = yt.reactiveElementPolyfillSupport, Ze = (e, t) => e, ut = { toAttribute(e, t) {
+const { is: Ka, defineProperty: Fa, getOwnPropertyDescriptor: Va, getOwnPropertyNames: Za, getOwnPropertySymbols: Ja, getPrototypeOf: Qa } = Object, yt = globalThis, Qt = yt.trustedTypes, Ya = Qt ? Qt.emptyScript : "", Xa = yt.reactiveElementPolyfillSupport, Ze = (e, t) => e, ht = { toAttribute(e, t) {
   switch (t) {
     case Boolean:
       e = e ? Ya : null;
@@ -73,7 +73,7 @@ const { is: Ka, defineProperty: Fa, getOwnPropertyDescriptor: Va, getOwnProperty
       }
   }
   return a;
-} }, Rt = (e, t) => !Ka(e, t), Yt = { attribute: !0, type: String, converter: ut, reflect: !1, useDefault: !1, hasChanged: Rt };
+} }, It = (e, t) => !Ka(e, t), Yt = { attribute: !0, type: String, converter: ht, reflect: !1, useDefault: !1, hasChanged: It };
 Symbol.metadata ??= Symbol("metadata"), yt.litPropertyMetadata ??= /* @__PURE__ */ new WeakMap();
 let Me = class extends HTMLElement {
   static addInitializer(t) {
@@ -172,14 +172,14 @@ let Me = class extends HTMLElement {
   _$ET(t, a) {
     const r = this.constructor.elementProperties.get(t), i = this.constructor._$Eu(t, r);
     if (i !== void 0 && r.reflect === !0) {
-      const s = (r.converter?.toAttribute !== void 0 ? r.converter : ut).toAttribute(a, r.type);
+      const s = (r.converter?.toAttribute !== void 0 ? r.converter : ht).toAttribute(a, r.type);
       this._$Em = t, s == null ? this.removeAttribute(i) : this.setAttribute(i, s), this._$Em = null;
     }
   }
   _$AK(t, a) {
     const r = this.constructor, i = r._$Eh.get(t);
     if (i !== void 0 && this._$Em !== i) {
-      const s = r.getPropertyOptions(i), n = typeof s.converter == "function" ? { fromAttribute: s.converter } : s.converter?.fromAttribute !== void 0 ? s.converter : ut;
+      const s = r.getPropertyOptions(i), n = typeof s.converter == "function" ? { fromAttribute: s.converter } : s.converter?.fromAttribute !== void 0 ? s.converter : ht;
       this._$Em = i;
       const p = n.fromAttribute(a, s.type);
       this[i] = p ?? this._$Ej?.get(i) ?? p, this._$Em = null;
@@ -188,7 +188,7 @@ let Me = class extends HTMLElement {
   requestUpdate(t, a, r, i = !1, s) {
     if (t !== void 0) {
       const n = this.constructor;
-      if (i === !1 && (s = this[t]), r ??= n.getPropertyOptions(t), !((r.hasChanged ?? Rt)(s, a) || r.useDefault && r.reflect && s === this._$Ej?.get(t) && !this.hasAttribute(n._$Eu(t, r)))) return;
+      if (i === !1 && (s = this[t]), r ??= n.getPropertyOptions(t), !((r.hasChanged ?? It)(s, a) || r.useDefault && r.reflect && s === this._$Ej?.get(t) && !this.hasAttribute(n._$Eu(t, r)))) return;
       this.C(t, a, r);
     }
     this.isUpdatePending === !1 && (this._$ES = this._$EP());
@@ -262,7 +262,7 @@ Me.elementStyles = [], Me.shadowRootOptions = { mode: "open" }, Me[Ze("elementPr
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const Mt = globalThis, Xt = (e) => e, ht = Mt.trustedTypes, ea = ht ? ht.createPolicy("lit-html", { createHTML: (e) => e }) : void 0, $a = "$lit$", $e = `lit$${Math.random().toFixed(9).slice(2)}$`, ka = "?" + $e, er = `<${ka}>`, Se = document, Xe = () => Se.createComment(""), et = (e) => e === null || typeof e != "object" && typeof e != "function", qt = Array.isArray, tr = (e) => qt(e) || typeof e?.[Symbol.iterator] == "function", zt = `[ 	
+const Mt = globalThis, Xt = (e) => e, ut = Mt.trustedTypes, ea = ut ? ut.createPolicy("lit-html", { createHTML: (e) => e }) : void 0, $a = "$lit$", $e = `lit$${Math.random().toFixed(9).slice(2)}$`, ka = "?" + $e, er = `<${ka}>`, Se = document, Xe = () => Se.createComment(""), et = (e) => e === null || typeof e != "object" && typeof e != "function", qt = Array.isArray, tr = (e) => qt(e) || typeof e?.[Symbol.iterator] == "function", zt = `[ 	
 \f\r]`, Fe = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, ta = /-->/g, aa = />/g, ke = RegExp(`>|${zt}(?:([^\\s"'>=/]+)(${zt}*=${zt}*(?:[^ 	
 \f\r"'\`<>=]|("|')|))|$)`, "g"), ra = /'/g, ia = /"/g, za = /^(?:script|style|textarea|title)$/i, Aa = (e) => (t, ...a) => ({ _$litType$: e, strings: t, values: a }), o = Aa(1), mt = Aa(2), pe = Symbol.for("lit-noChange"), d = Symbol.for("lit-nothing"), sa = /* @__PURE__ */ new WeakMap(), Ae = Se.createTreeWalker(Se, 129);
 function Sa(e, t) {
@@ -273,11 +273,11 @@ const ar = (e, t) => {
   const a = e.length - 1, r = [];
   let i, s = t === 2 ? "<svg>" : t === 3 ? "<math>" : "", n = Fe;
   for (let p = 0; p < a; p++) {
-    const u = e[p];
-    let h, m, g = -1, Q = 0;
-    for (; Q < u.length && (n.lastIndex = Q, m = n.exec(u), m !== null); ) Q = n.lastIndex, n === Fe ? m[1] === "!--" ? n = ta : m[1] !== void 0 ? n = aa : m[2] !== void 0 ? (za.test(m[2]) && (i = RegExp("</" + m[2], "g")), n = ke) : m[3] !== void 0 && (n = ke) : n === ke ? m[0] === ">" ? (n = i ?? Fe, g = -1) : m[1] === void 0 ? g = -2 : (g = n.lastIndex - m[2].length, h = m[1], n = m[3] === void 0 ? ke : m[3] === '"' ? ia : ra) : n === ia || n === ra ? n = ke : n === ta || n === aa ? n = Fe : (n = ke, i = void 0);
+    const h = e[p];
+    let u, m, g = -1, Q = 0;
+    for (; Q < h.length && (n.lastIndex = Q, m = n.exec(h), m !== null); ) Q = n.lastIndex, n === Fe ? m[1] === "!--" ? n = ta : m[1] !== void 0 ? n = aa : m[2] !== void 0 ? (za.test(m[2]) && (i = RegExp("</" + m[2], "g")), n = ke) : m[3] !== void 0 && (n = ke) : n === ke ? m[0] === ">" ? (n = i ?? Fe, g = -1) : m[1] === void 0 ? g = -2 : (g = n.lastIndex - m[2].length, u = m[1], n = m[3] === void 0 ? ke : m[3] === '"' ? ia : ra) : n === ia || n === ra ? n = ke : n === ta || n === aa ? n = Fe : (n = ke, i = void 0);
     const E = n === ke && e[p + 1].startsWith("/>") ? " " : "";
-    s += n === Fe ? u + er : g >= 0 ? (r.push(h), u.slice(0, g) + $a + u.slice(g) + $e + E) : u + $e + (g === -2 ? p : E);
+    s += n === Fe ? h + er : g >= 0 ? (r.push(u), h.slice(0, g) + $a + h.slice(g) + $e + E) : h + $e + (g === -2 ? p : E);
   }
   return [Sa(e, s + (e[a] || "<?>") + (t === 2 ? "</svg>" : t === 3 ? "</math>" : "")), r];
 };
@@ -286,29 +286,29 @@ class tt {
     let i;
     this.parts = [];
     let s = 0, n = 0;
-    const p = t.length - 1, u = this.parts, [h, m] = ar(t, a);
-    if (this.el = tt.createElement(h, r), Ae.currentNode = this.el.content, a === 2 || a === 3) {
+    const p = t.length - 1, h = this.parts, [u, m] = ar(t, a);
+    if (this.el = tt.createElement(u, r), Ae.currentNode = this.el.content, a === 2 || a === 3) {
       const g = this.el.content.firstChild;
       g.replaceWith(...g.childNodes);
     }
-    for (; (i = Ae.nextNode()) !== null && u.length < p; ) {
+    for (; (i = Ae.nextNode()) !== null && h.length < p; ) {
       if (i.nodeType === 1) {
         if (i.hasAttributes()) for (const g of i.getAttributeNames()) if (g.endsWith($a)) {
           const Q = m[n++], E = i.getAttribute(g).split($e), C = /([.?@])?(.*)/.exec(Q);
-          u.push({ type: 1, index: s, name: C[2], strings: E, ctor: C[1] === "." ? ir : C[1] === "?" ? sr : C[1] === "@" ? or : vt }), i.removeAttribute(g);
-        } else g.startsWith($e) && (u.push({ type: 6, index: s }), i.removeAttribute(g));
+          h.push({ type: 1, index: s, name: C[2], strings: E, ctor: C[1] === "." ? ir : C[1] === "?" ? sr : C[1] === "@" ? or : vt }), i.removeAttribute(g);
+        } else g.startsWith($e) && (h.push({ type: 6, index: s }), i.removeAttribute(g));
         if (za.test(i.tagName)) {
           const g = i.textContent.split($e), Q = g.length - 1;
           if (Q > 0) {
-            i.textContent = ht ? ht.emptyScript : "";
-            for (let E = 0; E < Q; E++) i.append(g[E], Xe()), Ae.nextNode(), u.push({ type: 2, index: ++s });
+            i.textContent = ut ? ut.emptyScript : "";
+            for (let E = 0; E < Q; E++) i.append(g[E], Xe()), Ae.nextNode(), h.push({ type: 2, index: ++s });
             i.append(g[Q], Xe());
           }
         }
-      } else if (i.nodeType === 8) if (i.data === ka) u.push({ type: 2, index: s });
+      } else if (i.nodeType === 8) if (i.data === ka) h.push({ type: 2, index: s });
       else {
         let g = -1;
-        for (; (g = i.data.indexOf($e, g + 1)) !== -1; ) u.push({ type: 7, index: s }), g += $e.length - 1;
+        for (; (g = i.data.indexOf($e, g + 1)) !== -1; ) h.push({ type: 7, index: s }), g += $e.length - 1;
       }
       s++;
     }
@@ -337,13 +337,13 @@ class rr {
   u(t) {
     const { el: { content: a }, parts: r } = this._$AD, i = (t?.creationScope ?? Se).importNode(a, !0);
     Ae.currentNode = i;
-    let s = Ae.nextNode(), n = 0, p = 0, u = r[0];
-    for (; u !== void 0; ) {
-      if (n === u.index) {
-        let h;
-        u.type === 2 ? h = new ot(s, s.nextSibling, this, t) : u.type === 1 ? h = new u.ctor(s, u.name, u.strings, this, t) : u.type === 6 && (h = new nr(s, this, t)), this._$AV.push(h), u = r[++p];
+    let s = Ae.nextNode(), n = 0, p = 0, h = r[0];
+    for (; h !== void 0; ) {
+      if (n === h.index) {
+        let u;
+        h.type === 2 ? u = new ot(s, s.nextSibling, this, t) : h.type === 1 ? u = new h.ctor(s, h.name, h.strings, this, t) : h.type === 6 && (u = new nr(s, this, t)), this._$AV.push(u), h = r[++p];
       }
-      n !== u?.index && (s = Ae.nextNode(), n++);
+      n !== h?.index && (s = Ae.nextNode(), n++);
     }
     return Ae.currentNode = Se, i;
   }
@@ -427,8 +427,8 @@ class vt {
     if (s === void 0) t = Ne(this, t, a, 0), n = !et(t) || t !== this._$AH && t !== pe, n && (this._$AH = t);
     else {
       const p = t;
-      let u, h;
-      for (t = s[0], u = 0; u < s.length - 1; u++) h = Ne(this, p[r + u], a, u), h === pe && (h = this._$AH[u]), n ||= !et(h) || h !== this._$AH[u], h === d ? t = d : t !== d && (t += (h ?? "") + s[u + 1]), this._$AH[u] = h;
+      let h, u;
+      for (t = s[0], h = 0; h < s.length - 1; h++) u = Ne(this, p[r + h], a, h), u === pe && (u = this._$AH[h]), n ||= !et(u) || u !== this._$AH[h], u === d ? t = d : t !== d && (t += (u ?? "") + s[h + 1]), this._$AH[h] = u;
     }
     n && !i && this.j(t);
   }
@@ -524,7 +524,7 @@ cr?.({ LitElement: _ });
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const v = (e) => (t, a) => {
+const w = (e) => (t, a) => {
   a !== void 0 ? a.addInitializer(() => {
     customElements.define(e, t);
   }) : customElements.define(e, t);
@@ -534,14 +534,14 @@ const v = (e) => (t, a) => {
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const pr = { attribute: !0, type: String, converter: ut, reflect: !1, hasChanged: Rt }, ur = (e = pr, t, a) => {
+const pr = { attribute: !0, type: String, converter: ht, reflect: !1, hasChanged: It }, hr = (e = pr, t, a) => {
   const { kind: r, metadata: i } = a;
   let s = globalThis.litPropertyMetadata.get(i);
   if (s === void 0 && globalThis.litPropertyMetadata.set(i, s = /* @__PURE__ */ new Map()), r === "setter" && ((e = Object.create(e)).wrapped = !0), s.set(a.name, e), r === "accessor") {
     const { name: n } = a;
     return { set(p) {
-      const u = t.get.call(this);
-      t.set.call(this, p), this.requestUpdate(n, u, e, !0, p);
+      const h = t.get.call(this);
+      t.set.call(this, p), this.requestUpdate(n, h, e, !0, p);
     }, init(p) {
       return p !== void 0 && this.C(n, void 0, e, p), p;
     } };
@@ -549,14 +549,14 @@ const pr = { attribute: !0, type: String, converter: ut, reflect: !1, hasChanged
   if (r === "setter") {
     const { name: n } = a;
     return function(p) {
-      const u = this[n];
-      t.call(this, p), this.requestUpdate(n, u, e, !0, p);
+      const h = this[n];
+      t.call(this, p), this.requestUpdate(n, h, e, !0, p);
     };
   }
   throw Error("Unsupported decorator location: " + r);
 };
 function l(e) {
-  return (t, a) => typeof a == "object" ? ur(e, t, a) : ((r, i, s) => {
+  return (t, a) => typeof a == "object" ? hr(e, t, a) : ((r, i, s) => {
     const n = i.hasOwnProperty(s);
     return i.constructor.createProperty(s, r), n ? Object.getOwnPropertyDescriptor(i, s) : void 0;
   })(e, t, a);
@@ -574,7 +574,7 @@ function c(e) {
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const hr = (e, t, a) => (a.configurable = !0, a.enumerable = !0, Reflect.decorate && typeof t != "object" && Object.defineProperty(e, t, a), a);
+const ur = (e, t, a) => (a.configurable = !0, a.enumerable = !0, Reflect.decorate && typeof t != "object" && Object.defineProperty(e, t, a), a);
 /**
  * @license
  * Copyright 2017 Google LLC
@@ -583,7 +583,7 @@ const hr = (e, t, a) => (a.configurable = !0, a.enumerable = !0, Reflect.decorat
 function Ea(e, t) {
   return (a, r, i) => {
     const s = (n) => n.renderRoot?.querySelector(e) ?? null;
-    return hr(a, r, { get() {
+    return ur(a, r, { get() {
       return s(this);
     } });
   };
@@ -593,7 +593,7 @@ var mr = Object.defineProperty, gr = Object.getOwnPropertyDescriptor, wt = (e, t
     (n = e[s]) && (i = (r ? n(t, a, i) : n(i)) || i);
   return r && i && mr(t, a, i), i;
 };
-let Ue = class extends _ {
+let Ge = class extends _ {
   constructor() {
     super(...arguments), this.variant = "filled", this.disabled = !1;
   }
@@ -609,7 +609,7 @@ let Ue = class extends _ {
     this.disabled && e.stopPropagation();
   }
 };
-Ue.styles = w`
+Ge.styles = x`
     :host {
       display: inline-flex;
     }
@@ -656,22 +656,22 @@ Ue.styles = w`
   `;
 wt([
   l({ type: String })
-], Ue.prototype, "variant", 2);
+], Ge.prototype, "variant", 2);
 wt([
   l({ type: Boolean })
-], Ue.prototype, "disabled", 2);
+], Ge.prototype, "disabled", 2);
 wt([
   l({ type: String })
-], Ue.prototype, "icon", 2);
-Ue = wt([
-  v("se-button")
-], Ue);
+], Ge.prototype, "icon", 2);
+Ge = wt([
+  w("se-button")
+], Ge);
 /**
  * @license
  * Copyright 2017 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-const Re = { ATTRIBUTE: 1, PROPERTY: 3, BOOLEAN_ATTRIBUTE: 4 }, Ca = (e) => (...t) => ({ _$litDirective$: e, values: t });
+const Ie = { ATTRIBUTE: 1, PROPERTY: 3, BOOLEAN_ATTRIBUTE: 4 }, Ca = (e) => (...t) => ({ _$litDirective$: e, values: t });
 let ja = class {
   constructor(t) {
   }
@@ -701,7 +701,7 @@ const _r = (e) => e.strings === void 0, fr = {}, Ta = (e, t = fr) => e._$AH = t;
  */
 const Et = Ca(class extends ja {
   constructor(e) {
-    if (super(e), e.type !== Re.PROPERTY && e.type !== Re.ATTRIBUTE && e.type !== Re.BOOLEAN_ATTRIBUTE) throw Error("The `live` directive is not allowed on child or event bindings");
+    if (super(e), e.type !== Ie.PROPERTY && e.type !== Ie.ATTRIBUTE && e.type !== Ie.BOOLEAN_ATTRIBUTE) throw Error("The `live` directive is not allowed on child or event bindings");
     if (!_r(e)) throw Error("`live` bindings can only contain a single expression");
   }
   render(e) {
@@ -710,11 +710,11 @@ const Et = Ca(class extends ja {
   update(e, [t]) {
     if (t === pe || t === d) return t;
     const a = e.element, r = e.name;
-    if (e.type === Re.PROPERTY) {
+    if (e.type === Ie.PROPERTY) {
       if (t === a[r]) return pe;
-    } else if (e.type === Re.BOOLEAN_ATTRIBUTE) {
+    } else if (e.type === Ie.BOOLEAN_ATTRIBUTE) {
       if (!!t === a.hasAttribute(r)) return pe;
-    } else if (e.type === Re.ATTRIBUTE && a.getAttribute(r) === t + "") return pe;
+    } else if (e.type === Ie.ATTRIBUTE && a.getAttribute(r) === t + "") return pe;
     return Ta(e), t;
   }
 });
@@ -724,7 +724,7 @@ var br = Object.defineProperty, yr = Object.getOwnPropertyDescriptor, xt = (e, t
   return r && i && br(t, a, i), i;
 };
 const vr = 300;
-let Ge = class extends _ {
+let Ue = class extends _ {
   constructor() {
     super(...arguments), this.heading = "", this.open = !1, this.pressedOnScrim = !1, this.keepInView = (e) => {
       const t = e.composedPath()[0]?.tagName;
@@ -774,7 +774,7 @@ let Ge = class extends _ {
     e.stopPropagation();
   }
 };
-Ge.styles = w`
+Ue.styles = x`
     :host {
       display: none;
     }
@@ -901,17 +901,17 @@ Ge.styles = w`
   `;
 xt([
   l({ attribute: !1 })
-], Ge.prototype, "localize", 2);
+], Ue.prototype, "localize", 2);
 xt([
   l({ type: String })
-], Ge.prototype, "heading", 2);
+], Ue.prototype, "heading", 2);
 xt([
   l({ type: Boolean, reflect: !0 })
-], Ge.prototype, "open", 2);
-Ge = xt([
-  v("se-dialog")
-], Ge);
-var wr = Object.defineProperty, xr = Object.getOwnPropertyDescriptor, ue = (e, t, a, r) => {
+], Ue.prototype, "open", 2);
+Ue = xt([
+  w("se-dialog")
+], Ue);
+var wr = Object.defineProperty, xr = Object.getOwnPropertyDescriptor, he = (e, t, a, r) => {
   for (var i = r > 1 ? void 0 : r ? xr(t, a) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (i = (r ? n(t, a, i) : n(i)) || i);
   return r && i && wr(t, a, i), i;
@@ -950,7 +950,7 @@ let te = class extends _ {
     );
   }
 };
-te.styles = w`
+te.styles = x`
     :host {
       display: block;
     }
@@ -1001,35 +1001,35 @@ te.styles = w`
       margin-top: 4px;
     }
   `;
-ue([
+he([
   l({ type: String })
 ], te.prototype, "label", 2);
-ue([
+he([
   l({ type: String })
 ], te.prototype, "value", 2);
-ue([
+he([
   l({ type: String })
 ], te.prototype, "type", 2);
-ue([
+he([
   l({ type: String })
 ], te.prototype, "placeholder", 2);
-ue([
+he([
   l({ type: String })
 ], te.prototype, "suffix", 2);
-ue([
+he([
   l({ type: String })
 ], te.prototype, "helper", 2);
-ue([
+he([
   l({ type: Boolean })
 ], te.prototype, "required", 2);
-ue([
+he([
   l({ type: Boolean })
 ], te.prototype, "disabled", 2);
-ue([
+he([
   l({ type: Boolean })
 ], te.prototype, "decimal", 2);
-te = ue([
-  v("se-field")
+te = he([
+  w("se-field")
 ], te);
 var $r = Object.defineProperty, kr = Object.getOwnPropertyDescriptor, De = (e, t, a, r) => {
   for (var i = r > 1 ? void 0 : r ? kr(t, a) : t, s = e.length - 1, n; s >= 0; s--)
@@ -1080,7 +1080,7 @@ let _e = class extends _ {
     );
   }
 };
-_e.styles = w`
+_e.styles = x`
     :host {
       display: block;
     }
@@ -1143,7 +1143,7 @@ De([
   Ea("select")
 ], _e.prototype, "box", 2);
 _e = De([
-  v("se-select")
+  w("se-select")
 ], _e);
 const se = 1e6, zr = se * 1e5, gt = [
   "AUD",
@@ -1186,35 +1186,35 @@ function Ar(e, t) {
 }
 function Oa(e, t) {
   const a = Object.entries(e);
-  if (a.length === 0 || !Number.isInteger(t) || a.some(([, h]) => !Number.isInteger(h)))
+  if (a.length === 0 || !Number.isInteger(t) || a.some(([, u]) => !Number.isInteger(u)))
     return null;
-  if (t < 0 || t === 0 && a.some(([, h]) => h < 0)) {
+  if (t < 0 || t === 0 && a.some(([, u]) => u < 0)) {
     if (a.some(([, m]) => m > 0))
       return null;
-    const h = Oa(
+    const u = Oa(
       Object.fromEntries(a.map(([m, g]) => [m, -g])),
       -t
     );
-    return h === null ? null : Object.fromEntries(
-      Object.entries(h).map(([m, g]) => [m, -g])
+    return u === null ? null : Object.fromEntries(
+      Object.entries(u).map(([m, g]) => [m, -g])
     );
   }
-  if (a.some(([, h]) => h < 0))
+  if (a.some(([, u]) => u < 0))
     return null;
-  const r = a.reduce((h, [, m]) => h + m, 0);
+  const r = a.reduce((u, [, m]) => u + m, 0);
   if (r <= 0)
     return null;
   const i = a.length, s = Math.floor(t / i) % i, n = {};
-  a.forEach(([h, m]) => {
-    n[h] = Math.floor(m * t / r);
+  a.forEach(([u, m]) => {
+    n[u] = Math.floor(m * t / r);
   });
-  const p = t - Object.values(n).reduce((h, m) => h + m, 0), u = a.map(([h, m], g) => ({
-    id: h,
+  const p = t - Object.values(n).reduce((u, m) => u + m, 0), h = a.map(([u, m], g) => ({
+    id: u,
     remainder: m * t % r,
     rank: (g - s + i) % i
-  })).sort((h, m) => m.remainder - h.remainder || h.rank - m.rank);
-  for (const { id: h } of u.slice(0, p))
-    n[h] += 1;
+  })).sort((u, m) => m.remainder - u.remainder || u.rank - m.rank);
+  for (const { id: u } of h.slice(0, p))
+    n[u] += 1;
   return n;
 }
 function Sr(e) {
@@ -1509,6 +1509,11 @@ const _t = {
   role_member: "Member",
   new_payment: "Record a reimbursement / debt",
   new_debt: "Write down a debt",
+  fab_add: "Add",
+  fab_refund_hint: "A shop gave money back",
+  fab_reimburse: "Pay someone back",
+  fab_reimburse_hint: "Money between members",
+  fab_debt_hint: "Note what someone owes",
   kind_label: "What is this?",
   kind_reimbursement: "Reimbursement",
   kind_debt: "Debt",
@@ -1834,6 +1839,11 @@ const _t = {
   role_member: "Membre",
   new_payment: "Enregistrer un remboursement / dette",
   new_debt: "Inscrire une dette",
+  fab_add: "Ajouter",
+  fab_refund_hint: "Un magasin rend de l'argent",
+  fab_reimburse: "Rembourser quelqu'un",
+  fab_reimburse_hint: "De l'argent entre membres",
+  fab_debt_hint: "Noter ce que quelqu'un doit",
   kind_label: "De quoi s'agit-il ?",
   kind_reimbursement: "Remboursement",
   kind_debt: "Dette",
@@ -2158,6 +2168,11 @@ const _t = {
   role_member: "Mitglied",
   new_payment: "Rückzahlung / Schuld erfassen",
   new_debt: "Eine Schuld eintragen",
+  fab_add: "Hinzufügen",
+  fab_refund_hint: "Ein Geschäft erstattet Geld",
+  fab_reimburse: "Jemandem Geld zurückgeben",
+  fab_reimburse_hint: "Geld zwischen Mitgliedern",
+  fab_debt_hint: "Notieren, was jemand schuldet",
   kind_label: "Worum geht es?",
   kind_reimbursement: "Rückzahlung",
   kind_debt: "Schuld",
@@ -2482,6 +2497,11 @@ const _t = {
   role_member: "Lid",
   new_payment: "Een terugbetaling / schuld vastleggen",
   new_debt: "Een schuld noteren",
+  fab_add: "Toevoegen",
+  fab_refund_hint: "Een winkel geeft geld terug",
+  fab_reimburse: "Iemand terugbetalen",
+  fab_reimburse_hint: "Geld tussen leden",
+  fab_debt_hint: "Noteren wat iemand schuldig is",
   kind_label: "Wat is dit?",
   kind_reimbursement: "Terugbetaling",
   kind_debt: "Schuld",
@@ -2806,6 +2826,11 @@ const _t = {
   role_member: "Miembro",
   new_payment: "Registrar un reembolso / deuda",
   new_debt: "Anotar una deuda",
+  fab_add: "Añadir",
+  fab_refund_hint: "Una tienda devuelve dinero",
+  fab_reimburse: "Devolver dinero a alguien",
+  fab_reimburse_hint: "Dinero entre miembros",
+  fab_debt_hint: "Anotar lo que alguien debe",
   kind_label: "¿De qué se trata?",
   kind_reimbursement: "Reembolso",
   kind_debt: "Deuda",
@@ -3130,6 +3155,11 @@ const _t = {
   role_member: "Membro",
   new_payment: "Registra un rimborso / debito",
   new_debt: "Annota un debito",
+  fab_add: "Aggiungi",
+  fab_refund_hint: "Un negozio restituisce soldi",
+  fab_reimburse: "Rimborsare qualcuno",
+  fab_reimburse_hint: "Soldi tra membri",
+  fab_debt_hint: "Annotare ciò che qualcuno deve",
   kind_label: "Di cosa si tratta?",
   kind_reimbursement: "Rimborso",
   kind_debt: "Debito",
@@ -3454,6 +3484,11 @@ const _t = {
   role_member: "Członek",
   new_payment: "Zapisz zwrot / dług",
   new_debt: "Zapisz dług",
+  fab_add: "Dodaj",
+  fab_refund_hint: "Sklep oddaje pieniądze",
+  fab_reimburse: "Oddać komuś pieniądze",
+  fab_reimburse_hint: "Pieniądze między członkami",
+  fab_debt_hint: "Zapisać, ile ktoś jest winien",
   kind_label: "Co to jest?",
   kind_reimbursement: "Zwrot",
   kind_debt: "Dług",
@@ -3778,6 +3813,11 @@ const _t = {
   role_member: "Membro",
   new_payment: "Registrar um reembolso / dívida",
   new_debt: "Anotar uma dívida",
+  fab_add: "Adicionar",
+  fab_refund_hint: "Uma loja devolve dinheiro",
+  fab_reimburse: "Reembolsar alguém",
+  fab_reimburse_hint: "Dinheiro entre membros",
+  fab_debt_hint: "Anotar o que alguém deve",
   kind_label: "Do que se trata?",
   kind_reimbursement: "Reembolso",
   kind_debt: "Dívida",
@@ -3827,7 +3867,7 @@ const _t = {
   currency_locked: "Este grupo já tem despesas: sua moeda não pode mais mudar.",
   not_loaded: "A integração não está carregada.",
   unknown_error: "Algo deu errado."
-}, Ir = {
+}, Rr = {
   en: _t,
   fr: Er,
   de: Cr,
@@ -3840,14 +3880,14 @@ const _t = {
   pt: Pr
 };
 function He(e) {
-  const t = Ir[e.split("-")[0]] ?? _t;
+  const t = Rr[e.split("-")[0]] ?? _t;
   return (a) => t[a] ?? _t[a] ?? a;
 }
 function A(e, t) {
   const a = e?.code;
   return a && a in _t ? t(a) : e?.message || t("error_generic");
 }
-const S = w`
+const S = x`
   :host {
     --se-gap: 16px;
     --se-radius: 12px;
@@ -4035,7 +4075,7 @@ const S = w`
   button {
     font-family: inherit;
   }
-`, Rr = [
+`, Ir = [
   "manage_members",
   "manage_categories",
   "manage_group",
@@ -4046,7 +4086,7 @@ var Mr = Object.defineProperty, qr = Object.getOwnPropertyDescriptor, V = (e, t,
     (n = e[s]) && (i = (r ? n(t, a, i) : n(i)) || i);
   return r && i && Mr(t, a, i), i;
 };
-let U = class extends _ {
+let G = class extends _ {
   constructor() {
     super(...arguments), this.role = null, this.mayManage = !1, this.name = "", this.description = "", this.currency = "EUR", this.permissions = /* @__PURE__ */ new Set(), this.exposed = !1, this.busy = !1, this.cancel = () => {
       this.dispatchEvent(new CustomEvent("dialog-cancelled", { bubbles: !0, composed: !0 }));
@@ -4171,7 +4211,7 @@ let U = class extends _ {
         <h3>${e("permissions")}</h3>
         <div class="muted">${e("permissions_hint")}</div>
 
-        ${Rr.map(
+        ${Ir.map(
       (t) => o`
             <label class="switch">
               <input
@@ -4232,9 +4272,9 @@ let U = class extends _ {
     t.target.checked ? a.add(e) : a.delete(e), this.permissions = a;
   }
 };
-U.styles = [
+G.styles = [
   S,
-  w`
+  x`
       .switch {
         display: flex;
         align-items: flex-start;
@@ -4268,48 +4308,48 @@ U.styles = [
 ];
 V([
   l({ attribute: !1 })
-], U.prototype, "api", 2);
+], G.prototype, "api", 2);
 V([
   l({ attribute: !1 })
-], U.prototype, "localize", 2);
+], G.prototype, "localize", 2);
 V([
   l({ attribute: !1 })
-], U.prototype, "group", 2);
+], G.prototype, "group", 2);
 V([
   l({ attribute: !1 })
-], U.prototype, "role", 2);
+], G.prototype, "role", 2);
 V([
   l({ type: Boolean })
-], U.prototype, "mayManage", 2);
+], G.prototype, "mayManage", 2);
 V([
   l({ attribute: !1 })
-], U.prototype, "defaultCurrency", 2);
+], G.prototype, "defaultCurrency", 2);
 V([
   c()
-], U.prototype, "name", 2);
+], G.prototype, "name", 2);
 V([
   c()
-], U.prototype, "description", 2);
+], G.prototype, "description", 2);
 V([
   c()
-], U.prototype, "currency", 2);
+], G.prototype, "currency", 2);
 V([
   c()
-], U.prototype, "permissions", 2);
+], G.prototype, "permissions", 2);
 V([
   c()
-], U.prototype, "exposed", 2);
+], G.prototype, "exposed", 2);
 V([
   c()
-], U.prototype, "busy", 2);
+], G.prototype, "busy", 2);
 V([
   c()
-], U.prototype, "error", 2);
-U = V([
-  v("se-group-dialog")
-], U);
-var Nr = Object.defineProperty, Ur = Object.getOwnPropertyDescriptor, ye = (e, t, a, r) => {
-  for (var i = r > 1 ? void 0 : r ? Ur(t, a) : t, s = e.length - 1, n; s >= 0; s--)
+], G.prototype, "error", 2);
+G = V([
+  w("se-group-dialog")
+], G);
+var Nr = Object.defineProperty, Gr = Object.getOwnPropertyDescriptor, ye = (e, t, a, r) => {
+  for (var i = r > 1 ? void 0 : r ? Gr(t, a) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (i = (r ? n(t, a, i) : n(i)) || i);
   return r && i && Nr(t, a, i), i;
 };
@@ -4399,7 +4439,7 @@ let oe = class extends _ {
 };
 oe.styles = [
   S,
-  w`
+  x`
       :host {
         display: block;
       }
@@ -4529,7 +4569,7 @@ ye([
   c()
 ], oe.prototype, "dialogOpen", 2);
 oe = ye([
-  v("se-dashboard-page")
+  w("se-dashboard-page")
 ], oe);
 /**
  * @license
@@ -4591,11 +4631,11 @@ function qe(e, t, a = !0) {
     ...a ? { year: "numeric" } : {}
   }).format(new Date(r, i - 1, 1));
 }
-function Ia() {
+function Ra() {
   const e = /* @__PURE__ */ new Date(), t = `${e.getMonth() + 1}`.padStart(2, "0"), a = `${e.getDate()}`.padStart(2, "0");
   return `${e.getFullYear()}-${t}-${a}`;
 }
-function Ra(e) {
+function Ia(e) {
   return (/* @__PURE__ */ new Date(`${e}T12:00:00Z`)).toISOString();
 }
 function Ma(e) {
@@ -4605,14 +4645,14 @@ function Ma(e) {
 function ft(e) {
   return (e / 100).toFixed(2);
 }
-function Ut(e, t, a) {
+function Gt(e, t, a) {
   return new Intl.NumberFormat(a, {
     minimumFractionDigits: t,
     maximumFractionDigits: t,
     useGrouping: !1
   }).format(e);
 }
-function Gr(e) {
+function Ur(e) {
   return e.trim().split(/\s+/)[0] || e;
 }
 function Br(e) {
@@ -4648,7 +4688,7 @@ function Lr(e) {
     e.map((s) => s.color).filter((s) => s !== null)
   ), a = Je.filter((s) => !t.has(s)), r = /* @__PURE__ */ new Map(), i = e.filter((s) => s.color === null).sort((s, n) => s.id.localeCompare(n.id));
   for (const s of i) {
-    const n = Ce(s.id), p = a.findIndex((g) => Je.indexOf(g) >= Je.indexOf(n)), u = p === -1 ? 0 : p, h = new Set(r.values()), m = a.slice(u).concat(a.slice(0, u)).find((g) => !h.has(g));
+    const n = Ce(s.id), p = a.findIndex((g) => Je.indexOf(g) >= Je.indexOf(n)), h = p === -1 ? 0 : p, u = new Set(r.values()), m = a.slice(h).concat(a.slice(0, h)).find((g) => !u.has(g));
     r.set(s.id, m ?? n);
   }
   return r;
@@ -4883,7 +4923,7 @@ let X = class extends _ {
 };
 X.styles = [
   S,
-  w`
+  x`
       :host {
         display: block;
       }
@@ -5186,7 +5226,7 @@ ce([
   l({ type: Boolean })
 ], X.prototype, "addButton", 2);
 X = ce([
-  v("se-balance-card")
+  w("se-balance-card")
 ], X);
 var Kr = Object.defineProperty, Fr = Object.getOwnPropertyDescriptor, Oe = (e, t, a, r) => {
   for (var i = r > 1 ? void 0 : r ? Fr(t, a) : t, s = e.length - 1, n; s >= 0; s--)
@@ -5226,7 +5266,7 @@ let fe = class extends _ {
     return customElements.get("ha-icon") !== void 0;
   }
 };
-fe.styles = w`
+fe.styles = x`
     :host {
       display: block;
       flex: 0 0 auto;
@@ -5274,7 +5314,7 @@ Oe([
   l({ type: Number })
 ], fe.prototype, "glyph", 2);
 fe = Oe([
-  v("se-icon")
+  w("se-icon")
 ], fe);
 var Vr = Object.defineProperty, Zr = Object.getOwnPropertyDescriptor, ve = (e, t, a, r) => {
   for (var i = r > 1 ? void 0 : r ? Zr(t, a) : t, s = e.length - 1, n; s >= 0; s--)
@@ -5404,7 +5444,7 @@ let ne = class extends _ {
 };
 ne.styles = [
   S,
-  w`
+  x`
       :host {
         display: block;
         position: relative;
@@ -5555,19 +5595,19 @@ ve([
   Ea(".search")
 ], ne.prototype, "searchBox", 2);
 ne = ve([
-  v("se-color-picker")
+  w("se-color-picker")
 ], ne);
 var Jr = Object.defineProperty, Qr = Object.getOwnPropertyDescriptor, we = (e, t, a, r) => {
   for (var i = r > 1 ? void 0 : r ? Qr(t, a) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (i = (r ? n(t, a, i) : n(i)) || i);
   return r && i && Jr(t, a, i), i;
 };
-const ua = "/static/mdi/iconList.json", At = 48;
+const ha = "/static/mdi/iconList.json", At = 48;
 let dt = null;
 function Yr() {
-  return dt === null && (dt = fetch(ua).then((e) => {
+  return dt === null && (dt = fetch(ha).then((e) => {
     if (!e.ok)
-      throw new Error(`${e.status} on ${ua}`);
+      throw new Error(`${e.status} on ${ha}`);
     return e.json();
   }).catch((e) => {
     throw dt = null, e;
@@ -5693,7 +5733,7 @@ let le = class extends _ {
 };
 le.styles = [
   S,
-  w`
+  x`
       :host {
         display: block;
         position: relative;
@@ -5819,19 +5859,19 @@ we([
   c()
 ], le.prototype, "failed", 2);
 le = we([
-  v("se-icon-picker")
+  w("se-icon-picker")
 ], le);
-function Gt(e) {
+function Ut(e) {
   const { amount: t, payerId: a, memberIds: r } = e;
   if (!Number.isInteger(t) || t === 0)
     return null;
   if (t < 0) {
-    const E = Gt({ ...e, amount: -t });
+    const E = Ut({ ...e, amount: -t });
     if (E === null)
       return null;
     const C = {};
-    for (const [Ie, Ke] of Object.entries(E))
-      C[Ie] = -Ke;
+    for (const [Re, Ke] of Object.entries(E))
+      C[Re] = -Ke;
     return C;
   }
   const i = [...new Set(r)];
@@ -5843,16 +5883,16 @@ function Gt(e) {
   const p = s.participants == null ? i : [...new Set(s.participants)];
   if (p.some((E) => !i.includes(E)))
     return null;
-  const u = p.length === 0 ? 0 : n, h = Ct(u, p), m = t - u;
+  const h = p.length === 0 ? 0 : n, u = Ct(h, p), m = t - h;
   if (m > 0) {
     const E = ei(s.remainder, m, a, i);
     if (E === null)
       return null;
-    for (const [C, Ie] of Object.entries(E))
-      h[C] = (h[C] ?? 0) + Ie;
+    for (const [C, Re] of Object.entries(E))
+      u[C] = (u[C] ?? 0) + Re;
   }
   const g = {};
-  for (const [E, C] of Object.entries(h))
+  for (const [E, C] of Object.entries(u))
     C !== 0 && (g[E] = C);
   return Object.values(g).reduce((E, C) => E + C, 0) === t ? g : null;
 }
@@ -5862,46 +5902,46 @@ function Xr(e, t) {
 const St = 1e4;
 function ei(e, t, a, r) {
   const i = e ?? {}, s = i.fixed ?? {}, n = i.percent ?? {};
-  for (const [x, D] of Object.entries(s))
-    if (!r.includes(x) || D < 0)
+  for (const [$, D] of Object.entries(s))
+    if (!r.includes($) || D < 0)
       return null;
-  for (const [x, D] of Object.entries(n))
-    if (!r.includes(x) || D < 0)
+  for (const [$, D] of Object.entries(n))
+    if (!r.includes($) || D < 0)
       return null;
   const p = i.members == null ? [a] : [...new Set(i.members)];
-  if (p.length === 0 || p.some((x) => !r.includes(x)))
+  if (p.length === 0 || p.some(($) => !r.includes($)))
     return null;
-  const u = {}, h = {};
-  for (const [x, D] of Object.entries(s))
-    p.includes(x) && (u[x] = D);
-  for (const [x, D] of Object.entries(n))
-    p.includes(x) && (h[x] = D);
-  if (Object.keys(u).some((x) => x in h))
+  const h = {}, u = {};
+  for (const [$, D] of Object.entries(s))
+    p.includes($) && (h[$] = D);
+  for (const [$, D] of Object.entries(n))
+    p.includes($) && (u[$] = D);
+  if (Object.keys(h).some(($) => $ in u))
     return null;
-  const m = Object.values(h).reduce((x, D) => x + D, 0);
+  const m = Object.values(u).reduce(($, D) => $ + D, 0);
   if (m > St)
     return null;
   const g = {};
-  for (const [x, D] of Object.entries(h))
-    g[x] = Math.floor(t * D / St);
-  const E = Object.values(u).reduce((x, D) => x + D, 0) + Object.values(g).reduce((x, D) => x + D, 0);
+  for (const [$, D] of Object.entries(u))
+    g[$] = Math.floor(t * D / St);
+  const E = Object.values(h).reduce(($, D) => $ + D, 0) + Object.values(g).reduce(($, D) => $ + D, 0);
   if (E > t)
     return null;
-  const C = { ...u, ...g }, Ie = p.filter(
-    (x) => !(x in u) && !(x in h)
+  const C = { ...h, ...g }, Re = p.filter(
+    ($) => !($ in h) && !($ in u)
   ), Ke = t - E;
-  if (Ie.length > 0) {
-    for (const [x, D] of Object.entries(Ct(Ke, Ie)))
-      C[x] = (C[x] ?? 0) + D;
+  if (Re.length > 0) {
+    for (const [$, D] of Object.entries(Ct(Ke, Re)))
+      C[$] = (C[$] ?? 0) + D;
     return C;
   }
   if (Ke === 0)
     return C;
-  if (m === St && Object.keys(h).length > 0) {
-    for (const [x, D] of Object.entries(
+  if (m === St && Object.keys(u).length > 0) {
+    for (const [$, D] of Object.entries(
       Ct(Ke, Object.keys(g))
     ))
-      C[x] = (C[x] ?? 0) + D;
+      C[$] = (C[$] ?? 0) + D;
     return C;
   }
   return null;
@@ -5917,7 +5957,7 @@ function Ct(e, t) {
     s[t[(n + p) % a]] += 1;
   return s;
 }
-const ha = 1e4;
+const ua = 1e4;
 function Bt(e) {
   if (e === null)
     return "default";
@@ -5977,15 +6017,15 @@ function ai(e, t, a) {
     takers: new Set(s),
     envelopeInput: e?.envelope != null ? _a(e.envelope) : "",
     amounts: Object.fromEntries(
-      Object.entries(e?.remainder?.fixed ?? {}).map(([p, u]) => [
+      Object.entries(e?.remainder?.fixed ?? {}).map(([p, h]) => [
         p,
-        _a(u)
+        _a(h)
       ])
     ),
     percents: Object.fromEntries(
-      Object.entries(e?.remainder?.percent ?? {}).map(([p, u]) => [
+      Object.entries(e?.remainder?.percent ?? {}).map(([p, h]) => [
         p,
-        ri(u)
+        ri(h)
       ])
     ),
     // One taker is a person to name. Several is a shape this editor has no room
@@ -6012,12 +6052,12 @@ function ga(e, t = e.participants) {
   for (const [r, i] of Object.entries(e.percents)) {
     if (!t.has(r) || i.trim() === "")
       continue;
-    const s = Ua(i);
+    const s = Ga(i);
     s !== null && (a[r] = s);
   }
   return a;
 }
-function Ua(e) {
+function Ga(e) {
   const t = e.trim().replace(",", ".");
   if (t === "")
     return null;
@@ -6203,11 +6243,11 @@ let O = class extends _ {
         ${a ? o`
               <div class="total">
                 <span class="muted">${t("split_percent_total")}</span>
-                <strong class=${r > ha ? "negative" : ""}>
+                <strong class=${r > ua ? "negative" : ""}>
                   ${(r / 100).toFixed(r % 100 === 0 ? 0 : 2)} %
                 </strong>
               </div>
-              ${r > ha ? o`<div class="warn">${t("split_percent_over")}</div>` : d}
+              ${r > ua ? o`<div class="warn">${t("split_percent_over")}</div>` : d}
             ` : d}
       </div>
     `;
@@ -6225,7 +6265,7 @@ let O = class extends _ {
   percentTotal() {
     let e = 0;
     for (const [t, a] of Object.entries(this.percents))
-      this.participants.has(t) && (e += Ua(a) ?? 0);
+      this.participants.has(t) && (e += Ga(a) ?? 0);
     return e;
   }
   setPercent(e, t) {
@@ -6242,7 +6282,7 @@ let O = class extends _ {
           .value=${this.envelopeInput}
           .suffix=${this.currency}
           decimal
-          placeholder=${Ut(5, 2, this.language)}
+          placeholder=${Gt(5, 2, this.language)}
           @value-changed=${(s) => this.setEnvelope(s.detail.value)}
         ></se-field>
 
@@ -6382,7 +6422,7 @@ let O = class extends _ {
    */
   shares(e = this.previewAmount) {
     const t = this.members.find((a) => a.id === this.payerId) ?? this.members[0];
-    return t ? Gt({
+    return t ? Ut({
       amount: e,
       payerId: t.id,
       memberIds: this.members.map((a) => a.id),
@@ -6472,7 +6512,7 @@ let O = class extends _ {
 };
 O.styles = [
   S,
-  w`
+  x`
       .toggle {
         display: flex;
         align-items: center;
@@ -6645,14 +6685,14 @@ N([
   c()
 ], O.prototype, "takers", 2);
 O = N([
-  v("se-split-rule-editor")
+  w("se-split-rule-editor")
 ], O);
 var ni = Object.defineProperty, li = Object.getOwnPropertyDescriptor, L = (e, t, a, r) => {
   for (var i = r > 1 ? void 0 : r ? li(t, a) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (i = (r ? n(t, a, i) : n(i)) || i);
   return r && i && ni(t, a, i), i;
 };
-let I = class extends _ {
+let R = class extends _ {
   constructor() {
     super(...arguments), this.mayManageGroup = !1, this.members = [], this.categories = [], this.language = "en", this.name = "", this.icon = "", this.color = null, this.rule = null, this.isDefault = !1, this.busy = !1, this.saved = !1, this.cancel = () => {
       if (this.saved) {
@@ -6798,56 +6838,56 @@ let I = class extends _ {
     });
   }
 };
-I.styles = S;
+R.styles = S;
 L([
   l({ attribute: !1 })
-], I.prototype, "api", 2);
+], R.prototype, "api", 2);
 L([
   l({ attribute: !1 })
-], I.prototype, "localize", 2);
+], R.prototype, "localize", 2);
 L([
   l({ attribute: !1 })
-], I.prototype, "group", 2);
+], R.prototype, "group", 2);
 L([
   l({ type: Boolean })
-], I.prototype, "mayManageGroup", 2);
+], R.prototype, "mayManageGroup", 2);
 L([
   l({ attribute: !1 })
-], I.prototype, "members", 2);
+], R.prototype, "members", 2);
 L([
   l({ attribute: !1 })
-], I.prototype, "category", 2);
+], R.prototype, "category", 2);
 L([
   l({ attribute: !1 })
-], I.prototype, "categories", 2);
+], R.prototype, "categories", 2);
 L([
   l({ type: String })
-], I.prototype, "language", 2);
+], R.prototype, "language", 2);
 L([
   c()
-], I.prototype, "name", 2);
+], R.prototype, "name", 2);
 L([
   c()
-], I.prototype, "icon", 2);
+], R.prototype, "icon", 2);
 L([
   c()
-], I.prototype, "color", 2);
+], R.prototype, "color", 2);
 L([
   c()
-], I.prototype, "rule", 2);
+], R.prototype, "rule", 2);
 L([
   c()
-], I.prototype, "isDefault", 2);
+], R.prototype, "isDefault", 2);
 L([
   c()
-], I.prototype, "busy", 2);
+], R.prototype, "busy", 2);
 L([
   c()
-], I.prototype, "error", 2);
-I = L([
-  v("se-category-dialog")
-], I);
-var di = Object.defineProperty, ci = Object.getOwnPropertyDescriptor, he = (e, t, a, r) => {
+], R.prototype, "error", 2);
+R = L([
+  w("se-category-dialog")
+], R);
+var di = Object.defineProperty, ci = Object.getOwnPropertyDescriptor, ue = (e, t, a, r) => {
   for (var i = r > 1 ? void 0 : r ? ci(t, a) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (i = (r ? n(t, a, i) : n(i)) || i);
   return r && i && di(t, a, i), i;
@@ -6925,7 +6965,7 @@ let ae = class extends _ {
 };
 ae.styles = [
   S,
-  w`
+  x`
       .switch {
         display: flex;
         align-items: center;
@@ -6950,35 +6990,35 @@ ae.styles = [
       }
     `
 ];
-he([
+ue([
   l({ attribute: !1 })
 ], ae.prototype, "api", 2);
-he([
+ue([
   l({ attribute: !1 })
 ], ae.prototype, "localize", 2);
-he([
+ue([
   l({ attribute: !1 })
 ], ae.prototype, "group", 2);
-he([
+ue([
   l({ attribute: !1 })
 ], ae.prototype, "members", 2);
-he([
+ue([
   l({ type: String })
 ], ae.prototype, "language", 2);
-he([
+ue([
   c()
 ], ae.prototype, "rule", 2);
-he([
+ue([
   c()
 ], ae.prototype, "isDefault", 2);
-he([
+ue([
   c()
 ], ae.prototype, "busy", 2);
-he([
+ue([
   c()
 ], ae.prototype, "error", 2);
-ae = he([
-  v("se-group-rule-dialog")
+ae = ue([
+  w("se-group-rule-dialog")
 ], ae);
 function jt(e, t, a, r) {
   if (e === null)
@@ -6988,16 +7028,16 @@ function jt(e, t, a, r) {
     const s = e.participants?.length;
     return s ? `${t("split_equal")} · ${s}` : t("split_equal");
   }
-  return i === "exact" ? Object.keys(e.remainder?.percent ?? {}).length > 0 ? ui(e, t) : t("split_exact") : i === "partial" ? e.envelope == null ? t("split_partial") : `${j(e.envelope, a, r)} ${t("split_shared_lower")}` : t("split_custom");
+  return i === "exact" ? Object.keys(e.remainder?.percent ?? {}).length > 0 ? hi(e, t) : t("split_exact") : i === "partial" ? e.envelope == null ? t("split_partial") : `${j(e.envelope, a, r)} ${t("split_shared_lower")}` : t("split_custom");
 }
-function ui(e, t) {
+function hi(e, t) {
   const a = Object.values(e.remainder?.percent ?? {});
   return a.length === 0 ? t("split_percent") : a.map((r) => r % 100 === 0 ? String(r / 100) : (r / 100).toFixed(2)).join(" / ").concat(" %");
 }
-var hi = Object.defineProperty, mi = Object.getOwnPropertyDescriptor, K = (e, t, a, r) => {
+var ui = Object.defineProperty, mi = Object.getOwnPropertyDescriptor, K = (e, t, a, r) => {
   for (var i = r > 1 ? void 0 : r ? mi(t, a) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (i = (r ? n(t, a, i) : n(i)) || i);
-  return r && i && hi(t, a, i), i;
+  return r && i && ui(t, a, i), i;
 };
 let M = class extends _ {
   constructor() {
@@ -7174,7 +7214,7 @@ let M = class extends _ {
 };
 M.styles = [
   S,
-  w`
+  x`
       .row {
         display: flex;
         align-items: center;
@@ -7262,7 +7302,7 @@ K([
   c()
 ], M.prototype, "dirty", 2);
 M = K([
-  v("se-categories-dialog")
+  w("se-categories-dialog")
 ], M);
 var gi = Object.defineProperty, _i = Object.getOwnPropertyDescriptor, F = (e, t, a, r) => {
   for (var i = r > 1 ? void 0 : r ? _i(t, a) : t, s = e.length - 1, n; s >= 0; s--)
@@ -7310,7 +7350,7 @@ let q = class extends _ {
             .label=${e("rate_label")}
             .value=${this.typed || (t === null ? "" : oa(t))}
             decimal
-            placeholder=${Ut(0.87681, 5, this.language)}
+            placeholder=${Gt(0.87681, 5, this.language)}
             @value-changed=${(a) => this.type(a.detail.value)}
           ></se-field>
         </div>
@@ -7388,7 +7428,7 @@ let q = class extends _ {
 };
 q.styles = [
   S,
-  w`
+  x`
       /*
        * No box of our own. Nearly every expense is in the group's own currency
        * and this field shows nothing at all — but an empty flex item still
@@ -7475,7 +7515,7 @@ F([
   c()
 ], q.prototype, "error", 2);
 q = F([
-  v("se-currency-field")
+  w("se-currency-field")
 ], q);
 function bt(e, t) {
   const a = t.members.find(
@@ -7529,7 +7569,7 @@ function bt(e, t) {
     </span>
   `;
 }
-const Lt = w`
+const Lt = x`
   .expense-row {
     display: flex;
     align-items: center;
@@ -7679,7 +7719,7 @@ let re = class extends _ {
 re.styles = [
   S,
   Lt,
-  w`
+  x`
       :host {
         display: block;
         position: relative;
@@ -7803,7 +7843,7 @@ me([
   c()
 ], re.prototype, "open", 2);
 re = me([
-  v("se-expense-picker")
+  w("se-expense-picker")
 ], re);
 const yi = {
   title: "expense_title",
@@ -7839,7 +7879,7 @@ function vi(e, t) {
   } : null;
 }
 function ba(e, t, a, r) {
-  return t == null ? null : e === "amount" && typeof t == "number" ? j(t, a.amountCurrency[r], a.language) : e === "expense_date" || e === "payment_date" ? Be(String(t), a.language, "UTC") : e === "category_id" || e === "default_category_id" ? a.categories.find((i) => i.id === t)?.name ?? a.localize("no_category") : e === "paid_by_member_id" || e === "from_member_id" || e === "to_member_id" ? Ga(String(t), a) : e === "shares" && xi(t) ? wi(t, a) : e === "kind" ? a.localize(
+  return t == null ? null : e === "amount" && typeof t == "number" ? j(t, a.amountCurrency[r], a.language) : e === "expense_date" || e === "payment_date" ? Be(String(t), a.language, "UTC") : e === "category_id" || e === "default_category_id" ? a.categories.find((i) => i.id === t)?.name ?? a.localize("no_category") : e === "paid_by_member_id" || e === "from_member_id" || e === "to_member_id" ? Ua(String(t), a) : e === "shares" && xi(t) ? wi(t, a) : e === "kind" ? a.localize(
     t === "debt" ? "kind_debt" : "kind_reimbursement"
   ) : e === "role" ? a.localize(t === "admin" ? "role_admin" : "role_member") : e === "archived" || e === "exposed" ? a.localize(t ? "yes" : "no") : e === "use_ha_avatar" ? a.localize(t ? "avatar_photo" : "avatar_initials") : e === "split_rule" ? jt(
     t,
@@ -7851,10 +7891,10 @@ function ba(e, t, a, r) {
 function wi(e, t) {
   const a = Object.entries(e).filter(([, r]) => r !== 0);
   return a.length === 0 ? "—" : a.map(
-    ([r, i]) => `${Ga(r, t)} ${j(i, t.currency, t.language)}`
+    ([r, i]) => `${Ua(r, t)} ${j(i, t.currency, t.language)}`
   ).join(" · ");
 }
-function Ga(e, t) {
+function Ua(e, t) {
   return t.members.find((a) => a.id === e)?.name ?? "?";
 }
 function xi(e) {
@@ -8051,7 +8091,7 @@ let H = class extends _ {
   /** What a member goes by, or "?" rather than a ULID leaking into a column. */
   nameOf(e) {
     const t = this.members.find((a) => a.id === e);
-    return t ? Gr(t.name) : "?";
+    return t ? Ur(t.name) : "?";
   }
   /**
    * What happened, in one line.
@@ -8132,7 +8172,7 @@ let H = class extends _ {
 };
 H.styles = [
   S,
-  w`
+  x`
       :host {
         display: block;
       }
@@ -8316,14 +8356,14 @@ ee([
   l({ attribute: !1 })
 ], H.prototype, "restorable", 2);
 H = ee([
-  v("se-history")
+  w("se-history")
 ], H);
 var Si = Object.defineProperty, Ei = Object.getOwnPropertyDescriptor, Z = (e, t, a, r) => {
   for (var i = r > 1 ? void 0 : r ? Ei(t, a) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (i = (r ? n(t, a, i) : n(i)) || i);
   return r && i && Si(t, a, i), i;
 };
-let G = class extends _ {
+let U = class extends _ {
   constructor() {
     super(...arguments), this.members = [], this.categories = [], this.currency = "EUR", this.paidIn = "", this.language = "en", this.open = !1, this.busy = !1, this.toggle = async () => {
       if (this.open = !this.open, !(!this.open || this.revisions || this.busy)) {
@@ -8367,9 +8407,9 @@ let G = class extends _ {
     `;
   }
 };
-G.styles = [
+U.styles = [
   S,
-  w`
+  x`
       .head {
         display: flex;
         align-items: center;
@@ -8381,46 +8421,46 @@ G.styles = [
 ];
 Z([
   l({ attribute: !1 })
-], G.prototype, "api", 2);
+], U.prototype, "api", 2);
 Z([
   l({ attribute: !1 })
-], G.prototype, "localize", 2);
+], U.prototype, "localize", 2);
 Z([
   l({ type: String })
-], G.prototype, "groupId", 2);
+], U.prototype, "groupId", 2);
 Z([
   l({ type: String })
-], G.prototype, "entityId", 2);
+], U.prototype, "entityId", 2);
 Z([
   l({ attribute: !1 })
-], G.prototype, "members", 2);
+], U.prototype, "members", 2);
 Z([
   l({ attribute: !1 })
-], G.prototype, "categories", 2);
+], U.prototype, "categories", 2);
 Z([
   l({ type: String })
-], G.prototype, "currency", 2);
+], U.prototype, "currency", 2);
 Z([
   l({ type: String })
-], G.prototype, "paidIn", 2);
+], U.prototype, "paidIn", 2);
 Z([
   l({ type: String })
-], G.prototype, "language", 2);
+], U.prototype, "language", 2);
 Z([
   c()
-], G.prototype, "open", 2);
+], U.prototype, "open", 2);
 Z([
   c()
-], G.prototype, "revisions", 2);
+], U.prototype, "revisions", 2);
 Z([
   c()
-], G.prototype, "busy", 2);
+], U.prototype, "busy", 2);
 Z([
   c()
-], G.prototype, "error", 2);
-G = Z([
-  v("se-entity-history")
-], G);
+], U.prototype, "error", 2);
+U = Z([
+  w("se-entity-history")
+], U);
 var Ci = Object.defineProperty, ji = Object.getOwnPropertyDescriptor, lt = (e, t, a, r) => {
   for (var i = r > 1 ? void 0 : r ? ji(t, a) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (i = (r ? n(t, a, i) : n(i)) || i);
@@ -8460,7 +8500,7 @@ let je = class extends _ {
     ));
   }
 };
-je.styles = w`
+je.styles = x`
     :host {
       display: block;
     }
@@ -8540,9 +8580,9 @@ lt([
   l({ type: Boolean })
 ], je.prototype, "disabled", 2);
 je = lt([
-  v("se-segmented")
+  w("se-segmented")
 ], je);
-var Ti = Object.defineProperty, Di = Object.getOwnPropertyDescriptor, b = (e, t, a, r) => {
+var Ti = Object.defineProperty, Di = Object.getOwnPropertyDescriptor, y = (e, t, a, r) => {
   for (var i = r > 1 ? void 0 : r ? Di(t, a) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (i = (r ? n(t, a, i) : n(i)) || i);
   return r && i && Ti(t, a, i), i;
@@ -8555,7 +8595,7 @@ function Oi(e, t) {
 }
 let f = class extends _ {
   constructor() {
-    super(...arguments), this.members = [], this.categories = [], this.expenses = [], this.refunds = [], this.openable = [], this.meId = null, this.startRefund = !1, this.language = "en", this.expenseTitle = "", this.description = "", this.amountInput = "", this.refunding = !1, this.paidBy = "", this.date = Ia(), this.categoryId = "", this.rule = null, this.borrowedRule = null, this.ownSplit = !1, this.refundOf = "", this.showRefunds = !1, this.touched = !1, this.busy = !1, this.confirmingDelete = !1, this.editingSplit = !1, this.showDescription = !1, this.currency = "", this.rate = null, this.pickCategory = (e) => {
+    super(...arguments), this.members = [], this.categories = [], this.expenses = [], this.refunds = [], this.openable = [], this.meId = null, this.startRefund = !1, this.language = "en", this.expenseTitle = "", this.description = "", this.amountInput = "", this.refunding = !1, this.paidBy = "", this.date = Ra(), this.categoryId = "", this.rule = null, this.borrowedRule = null, this.ownSplit = !1, this.refundOf = "", this.showRefunds = !1, this.touched = !1, this.busy = !1, this.confirmingDelete = !1, this.editingSplit = !1, this.showDescription = !1, this.currency = "", this.rate = null, this.pickCategory = (e) => {
       this.categoryId = e.detail.value, this.touched = !0, this.rule = null, this.borrowedRule = null, this.ownSplit = !1;
     }, this.pickCurrency = (e) => {
       this.currency = e.target.value, this.rate = this.currency === this.group.currency ? se : null, this.touched = !0;
@@ -8599,7 +8639,7 @@ let f = class extends _ {
         title: this.expenseTitle.trim(),
         amount: e,
         paid_by_member_id: this.paidBy,
-        expense_date: Ra(this.date),
+        expense_date: Ia(this.date),
         category_id: this.categoryId || null,
         description: this.description.trim() || null,
         shares: Object.entries(t).map(([s, n]) => ({
@@ -8707,7 +8747,7 @@ let f = class extends _ {
   }
   /** The same, on a rule that is not this dialog's yet. */
   resolvedWith(e, t) {
-    return t === null || !this.paidBy || this.members.length === 0 ? null : Gt({
+    return t === null || !this.paidBy || this.members.length === 0 ? null : Ut({
       amount: t,
       payerId: this.paidBy,
       memberIds: this.members.map((a) => a.id),
@@ -8772,7 +8812,7 @@ let f = class extends _ {
               .value=${this.amountInput}
               required
               decimal
-              placeholder=${Ut(85.42, 2, this.language)}
+              placeholder=${Gt(85.42, 2, this.language)}
               @value-changed=${this.setAmount}
             >
               <!--
@@ -9308,7 +9348,7 @@ let f = class extends _ {
 f.styles = [
   S,
   Lt,
-  w`
+  x`
       .split-head {
         display: flex;
         align-items: center;
@@ -9407,114 +9447,114 @@ f.styles = [
       }
     `
 ];
-b([
+y([
   l({ attribute: !1 })
 ], f.prototype, "api", 2);
-b([
+y([
   l({ attribute: !1 })
 ], f.prototype, "localize", 2);
-b([
+y([
   l({ attribute: !1 })
 ], f.prototype, "group", 2);
-b([
+y([
   l({ attribute: !1 })
 ], f.prototype, "members", 2);
-b([
+y([
   l({ attribute: !1 })
 ], f.prototype, "categories", 2);
-b([
+y([
   l({ attribute: !1 })
 ], f.prototype, "expense", 2);
-b([
+y([
   l({ attribute: !1 })
 ], f.prototype, "expenses", 2);
-b([
+y([
   l({ attribute: !1 })
 ], f.prototype, "refunds", 2);
-b([
+y([
   l({ attribute: !1 })
 ], f.prototype, "openable", 2);
-b([
+y([
   l({ type: String })
 ], f.prototype, "meId", 2);
-b([
+y([
   l({ type: Boolean })
 ], f.prototype, "startRefund", 2);
-b([
+y([
   l({ type: String })
 ], f.prototype, "language", 2);
-b([
+y([
   c()
 ], f.prototype, "expenseTitle", 2);
-b([
+y([
   c()
 ], f.prototype, "description", 2);
-b([
+y([
   c()
 ], f.prototype, "amountInput", 2);
-b([
+y([
   c()
 ], f.prototype, "refunding", 2);
-b([
+y([
   c()
 ], f.prototype, "paidBy", 2);
-b([
+y([
   c()
 ], f.prototype, "date", 2);
-b([
+y([
   c()
 ], f.prototype, "categoryId", 2);
-b([
+y([
   c()
 ], f.prototype, "rule", 2);
-b([
+y([
   c()
 ], f.prototype, "borrowedRule", 2);
-b([
+y([
   c()
 ], f.prototype, "ownSplit", 2);
-b([
+y([
   c()
 ], f.prototype, "refundOf", 2);
-b([
+y([
   c()
 ], f.prototype, "showRefunds", 2);
-b([
+y([
   c()
 ], f.prototype, "leavingTo", 2);
-b([
+y([
   c()
 ], f.prototype, "touched", 2);
-b([
+y([
   c()
 ], f.prototype, "busy", 2);
-b([
+y([
   c()
 ], f.prototype, "error", 2);
-b([
+y([
   c()
 ], f.prototype, "confirmingDelete", 2);
-b([
+y([
   c()
 ], f.prototype, "editingSplit", 2);
-b([
+y([
   c()
 ], f.prototype, "showDescription", 2);
-b([
+y([
   c()
 ], f.prototype, "currency", 2);
-b([
+y([
   c()
 ], f.prototype, "rate", 2);
-f = b([
-  v("se-expense-dialog")
+f = y([
+  w("se-expense-dialog")
 ], f);
-var Pi = Object.defineProperty, Ii = Object.getOwnPropertyDescriptor, J = (e, t, a, r) => {
-  for (var i = r > 1 ? void 0 : r ? Ii(t, a) : t, s = e.length - 1, n; s >= 0; s--)
+var Pi = Object.defineProperty, Ri = Object.getOwnPropertyDescriptor, J = (e, t, a, r) => {
+  for (var i = r > 1 ? void 0 : r ? Ri(t, a) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (i = (r ? n(t, a, i) : n(i)) || i);
   return r && i && Pi(t, a, i), i;
 };
-const Ri = [
+const Ii = [
   "created_by_member_id",
   "paid_by_member_id",
   "from_member_id",
@@ -9601,7 +9641,7 @@ let B = class extends _ {
     if (this.meId === null)
       return !1;
     const t = new Map(e.changes.map((a) => [a.field, a.before]));
-    return Ri.some((a) => t.get(a) === this.meId);
+    return Ii.some((a) => t.get(a) === this.meId);
   }
   async load() {
     try {
@@ -9652,7 +9692,7 @@ J([
   c()
 ], B.prototype, "error", 2);
 B = J([
-  v("se-history-dialog")
+  w("se-history-dialog")
 ], B);
 var Mi = Object.defineProperty, qi = Object.getOwnPropertyDescriptor, P = (e, t, a, r) => {
   for (var i = r > 1 ? void 0 : r ? qi(t, a) : t, s = e.length - 1, n; s >= 0; s--)
@@ -10082,7 +10122,7 @@ let T = class extends _ {
 };
 T.styles = [
   S,
-  w`
+  x`
       .section + .section {
         margin-top: 20px;
       }
@@ -10256,16 +10296,16 @@ P([
   c()
 ], T.prototype, "pastMembers", 2);
 T = P([
-  v("se-member-dialog")
+  w("se-member-dialog")
 ], T);
-var Ni = Object.defineProperty, Ui = Object.getOwnPropertyDescriptor, z = (e, t, a, r) => {
-  for (var i = r > 1 ? void 0 : r ? Ui(t, a) : t, s = e.length - 1, n; s >= 0; s--)
+var Ni = Object.defineProperty, Gi = Object.getOwnPropertyDescriptor, z = (e, t, a, r) => {
+  for (var i = r > 1 ? void 0 : r ? Gi(t, a) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (i = (r ? n(t, a, i) : n(i)) || i);
   return r && i && Ni(t, a, i), i;
 };
 let k = class extends _ {
   constructor() {
-    super(...arguments), this.members = [], this.expenses = [], this.categories = [], this.openable = [], this.initialKind = "reimbursement", this.language = "en", this.fromMember = "", this.toMember = "", this.amountInput = "", this.description = "", this.showDescription = !1, this.date = Ia(), this.busy = !1, this.confirmingDelete = !1, this.kind = "reimbursement", this.currency = "", this.rate = null, this.expenseId = "", this.touched = !1, this.pickCurrency = (e) => {
+    super(...arguments), this.members = [], this.expenses = [], this.categories = [], this.openable = [], this.initialKind = "reimbursement", this.language = "en", this.fromMember = "", this.toMember = "", this.amountInput = "", this.description = "", this.showDescription = !1, this.date = Ra(), this.busy = !1, this.confirmingDelete = !1, this.kind = "reimbursement", this.currency = "", this.rate = null, this.expenseId = "", this.touched = !1, this.pickCurrency = (e) => {
       this.currency = e.target.value, this.rate = this.currency === this.group.currency ? se : null, this.touched = !0;
     }, this.handleRate = (e) => {
       (e.detail.currency !== this.currency || e.detail.rate !== this.rate) && (this.touched = !0), this.currency = e.detail.currency, this.rate = e.detail.rate;
@@ -10290,7 +10330,7 @@ let k = class extends _ {
         from_member_id: this.fromMember,
         to_member_id: this.toMember,
         amount: e,
-        payment_date: Ra(this.date),
+        payment_date: Ia(this.date),
         description: this.description.trim() || null,
         currency: this.currency || this.group.currency,
         kind: this.kind,
@@ -10587,7 +10627,7 @@ let k = class extends _ {
 };
 k.styles = [
   S,
-  w`
+  x`
       /* The way to the expense, under the field that names it, as the expense
          dialog wears its own and "+ add a description" wears its. */
       .jump {
@@ -10674,9 +10714,9 @@ z([
   c()
 ], k.prototype, "leavingTo", 2);
 k = z([
-  v("se-payment-dialog")
+  w("se-payment-dialog")
 ], k);
-const Gi = 12;
+const Ui = 12;
 function ze(e, t) {
   const [a, r] = e.split("-").map(Number), i = a * 12 + (r - 1) + t, s = Math.floor(i / 12);
   return `${String(s).padStart(4, "0")}-${String(i - s * 12 + 1).padStart(2, "0")}`;
@@ -10723,7 +10763,7 @@ function Bi(e, t) {
 function Li(e, t) {
   return t <= 0 ? null : (e - t) / t;
 }
-function Wi(e, t, a = Gi) {
+function Wi(e, t, a = Ui) {
   const r = e[0]?.month, i = e.at(-1)?.month;
   if (!r || !i)
     return [];
@@ -10731,12 +10771,12 @@ function Wi(e, t, a = Gi) {
   if (t.kind === "month" && t.month < ze(i, -(a - 1)))
     s = ze(t.month, a - 1);
   else if (t.kind === "year") {
-    const u = `${String(t.year).padStart(4, "0")}-12`;
-    s = u < i ? u : i;
+    const h = `${String(t.year).padStart(4, "0")}-12`;
+    s = h < i ? h : i;
   }
   const n = ze(s, -(a - 1)) > r ? ze(s, -(a - 1)) : r, p = [];
-  for (let u = n; u <= s; u = ze(u, 1))
-    p.push({ month: u, total: Dt(e, u) });
+  for (let h = n; h <= s; h = ze(h, 1))
+    p.push({ month: h, total: Dt(e, h) });
   return p;
 }
 function Hi(e) {
@@ -10748,7 +10788,7 @@ var Ki = Object.defineProperty, Fi = Object.getOwnPropertyDescriptor, W = (e, t,
   return r && i && Ki(t, a, i), i;
 };
 const Vi = "#8a9099", Zi = "mdi:tag-off-outline";
-let R = class extends _ {
+let I = class extends _ {
   constructor() {
     super(...arguments), this.members = [], this.categories = [], this.expenses = [], this.openable = [], this.meId = null, this.currency = "EUR", this.language = "en", this.pie = es();
   }
@@ -10950,13 +10990,13 @@ let R = class extends _ {
            stays plain to read, and no dead margin is paid for on screen. -->
       <svg class="pie" viewBox="9 9 82 82" aria-hidden="true">
         ${t.map((s, n) => {
-      const p = this.categoryColour(s.category_id), u = s.total / r, h = i, m = n === t.length - 1 ? 360 : h + u * 360;
+      const p = this.categoryColour(s.category_id), h = s.total / r, u = i, m = n === t.length - 1 ? 360 : u + h * 360;
       i = m;
-      const [g, Q] = m - h >= 359.999 ? [50, 50] : Ot((h + m) / 2, Ji);
+      const [g, Q] = m - u >= 359.999 ? [50, 50] : Ot((u + m) / 2, Ji);
       return mt`
-            ${Yi(h, m, p)}
-            ${u >= Qi ? mt`<text x=${g} y=${Q} fill=${Xi(p)}>
-                  ${Math.round(u * 100)}%
+            ${Yi(u, m, p)}
+            ${h >= Qi ? mt`<text x=${g} y=${Q} fill=${Xi(p)}>
+                  ${Math.round(h * 100)}%
                 </text>` : d}
           `;
     })}
@@ -11122,10 +11162,10 @@ let R = class extends _ {
         </div>
         <div class="letters" aria-hidden="true">
           ${a.map((n, p) => {
-      const [u, h] = n.month.split("-").map(Number);
+      const [h, u] = n.month.split("-").map(Number);
       return o`<span class=${ct(n.month, t) ? "on" : ""}>
-              ${s.format(new Date(u, h - 1, 1)).replace(/\.$/, "")}
-              ${p === 0 || h === 1 ? o`<span class="yr">${u}</span>` : d}
+              ${s.format(new Date(h, u - 1, 1)).replace(/\.$/, "")}
+              ${p === 0 || u === 1 ? o`<span class="yr">${h}</span>` : d}
             </span>`;
     })}
         </div>
@@ -11270,10 +11310,10 @@ let R = class extends _ {
     }
   }
 };
-R.styles = [
+I.styles = [
   S,
   Lt,
-  w`
+  x`
       :host {
         display: flex;
         flex-direction: column;
@@ -11850,52 +11890,52 @@ R.styles = [
 ];
 W([
   l({ attribute: !1 })
-], R.prototype, "api", 2);
+], I.prototype, "api", 2);
 W([
   l({ attribute: !1 })
-], R.prototype, "localize", 2);
+], I.prototype, "localize", 2);
 W([
   l({ type: String })
-], R.prototype, "groupId", 2);
+], I.prototype, "groupId", 2);
 W([
   l({ attribute: !1 })
-], R.prototype, "members", 2);
+], I.prototype, "members", 2);
 W([
   l({ attribute: !1 })
-], R.prototype, "categories", 2);
+], I.prototype, "categories", 2);
 W([
   l({ attribute: !1 })
-], R.prototype, "expenses", 2);
+], I.prototype, "expenses", 2);
 W([
   l({ attribute: !1 })
-], R.prototype, "openable", 2);
+], I.prototype, "openable", 2);
 W([
   l({ type: String })
-], R.prototype, "meId", 2);
+], I.prototype, "meId", 2);
 W([
   l({ type: String })
-], R.prototype, "currency", 2);
+], I.prototype, "currency", 2);
 W([
   l({ type: String })
-], R.prototype, "language", 2);
+], I.prototype, "language", 2);
 W([
   c()
-], R.prototype, "result", 2);
+], I.prototype, "result", 2);
 W([
   c()
-], R.prototype, "period", 2);
+], I.prototype, "period", 2);
 W([
   c()
-], R.prototype, "error", 2);
+], I.prototype, "error", 2);
 W([
   c()
-], R.prototype, "drill", 2);
+], I.prototype, "drill", 2);
 W([
   c()
-], R.prototype, "pie", 2);
-R = W([
-  v("se-statistics")
-], R);
+], I.prototype, "pie", 2);
+I = W([
+  w("se-statistics")
+], I);
 const Ve = 40, Ji = 26, Qi = 0.07;
 function Ot(e, t) {
   const a = (e - 90) * Math.PI / 180;
@@ -12000,16 +12040,21 @@ ge([
   l({ type: String })
 ], ie.prototype, "language", 2);
 ie = ge([
-  v("se-statistics-dialog")
+  w("se-statistics-dialog")
 ], ie);
-var is = Object.defineProperty, ss = Object.getOwnPropertyDescriptor, $ = (e, t, a, r) => {
+var is = Object.defineProperty, ss = Object.getOwnPropertyDescriptor, v = (e, t, a, r) => {
   for (var i = r > 1 ? void 0 : r ? ss(t, a) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (i = (r ? n(t, a, i) : n(i)) || i);
   return r && i && is(t, a, i), i;
 };
-let y = class extends _ {
+let b = class extends _ {
   constructor() {
-    super(...arguments), this.narrow = !1, this.language = "en", this.userId = null, this.openNewExpense = !1, this.groups = [], this.members = [], this.pastMembers = [], this.memberships = [], this.categories = [], this.expenses = [], this.payments = [], this.query = "", this.searching = !1, this.loading = !0, this.addingPayment = !1, this.draggedAway = !1, this.busy = !1, this.confirmingDelete = !1, this.deleteGroup = async () => {
+    super(...arguments), this.narrow = !1, this.language = "en", this.userId = null, this.openNewExpense = !1, this.groups = [], this.members = [], this.pastMembers = [], this.memberships = [], this.categories = [], this.expenses = [], this.payments = [], this.query = "", this.searching = !1, this.loading = !0, this.addingPayment = !1, this.draggedAway = !1, this.choosing = !1, this.newRefund = !1, this.paymentKind = "reimbursement", this.busy = !1, this.confirmingDelete = !1, this.closeChoices = () => {
+      const e = history.state?.seDialog === !0;
+      this.choosing = !1, e && history.back();
+    }, this.choicesKey = (e) => {
+      e.key === "Escape" && this.closeChoices();
+    }, this.deleteGroup = async () => {
       if (this.group) {
         if (!this.confirmingDelete) {
           this.confirmingDelete = !0;
@@ -12051,7 +12096,7 @@ let y = class extends _ {
         this.draggedAway = !1;
         return;
       }
-      this.openExpense();
+      this.openChoices();
     }, this.settleUp = (e) => {
       this.openPayment(e.detail.settlement);
     }, this.openFromHistory = (e) => {
@@ -12070,7 +12115,7 @@ let y = class extends _ {
       const e = history.state?.seDialog === !0;
       this.clearDialog(), e && history.back();
     }, this.handlePop = () => {
-      this.dialog && this.clearDialog();
+      this.choosing = !1, this.dialog && this.clearDialog();
     }, this.handleChanged = () => {
       this.closeDialog(), this.load();
     }, this.toggleArchive = async () => {
@@ -12137,9 +12182,12 @@ let y = class extends _ {
       </div>
 
       ${this.addingPayment ? o`<div class="fab-hint">${e("new_payment")}</div>` : d}
+      ${this.choosing ? this.renderChoices() : d}
       <button
         class=${`fab ${this.addingPayment ? "reimbursing" : ""}`}
-        aria-label=${e("action_add_expense")}
+        ?hidden=${this.choosing}
+        aria-label=${e("fab_add")}
+        aria-haspopup="menu"
         title=${e("fab_hint")}
         @click=${this.fabClick}
         @pointerdown=${this.fabDown}
@@ -12157,6 +12205,84 @@ let y = class extends _ {
 
       ${this.renderDialog()}
     `;
+  }
+  /**
+   * The four things the plus adds, each named and said in a few words.
+   *
+   * It used to add an expense on a press and a reimbursement on a drag, and a
+   * drag is a gesture nobody guesses: the panel's second most common entry
+   * was behind it, and a shop's refund and a debt behind a switch inside a
+   * dialog. Here all four are on screen at once, two of them named apart
+   * from each other at last: a shop giving money back, and a member paying
+   * another. No close button: the dim around them closes, as back does.
+   */
+  renderChoices() {
+    const e = this.localize, t = (a, r, i, s, n) => o`
+      <button class="choice" role="menuitem" @click=${n}>
+        <span class="label">${a}<span class="hint">${r}</span></span>
+        <span class="disc">
+          <se-icon plain .icon=${i} fallback=${s} .size=${22}></se-icon>
+        </span>
+      </button>
+    `;
+    return o`
+      <div class="choice-scrim" @click=${this.closeChoices}></div>
+      <div
+        class="choices"
+        role="menu"
+        aria-label=${e("fab_add")}
+        @keydown=${this.choicesKey}
+      >
+        ${t(
+      e("new_debt"),
+      e("fab_debt_hint"),
+      "mdi:note-edit-outline",
+      "✎",
+      () => this.pickPayment("debt")
+    )}
+        ${t(
+      e("fab_reimburse"),
+      e("fab_reimburse_hint"),
+      "mdi:swap-horizontal",
+      "⇄",
+      () => this.pickPayment("reimbursement")
+    )}
+        ${t(
+      e("kind_shop_refund"),
+      e("fab_refund_hint"),
+      "mdi:storefront-outline",
+      "↩",
+      () => this.pickExpense(!0)
+    )}
+      </div>
+      <button
+        class="choice main"
+        role="menuitem"
+        @click=${() => this.pickExpense(!1)}
+        @keydown=${this.choicesKey}
+      >
+        <span class="label">${e("kind_expense")}</span>
+        <span class="disc">
+          <se-icon plain .icon=${"mdi:receipt-text-outline"} fallback="+" .size=${26}></se-icon>
+        </span>
+      </button>
+    `;
+  }
+  /**
+   * Open the choices, and leave a step behind for the phone's back button.
+   *
+   * The dialog's own rule: back is how a sheet is dismissed on a phone, and
+   * without a step of its own it would leave the panel instead. The step is
+   * handed on to the dialog picked, so one press of back closes that.
+   */
+  async openChoices() {
+    history.pushState({ seDialog: !0 }, ""), this.choosing = !0, await this.updateComplete, this.renderRoot.querySelector(".choice.main")?.focus();
+  }
+  pickExpense(e) {
+    this.choosing = !1, this.newRefund = e, this.editedExpense = void 0, this.show("expense", !0);
+  }
+  pickPayment(e) {
+    this.choosing = !1, this.paymentKind = e, this.prefill = void 0, this.editedPayment = void 0, this.show("payment", !0);
   }
   renderHeader() {
     const e = this.localize, t = this.group;
@@ -12699,6 +12825,7 @@ let y = class extends _ {
             .refunds=${this.refundsOf(this.editedExpense)}
             .openable=${this.openableExpenses()}
             .meId=${this.meId()}
+            .startRefund=${this.newRefund}
             .language=${this.language}
             @dialog-cancelled=${this.closeDialog}
             @expense-saved=${this.handleChanged}
@@ -12717,6 +12844,7 @@ let y = class extends _ {
           .expenses=${this.expenses}
           .categories=${this.categories}
           .openable=${this.openableExpenses()}
+          .initialKind=${this.paymentKind}
           .language=${this.language}
           @dialog-cancelled=${this.closeDialog}
           @payment-saved=${this.handleChanged}
@@ -12913,7 +13041,7 @@ let y = class extends _ {
         s,
         n,
         p,
-        u
+        h
       ] = await Promise.all([
         this.api.getGroup(this.groupId),
         this.api.listGroups(),
@@ -12925,7 +13053,7 @@ let y = class extends _ {
         this.api.listPayments(this.groupId),
         this.api.getBalances(this.groupId)
       ]);
-      this.group = e, this.groups = t, this.members = at(a, this.hass), this.pastMembers = at(r, this.hass), this.memberships = i, this.categories = qa(s, this.language), this.expenses = n, this.payments = p, this.result = u;
+      this.group = e, this.groups = t, this.members = at(a, this.hass), this.pastMembers = at(r, this.hass), this.memberships = i, this.categories = qa(s, this.language), this.expenses = n, this.payments = p, this.result = h;
     } catch (e) {
       this.error = A(e, this.localize), e?.code === "group_not_found" && this.dispatchEvent(
         new CustomEvent("group-unavailable", { bubbles: !0, composed: !0 })
@@ -13015,16 +13143,16 @@ let y = class extends _ {
    * and closes on the way, and two steps for one sheet on screen would mean
    * pressing back twice for the same thing.
    */
-  show(e) {
-    this.dialog || history.pushState({ seDialog: !0 }, ""), this.dialog = e;
+  show(e, t = !1) {
+    !this.dialog && !t && history.pushState({ seDialog: !0 }, ""), this.dialog = e;
   }
   clearDialog() {
-    this.dialog = void 0, this.prefill = void 0, this.editedExpense = void 0, this.editedPayment = void 0;
+    this.dialog = void 0, this.prefill = void 0, this.editedExpense = void 0, this.editedPayment = void 0, this.newRefund = !1, this.paymentKind = "reimbursement";
   }
 };
-y.styles = [
+b.styles = [
   S,
-  w`
+  x`
       :host {
         display: block;
         position: relative;
@@ -13273,6 +13401,96 @@ y.styles = [
         transform: scale(1.06);
       }
 
+      /* Its display is set above, which would win over the attribute alone. */
+      .fab[hidden] {
+        display: none;
+      }
+
+      /*
+       * What the plus adds, once pressed. An expense is what it adds nine times
+       * in ten, so it takes the plus's own place, the same blue disc under the
+       * same thumb: a second press where the first one landed adds an
+       * expense, and the other three are above it for whoever is looking.
+       * Nothing moves or fades in: a choice that slid into place would be
+       * missed by the thumb pressing twice.
+       */
+      .choice-scrim {
+        position: fixed;
+        inset: 0;
+        z-index: 5;
+        background: rgba(0, 0, 0, 0.5);
+      }
+
+      .choices {
+        position: fixed;
+        right: 24px;
+        bottom: calc(20px + 56px + 18px);
+        z-index: 6;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 14px;
+      }
+
+      .choice {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0;
+        border: none;
+        background: none;
+        color: inherit;
+        font-family: inherit;
+        text-align: right;
+        cursor: pointer;
+      }
+
+      .choice .label {
+        max-width: min(260px, calc(100vw - 120px));
+        padding: 8px 12px;
+        border-radius: 10px;
+        background: var(--card-background-color, #fff);
+        color: var(--primary-text-color);
+        font-size: 15px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+      }
+
+      .choice .hint {
+        display: block;
+        margin-top: 1px;
+        font-size: 12px;
+        color: var(--secondary-text-color);
+      }
+
+      .choice .disc {
+        width: 48px;
+        height: 48px;
+        flex: none;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--card-background-color, #fff);
+        color: var(--primary-text-color);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+      }
+
+      /* The expense, exactly where the plus was. */
+      .choice.main {
+        position: fixed;
+        right: 20px;
+        bottom: 20px;
+        z-index: 6;
+      }
+
+      .choice.main .disc {
+        width: 56px;
+        height: 56px;
+        background: var(--primary-color, #03a9f4);
+        color: var(--text-primary-color, #fff);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+      }
+
       .scrim {
         position: fixed;
         inset: 0;
@@ -13479,96 +13697,105 @@ y.styles = [
       }
     `
 ];
-$([
+v([
   l({ attribute: !1 })
-], y.prototype, "api", 2);
-$([
+], b.prototype, "api", 2);
+v([
   l({ attribute: !1 })
-], y.prototype, "hass", 2);
-$([
+], b.prototype, "hass", 2);
+v([
   l({ type: Boolean })
-], y.prototype, "narrow", 2);
-$([
+], b.prototype, "narrow", 2);
+v([
   l({ attribute: !1 })
-], y.prototype, "localize", 2);
-$([
+], b.prototype, "localize", 2);
+v([
   l({ type: String })
-], y.prototype, "groupId", 2);
-$([
+], b.prototype, "groupId", 2);
+v([
   l({ type: String })
-], y.prototype, "language", 2);
-$([
+], b.prototype, "language", 2);
+v([
   l({ type: String })
-], y.prototype, "userId", 2);
-$([
+], b.prototype, "userId", 2);
+v([
   l({ type: Boolean })
-], y.prototype, "openNewExpense", 2);
-$([
+], b.prototype, "openNewExpense", 2);
+v([
   c()
-], y.prototype, "group", 2);
-$([
+], b.prototype, "group", 2);
+v([
   c()
-], y.prototype, "groups", 2);
-$([
+], b.prototype, "groups", 2);
+v([
   c()
-], y.prototype, "menu", 2);
-$([
+], b.prototype, "menu", 2);
+v([
   c()
-], y.prototype, "members", 2);
-$([
+], b.prototype, "members", 2);
+v([
   c()
-], y.prototype, "pastMembers", 2);
-$([
+], b.prototype, "pastMembers", 2);
+v([
   c()
-], y.prototype, "memberships", 2);
-$([
+], b.prototype, "memberships", 2);
+v([
   c()
-], y.prototype, "categories", 2);
-$([
+], b.prototype, "categories", 2);
+v([
   c()
-], y.prototype, "expenses", 2);
-$([
+], b.prototype, "expenses", 2);
+v([
   c()
-], y.prototype, "payments", 2);
-$([
+], b.prototype, "payments", 2);
+v([
   c()
-], y.prototype, "result", 2);
-$([
+], b.prototype, "result", 2);
+v([
   c()
-], y.prototype, "query", 2);
-$([
+], b.prototype, "query", 2);
+v([
   c()
-], y.prototype, "searching", 2);
-$([
+], b.prototype, "searching", 2);
+v([
   c()
-], y.prototype, "loading", 2);
-$([
+], b.prototype, "loading", 2);
+v([
   c()
-], y.prototype, "error", 2);
-$([
+], b.prototype, "error", 2);
+v([
   c()
-], y.prototype, "dialog", 2);
-$([
+], b.prototype, "dialog", 2);
+v([
   c()
-], y.prototype, "prefill", 2);
-$([
+], b.prototype, "prefill", 2);
+v([
   c()
-], y.prototype, "editedExpense", 2);
-$([
+], b.prototype, "editedExpense", 2);
+v([
   c()
-], y.prototype, "editedPayment", 2);
-$([
+], b.prototype, "editedPayment", 2);
+v([
   c()
-], y.prototype, "addingPayment", 2);
-$([
+], b.prototype, "addingPayment", 2);
+v([
   c()
-], y.prototype, "busy", 2);
-$([
+], b.prototype, "choosing", 2);
+v([
   c()
-], y.prototype, "confirmingDelete", 2);
-y = $([
-  v("se-group-page")
-], y);
+], b.prototype, "newRefund", 2);
+v([
+  c()
+], b.prototype, "paymentKind", 2);
+v([
+  c()
+], b.prototype, "busy", 2);
+v([
+  c()
+], b.prototype, "confirmingDelete", 2);
+b = v([
+  w("se-group-page")
+], b);
 class Te {
   constructor(t) {
     this.hass = t;
@@ -13928,7 +14155,7 @@ let be = class extends _ {
     history.replaceState(null, "", `${a}${e}`);
   }
 };
-be.styles = w`
+be.styles = x`
     :host {
       display: block;
       min-height: 100vh;
@@ -13956,12 +14183,12 @@ Pe([
   c()
 ], be.prototype, "resolving", 2);
 be = Pe([
-  v("shared-expenses-panel")
+  w("shared-expenses-panel")
 ], be);
-var us = Object.defineProperty, hs = Object.getOwnPropertyDescriptor, $t = (e, t, a, r) => {
-  for (var i = r > 1 ? void 0 : r ? hs(t, a) : t, s = e.length - 1, n; s >= 0; s--)
+var hs = Object.defineProperty, us = Object.getOwnPropertyDescriptor, $t = (e, t, a, r) => {
+  for (var i = r > 1 ? void 0 : r ? us(t, a) : t, s = e.length - 1, n; s >= 0; s--)
     (n = e[s]) && (i = (r ? n(t, a, i) : n(i)) || i);
-  return r && i && us(t, a, i), i;
+  return r && i && hs(t, a, i), i;
 };
 let Le = class extends _ {
   constructor() {
@@ -14036,7 +14263,7 @@ let Le = class extends _ {
 };
 Le.styles = [
   S,
-  w`
+  x`
       .form {
         display: flex;
         flex-direction: column;
@@ -14069,7 +14296,7 @@ $t([
   c()
 ], Le.prototype, "groups", 2);
 Le = $t([
-  v("shared-expenses-card-editor")
+  w("shared-expenses-card-editor")
 ], Le);
 const rt = "?new=expense";
 function Kt(e = "") {
@@ -14261,7 +14488,7 @@ let de = class extends _ {
 };
 de.styles = [
   S,
-  w`
+  x`
       :host {
         display: block;
       }
@@ -14297,7 +14524,7 @@ xe([
   c()
 ], de.prototype, "loading", 2);
 de = xe([
-  v("shared-expenses-card")
+  w("shared-expenses-card")
 ], de);
 const fs = window.customCards ??= [];
 fs.push({
@@ -14412,7 +14639,7 @@ let We = class extends _ {
 };
 We.styles = [
   S,
-  w`
+  x`
       .form {
         display: flex;
         flex-direction: column;
@@ -14431,7 +14658,7 @@ kt([
   c()
 ], We.prototype, "groups", 2);
 We = kt([
-  v("shared-expenses-add-editor")
+  w("shared-expenses-add-editor")
 ], We);
 var vs = Object.defineProperty, ws = Object.getOwnPropertyDescriptor, Ft = (e, t, a, r) => {
   for (var i = r > 1 ? void 0 : r ? ws(t, a) : t, s = e.length - 1, n; s >= 0; s--)
@@ -14486,7 +14713,7 @@ let it = class extends _ {
 };
 it.styles = [
   S,
-  w`
+  x`
       :host {
         display: block;
         /* Fill the cell Home Assistant lays out, so in a grid the tile stands
@@ -14544,7 +14771,7 @@ Ft([
   c()
 ], it.prototype, "config", 2);
 it = Ft([
-  v("shared-expenses-add-card")
+  w("shared-expenses-add-card")
 ], it);
 const $s = window.customCards ??= [];
 $s.push({
@@ -14599,7 +14826,7 @@ let st = class extends _ {
 };
 st.styles = [
   S,
-  w`
+  x`
       .badge {
         display: inline-flex;
         align-items: center;
@@ -14646,7 +14873,7 @@ Vt([
   c()
 ], st.prototype, "config", 2);
 st = Vt([
-  v("shared-expenses-add-badge")
+  w("shared-expenses-add-badge")
 ], st);
 const As = window.customBadges ??= [];
 As.push({

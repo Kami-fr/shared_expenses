@@ -38,6 +38,7 @@ import type {
   HomeAssistant,
   Member,
   Payment,
+  PaymentKind,
   Permission,
   Settlement,
 } from "../types";
@@ -149,6 +150,15 @@ export class SeGroupPage extends LitElement {
 
   /** The drag already acted; swallow the click the browser sends after it. */
   private draggedAway = false;
+
+  /** The plus was pressed: the four things it adds are on screen to pick from. */
+  @state() private choosing = false;
+
+  /** What a new entry from the plus opens as: a purchase, or a shop's refund. */
+  @state() private newRefund = false;
+
+  /** What a new payment from the plus opens as. */
+  @state() private paymentKind: PaymentKind = "reimbursement";
 
   @state() private busy = false;
 
@@ -403,6 +413,96 @@ export class SeGroupPage extends LitElement {
 
       .fab:hover {
         transform: scale(1.06);
+      }
+
+      /* Its display is set above, which would win over the attribute alone. */
+      .fab[hidden] {
+        display: none;
+      }
+
+      /*
+       * What the plus adds, once pressed. An expense is what it adds nine times
+       * in ten, so it takes the plus's own place, the same blue disc under the
+       * same thumb: a second press where the first one landed adds an
+       * expense, and the other three are above it for whoever is looking.
+       * Nothing moves or fades in: a choice that slid into place would be
+       * missed by the thumb pressing twice.
+       */
+      .choice-scrim {
+        position: fixed;
+        inset: 0;
+        z-index: 5;
+        background: rgba(0, 0, 0, 0.5);
+      }
+
+      .choices {
+        position: fixed;
+        right: 24px;
+        bottom: calc(20px + 56px + 18px);
+        z-index: 6;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 14px;
+      }
+
+      .choice {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0;
+        border: none;
+        background: none;
+        color: inherit;
+        font-family: inherit;
+        text-align: right;
+        cursor: pointer;
+      }
+
+      .choice .label {
+        max-width: min(260px, calc(100vw - 120px));
+        padding: 8px 12px;
+        border-radius: 10px;
+        background: var(--card-background-color, #fff);
+        color: var(--primary-text-color);
+        font-size: 15px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+      }
+
+      .choice .hint {
+        display: block;
+        margin-top: 1px;
+        font-size: 12px;
+        color: var(--secondary-text-color);
+      }
+
+      .choice .disc {
+        width: 48px;
+        height: 48px;
+        flex: none;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--card-background-color, #fff);
+        color: var(--primary-text-color);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+      }
+
+      /* The expense, exactly where the plus was. */
+      .choice.main {
+        position: fixed;
+        right: 20px;
+        bottom: 20px;
+        z-index: 6;
+      }
+
+      .choice.main .disc {
+        width: 56px;
+        height: 56px;
+        background: var(--primary-color, #03a9f4);
+        color: var(--text-primary-color, #fff);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
       }
 
       .scrim {
@@ -687,9 +787,12 @@ export class SeGroupPage extends LitElement {
       ${this.addingPayment
         ? html`<div class="fab-hint">${translate("new_payment")}</div>`
         : nothing}
+      ${this.choosing ? this.renderChoices() : nothing}
       <button
         class=${`fab ${this.addingPayment ? "reimbursing" : ""}`}
-        aria-label=${translate("action_add_expense")}
+        ?hidden=${this.choosing}
+        aria-label=${translate("fab_add")}
+        aria-haspopup="menu"
         title=${translate("fab_hint")}
         @click=${this.fabClick}
         @pointerdown=${this.fabDown}
@@ -707,6 +810,124 @@ export class SeGroupPage extends LitElement {
 
       ${this.renderDialog()}
     `;
+  }
+
+  /**
+   * The four things the plus adds, each named and said in a few words.
+   *
+   * It used to add an expense on a press and a reimbursement on a drag, and a
+   * drag is a gesture nobody guesses: the panel's second most common entry
+   * was behind it, and a shop's refund and a debt behind a switch inside a
+   * dialog. Here all four are on screen at once, two of them named apart
+   * from each other at last: a shop giving money back, and a member paying
+   * another. No close button: the dim around them closes, as back does.
+   */
+  private renderChoices() {
+    const translate = this.localize;
+    const choice = (
+      label: string,
+      hint: string,
+      icon: string,
+      fallback: string,
+      pick: () => void,
+    ) => html`
+      <button class="choice" role="menuitem" @click=${pick}>
+        <span class="label">${label}<span class="hint">${hint}</span></span>
+        <span class="disc">
+          <se-icon plain .icon=${icon} fallback=${fallback} .size=${22}></se-icon>
+        </span>
+      </button>
+    `;
+
+    return html`
+      <div class="choice-scrim" @click=${this.closeChoices}></div>
+      <div
+        class="choices"
+        role="menu"
+        aria-label=${translate("fab_add")}
+        @keydown=${this.choicesKey}
+      >
+        ${choice(
+          translate("new_debt"),
+          translate("fab_debt_hint"),
+          "mdi:note-edit-outline",
+          "✎",
+          () => this.pickPayment("debt"),
+        )}
+        ${choice(
+          translate("fab_reimburse"),
+          translate("fab_reimburse_hint"),
+          "mdi:swap-horizontal",
+          "⇄",
+          () => this.pickPayment("reimbursement"),
+        )}
+        ${choice(
+          translate("kind_shop_refund"),
+          translate("fab_refund_hint"),
+          "mdi:storefront-outline",
+          "↩",
+          () => this.pickExpense(true),
+        )}
+      </div>
+      <button
+        class="choice main"
+        role="menuitem"
+        @click=${() => this.pickExpense(false)}
+        @keydown=${this.choicesKey}
+      >
+        <span class="label">${translate("kind_expense")}</span>
+        <span class="disc">
+          <se-icon plain .icon=${"mdi:receipt-text-outline"} fallback="+" .size=${26}></se-icon>
+        </span>
+      </button>
+    `;
+  }
+
+  /**
+   * Open the choices, and leave a step behind for the phone's back button.
+   *
+   * The dialog's own rule: back is how a sheet is dismissed on a phone, and
+   * without a step of its own it would leave the panel instead. The step is
+   * handed on to the dialog picked, so one press of back closes that.
+   */
+  private async openChoices() {
+    history.pushState({ seDialog: true }, "");
+    this.choosing = true;
+
+    // On the expense, where the plus was: Enter adds one, Escape closes.
+    await this.updateComplete;
+    (this.renderRoot.querySelector(".choice.main") as HTMLElement | null)?.focus();
+  }
+
+  private closeChoices = () => {
+    const ours = history.state?.seDialog === true;
+
+    this.choosing = false;
+
+    if (ours) {
+      history.back();
+    }
+  };
+
+  private choicesKey = (event: KeyboardEvent) => {
+    if (event.key === "Escape") {
+      this.closeChoices();
+    }
+  };
+
+  private pickExpense(refund: boolean) {
+    this.choosing = false;
+    this.newRefund = refund;
+    this.editedExpense = undefined;
+    this.show("expense", true);
+  }
+
+  private pickPayment(kind: PaymentKind) {
+    this.choosing = false;
+    this.paymentKind = kind;
+    this.prefill = undefined;
+    this.editedPayment = undefined;
+    this.show("payment", true);
   }
 
   private renderHeader() {
@@ -1435,6 +1656,7 @@ export class SeGroupPage extends LitElement {
             .refunds=${this.refundsOf(this.editedExpense)}
             .openable=${this.openableExpenses()}
             .meId=${this.meId()}
+            .startRefund=${this.newRefund}
             .language=${this.language}
             @dialog-cancelled=${this.closeDialog}
             @expense-saved=${this.handleChanged}
@@ -1457,6 +1679,7 @@ export class SeGroupPage extends LitElement {
           .expenses=${this.expenses}
           .categories=${this.categories}
           .openable=${this.openableExpenses()}
+          .initialKind=${this.paymentKind}
           .language=${this.language}
           @dialog-cancelled=${this.closeDialog}
           @payment-saved=${this.handleChanged}
@@ -1848,7 +2071,7 @@ export class SeGroupPage extends LitElement {
       return;
     }
 
-    this.openExpense();
+    void this.openChoices();
   };
 
   /**
@@ -2016,8 +2239,8 @@ export class SeGroupPage extends LitElement {
    * and closes on the way, and two steps for one sheet on screen would mean
    * pressing back twice for the same thing.
    */
-  private show(dialog: Dialog) {
-    if (!this.dialog) {
+  private show(dialog: Dialog, stepTaken = false) {
+    if (!this.dialog && !stepTaken) {
       history.pushState({ seDialog: true }, "");
     }
 
@@ -2043,6 +2266,8 @@ export class SeGroupPage extends LitElement {
 
   /** Back was pressed with a dialog open: the browser dropped the step for us. */
   private handlePop = () => {
+    this.choosing = false;
+
     if (this.dialog) {
       this.clearDialog();
     }
@@ -2053,6 +2278,8 @@ export class SeGroupPage extends LitElement {
     this.prefill = undefined;
     this.editedExpense = undefined;
     this.editedPayment = undefined;
+    this.newRefund = false;
+    this.paymentKind = "reimbursement";
   }
 
   private handleChanged = () => {
