@@ -3,6 +3,7 @@ import { customElement, property, state } from "lit/decorators.js";
 
 import "./se-icon";
 import "./se-segmented";
+import { expenseRowStyles, renderExpenseRow } from "./expense-row";
 import type { SharedExpensesApi } from "../services/api";
 import { colorOf, formatMoney, formatMonthLong, formatSignedMoney } from "../services/format";
 import { errorMessage, type Key, type Localizer } from "../services/localize";
@@ -12,6 +13,7 @@ import {
   averageOf,
   change,
   inPeriod,
+  monthOf,
   openingPeriod,
   periodSpan,
   stepPeriod,
@@ -19,7 +21,7 @@ import {
   trendWindow,
 } from "../services/statistics-period";
 import { sharedStyles } from "../styles/shared";
-import type { Category, CategoryTotal, GroupStatistics, Member } from "../types";
+import type { Category, CategoryTotal, Expense, GroupStatistics, Member } from "../types";
 import { renderAvatar } from "./avatar";
 
 /** What the uncategorised is drawn in, when a category would carry its own colour. */
@@ -58,6 +60,16 @@ export class SeStatistics extends LitElement {
 
   @property({ attribute: false }) public categories: Category[] = [];
 
+  /**
+   * The group's expenses, for the list behind a category. The group page has
+   * them already; asking the backend again for a slice of what is on the
+   * screen behind this dialog would be a second answer to keep in step.
+   */
+  @property({ attribute: false }) public expenses: Expense[] = [];
+
+  /** The expenses this reader may open, as the group page rules it. */
+  @property({ attribute: false }) public openable: string[] = [];
+
   /** Which member you are, to point out your own share. */
   @property({ type: String }) public meId: string | null = null;
 
@@ -75,11 +87,15 @@ export class SeStatistics extends LitElement {
 
   @state() private error?: string;
 
+  /** The category whose expenses are listed instead of the figures, if any. */
+  @state() private drill?: { id: string | null };
+
   /** Whether "where it went" is drawn as a disc rather than a run of bars. */
   @state() private pie = readPieStyle();
 
   public static styles = [
     sharedStyles,
+    expenseRowStyles,
     css`
       :host {
         display: flex;
@@ -330,6 +346,92 @@ export class SeStatistics extends LitElement {
         display: flex;
         align-items: center;
         gap: 12px;
+      }
+
+      /* A category that leads to its expenses: the whole line is the target,
+         dressed as a line that leads somewhere is dressed everywhere else
+         here — no frame of its own, the hover's tint, and the chevron. */
+      .cat-button {
+        width: calc(100% + 12px);
+        margin: 0 -6px;
+        padding: 6px;
+        border: none;
+        border-radius: 10px;
+        background: none;
+        color: inherit;
+        font-family: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .cat-button:hover {
+        background: var(--secondary-background-color, #f6f6f6);
+      }
+
+      .cat + .cat-button,
+      .cat-button + .cat,
+      .cat-button + .cat-button {
+        /* The 14 pixels between two plain rows, less the padding both now wear. */
+        margin-top: 2px;
+      }
+
+      .chevron {
+        flex: none;
+        color: var(--secondary-text-color);
+        align-self: center;
+      }
+
+      /* The list behind a category: its name and period over its expenses,
+         each the row the group page draws, framed as a line. */
+      .drill-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .drill-head .title {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .drill-head .nm {
+        font-size: 16px;
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .drill-head .sub {
+        font-size: 13px;
+        color: var(--secondary-text-color);
+      }
+
+      .drill-head b {
+        flex: none;
+        font-size: 16px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .row {
+        padding: 8px 0;
+      }
+
+      .row + .row {
+        border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+      }
+
+      .row-button {
+        width: 100%;
+        border: none;
+        background: none;
+        color: inherit;
+        font-family: inherit;
+        cursor: pointer;
+      }
+
+      .row-button:hover {
+        background: var(--secondary-background-color, #f6f6f6);
       }
 
       .cat + .cat {
@@ -595,6 +697,10 @@ export class SeStatistics extends LitElement {
     // of the period that did load are still worth reading, and the picker above
     // them is the only way to ask for another one — dropping it would leave the
     // screen with no way forward but closing the dialog.
+    if (this.drill) {
+      return this.renderDrill(this.drill.id);
+    }
+
     return html`
       ${this.error ? html`<div class="error">${this.error}</div>` : nothing}
       ${this.renderPeriod()} ${this.renderHero()} ${this.renderMine()}
@@ -912,8 +1018,7 @@ export class SeStatistics extends LitElement {
     const icon = category ? category.icon : NO_CATEGORY_ICON;
     const fallback = category ? category.name.charAt(0).toUpperCase() : "";
 
-    return html`
-      <div class="cat">
+    const inside = html`
         <div
           class="chip"
           style=${`background:color-mix(in srgb, ${colour} 24%, transparent);color:${colour}`}
@@ -943,8 +1048,106 @@ export class SeStatistics extends LitElement {
             ></i>
           </div>
         </div>
-      </div>
     `;
+
+    // A line that leads somewhere only when there is somewhere to go: a row
+    // that looks pressable and opens nothing is worse than a plain one.
+    if (this.expensesOf(item.category_id).length === 0) {
+      return html`<div class="cat">${inside}</div>`;
+    }
+
+    return html`
+      <button class="cat cat-button" @click=${() => (this.drill = { id: item.category_id })}>
+        ${inside}
+        <span class="chevron" aria-hidden="true">›</span>
+      </button>
+    `;
+  }
+
+  /**
+   * The expenses behind one category, over the period on screen.
+   *
+   * The question a figure raises — 236 on groceries in September? which ones?
+   * — answered where it was asked, from the expenses the group page already
+   * holds. Newest first, as the group page lists them, and each the same row
+   * as there, so the one somebody remembers is recognised at a glance.
+   */
+  private renderDrill(categoryId: string | null) {
+    const items = this.expensesOf(categoryId);
+    const total = items.reduce((sum, expense) => sum + expense.converted_amount, 0);
+    const back = this.localize("stat_back");
+
+    return html`
+      <div class="drill-head">
+        <button class="step" aria-label=${back} title=${back} @click=${() => (this.drill = undefined)}>
+          <span aria-hidden="true">‹</span>
+        </button>
+        <div class="title">
+          <div class="nm">${this.categoryName(categoryId)}</div>
+          <div class="sub">${this.periodName(this.period!)}</div>
+        </div>
+        <b>${this.money(total)}</b>
+      </div>
+      <div class="panel">${items.map((expense) => this.renderDrillRow(expense))}</div>
+    `;
+  }
+
+  /**
+   * One expense of the list, and the way through to it when this reader may
+   * open it — dialog to dialog, closing this one on the way, as the journal
+   * and a refund's purchase go.
+   */
+  private renderDrillRow(expense: Expense) {
+    const row = renderExpenseRow(expense, {
+      members: this.members,
+      categories: this.categories,
+      language: this.language,
+      localize: this.localize,
+    });
+
+    if (!this.openable.includes(expense.id)) {
+      return html`<div class="row expense-row">${row}</div>`;
+    }
+
+    return html`
+      <button class="row row-button expense-row" @click=${() => this.openExpense(expense.id)}>
+        ${row}
+        <span class="chevron" aria-hidden="true">›</span>
+      </button>
+    `;
+  }
+
+  /**
+   * The expenses of a category over the period, newest first.
+   *
+   * Cut on the day typed, read in UTC as the panel reads it everywhere: the
+   * backend files an expense at noon UTC on its day, so the day and the month
+   * are the ones somebody typed.
+   */
+  private expensesOf(categoryId: string | null): Expense[] {
+    const period = this.period;
+
+    if (!period) {
+      return [];
+    }
+
+    return this.expenses
+      .filter(
+        (expense) =>
+          expense.category_id === categoryId &&
+          inPeriod(monthOf(expense.expense_date), period),
+      )
+      .sort((a, b) => b.expense_date.localeCompare(a.expense_date));
+  }
+
+  private openExpense(expenseId: string) {
+    this.dispatchEvent(
+      new CustomEvent("open-expense", {
+        detail: { expenseId },
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
   private setPie(pie: boolean) {

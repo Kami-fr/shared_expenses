@@ -1333,8 +1333,11 @@ export class SeGroupPage extends LitElement {
           .members=${this.pastMembers}
           .categories=${this.categories}
           .meId=${this.meId()}
+          .expenses=${this.expenses}
+          .openable=${this.openableExpenses()}
           .language=${this.language}
           @dialog-cancelled=${this.closeDialog}
+          @open-expense=${this.openRelated}
         ></se-statistics-dialog>
       `;
     }

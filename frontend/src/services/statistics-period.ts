@@ -29,6 +29,18 @@ export function addMonths(month: string, delta: number): string {
   return `${String(newYear).padStart(4, "0")}-${String(count - newYear * 12 + 1).padStart(2, "0")}`;
 }
 
+/**
+ * The `YYYY-MM` an ISO timestamp falls in, read in UTC.
+ *
+ * UTC because that is the zone a typed day is filed in — noon UTC on it — so
+ * the month is the one somebody typed, wherever the reader is.
+ */
+export function monthOf(iso: string): string {
+  const day = new Date(iso);
+
+  return `${String(day.getUTCFullYear()).padStart(4, "0")}-${String(day.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
 /** How many months from `first` to `last`, both counted. */
 export function monthsBetween(first: string, last: string): number {
   const [firstYear, firstIndex] = first.split("-").map(Number);

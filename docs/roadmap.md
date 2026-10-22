@@ -833,6 +833,20 @@ something false about people.
       share" squeezed a member's figures onto three lines until the words for
       the gap moved under the name and learnt to wrap on their own.
 
+## Sprint 30 — A figure leads to what it is made of
+
+- [x] A category on the statistics opens the list of its expenses over the
+      period on screen. "236 on groceries in September" raises one question,
+      which ones, and it is answered where it was asked: newest first, each the
+      row the group page draws, from the expenses the group page already holds
+      rather than a second answer from the backend to keep in step.
+- [x] An expense opens from there as it does from the journal and from a
+      refund's purchase: dialog to dialog, closing the statistics on the way,
+      and only for an expense this reader may open — the group page's rule,
+      handed down. A row with nowhere to go has no chevron and no target.
+- [x] Which month an expense falls in is read in UTC, the zone a typed day is
+      filed in, by a function under test beside the rest of the period logic.
+
 ## Later
 
 - [ ] Weighted splits (by shares, rather than by amount or percentage)

@@ -13,6 +13,7 @@ import {
   averageOf,
   change,
   inPeriod,
+  monthOf,
   monthsBetween,
   openingPeriod,
   periodSpan,
@@ -41,6 +42,17 @@ describe("addMonths and monthsBetween", () => {
   it("counts both ends", () => {
     expect(monthsBetween("2026-10", "2026-10")).toBe(1);
     expect(monthsBetween("2025-11", "2026-10")).toBe(12);
+  });
+});
+
+describe("monthOf", () => {
+  it("files a typed day in its own month, as the backend does", () => {
+    expect(monthOf("2026-10-31T12:00:00+00:00")).toBe("2026-10");
+    expect(monthOf("2026-11-01T12:00:00Z")).toBe("2026-11");
+  });
+
+  it("reads an offset the way the stored instant falls in UTC", () => {
+    expect(monthOf("2026-11-01T00:30:00+02:00")).toBe("2026-10");
   });
 });
 

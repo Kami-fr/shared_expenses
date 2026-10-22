@@ -7,7 +7,7 @@ import "../components/se-statistics";
 import type { SharedExpensesApi } from "../services/api";
 import type { Localizer } from "../services/localize";
 import { sharedStyles } from "../styles/shared";
-import type { Category, Group, Member } from "../types";
+import type { Category, Expense, Group, Member } from "../types";
 
 /**
  * What the group spent, on demand.
@@ -31,6 +31,12 @@ export class SeStatisticsDialog extends LitElement {
 
   @property({ type: String }) public meId: string | null = null;
 
+  /** The group's expenses, for the list behind a category. */
+  @property({ attribute: false }) public expenses: Expense[] = [];
+
+  /** The expenses this reader may open: the group page's rule, not this one's. */
+  @property({ attribute: false }) public openable: string[] = [];
+
   @property({ type: String }) public language = "en";
 
   public static styles = sharedStyles;
@@ -52,6 +58,8 @@ export class SeStatisticsDialog extends LitElement {
           .members=${this.members}
           .categories=${this.categories}
           .meId=${this.meId}
+          .expenses=${this.expenses}
+          .openable=${this.openable}
           .currency=${this.group.currency}
           .language=${this.language}
         ></se-statistics>
