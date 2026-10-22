@@ -846,6 +846,10 @@ something false about people.
       handed down. A row with nowhere to go has no chevron and no target.
 - [x] Which month an expense falls in is read in UTC, the zone a typed day is
       filed in, by a function under test beside the rest of the period logic.
+- [x] The README shows the statistics as they are: `06-statistics`, the three
+      phones at the top and the tour retaken on a re-seeded Home Assistant. The
+      tour's expense dialog now reads in English, since 1.1.2 translated its
+      examples.
 
 ## Later
 
@@ -882,11 +886,6 @@ something false about people.
 - [ ] `formatSignedMoney` would put a "+" back on a refund, and keep a second
       signal for whoever reads colour poorly, if that turns out to matter more
       than the quiet figure does.
-- [ ] Re-record the tour, and retake `06-statistics`. The tour still shows the
-      French examples of the expense dialog for two seconds and both show the
-      statistics as they were before Sprint 29; they have to be redone on a
-      re-seeded Home Assistant with the screenshot tooling kept outside the
-      repository.
 - [ ] The icon in HACS's list. HACS 2.0.5 asks `brands.home-assistant.io`
       directly, which no longer takes custom integrations, so the list shows a
       blank tile while the rest of Home Assistant reads `brand/` through its
