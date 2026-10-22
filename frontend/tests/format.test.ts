@@ -23,6 +23,7 @@ import {
   formatDayDate,
   formatMoney,
   formatMonth,
+  formatMonthLong,
   formatSignedMoney,
   initials,
   isoToDateInput,
@@ -135,6 +136,13 @@ describe("dates", () => {
     expect(day).toContain("15");
     expect(day).toContain("2026");
     expect(formatMonth("2026-07", "fr").startsWith("J")).toBe(true);
+  });
+
+  it("names a month mid-sentence in the language's own case", () => {
+    expect(formatMonthLong("2026-10", "en")).toBe("October 2026");
+    expect(formatMonthLong("2026-10", "fr")).toBe("octobre 2026");
+    expect(formatMonthLong("2026-09", "fr", false)).toBe("septembre");
+    expect(formatMonthLong("2026-01", "de", false)).toBe("Januar");
   });
 
   it("labels a month as itself, wherever the reader is", () => {

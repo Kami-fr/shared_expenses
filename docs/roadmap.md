@@ -775,6 +775,47 @@ anybody reads, and it is read inside Home Assistant as often as on GitHub.
       reader's own decimal separator, without grouping, since nobody types
       one. Found on the tour, which still shows them for two seconds.
 
+## Sprint 29 — Statistics read by the month
+
+A household counts in months — what did October cost, more than September? —
+and the statistics could be cut by year at most. The page was also saying
+something false about people.
+
+- [x] **"Owes 623 EUR" is gone from the statistics.** It was paid minus share
+      over the expenses of the period, and the statistics leave reimbursements
+      out on purpose. So a member who had paid everything back still "owed" it
+      there, and a debt cut to one year meant nothing at all. Each member now
+      reads as what they paid, what their share was, and the gap between the
+      two, said as a gap; a line sends whoever wants the debt to the group
+      page, the only place that counts what settles one.
+- [x] The page opens on the last month anything was spent in, not the
+      calendar's, which is empty on the 1st. Month, year or everything, a step
+      either way, and empty months stepped through rather than over: a month
+      with nothing spent is a fact.
+- [x] A month says how it compares with the one before, in the reader's own
+      percent; a year or everything says what it comes to a month, over the
+      months the group has existed in it, not twelve. Nothing is compared with
+      a month that cost nothing, or came out refunded: against those every
+      change is infinite or points the wrong way.
+- [x] A year of months as bars, with no figure on them — twelve figures do not
+      fit a phone — and the average dashed across. Each bar is the way to its
+      month. The window holds the period: the year to the last month spent in,
+      or the year starting on an older month stepped back to.
+- [x] The insight box is gone: it said what the bar under it already showed.
+      So is the average expense, which the rent dragged to a figure that
+      described no expense. The share of each category sits against its
+      amount instead of in a column a long name pushed out of line. The disc
+      stays, as the switch it was.
+- [x] The backend answers a month (`YYYY-MM`, exclusive with a year in the
+      schema) and always sends every month, unfiltered, the way it already
+      sent every year: a month is read against its neighbours, and cut to the
+      period it would have none. No stored shape moves.
+- [x] What a period covers, where it steps to and what it is compared with live
+      in `services/statistics-period.ts`, pure, under Vitest. Measured headless
+      at 360 pixels in all eight languages: the German for "less than their
+      share" squeezed a member's figures onto three lines until the words for
+      the gap moved under the name and learnt to wrap on their own.
+
 ## Later
 
 - [ ] Weighted splits (by shares, rather than by amount or percentage)
@@ -810,9 +851,11 @@ anybody reads, and it is read inside Home Assistant as often as on GitHub.
 - [ ] `formatSignedMoney` would put a "+" back on a refund, and keep a second
       signal for whoever reads colour poorly, if that turns out to matter more
       than the quiet figure does.
-- [ ] Re-record the tour. It still shows the French examples of the expense
-      dialog for two seconds, and has to be recorded again on a re-seeded Home
-      Assistant with the screenshot tooling kept outside the repository.
+- [ ] Re-record the tour, and retake `06-statistics`. The tour still shows the
+      French examples of the expense dialog for two seconds and both show the
+      statistics as they were before Sprint 29; they have to be redone on a
+      re-seeded Home Assistant with the screenshot tooling kept outside the
+      repository.
 - [ ] The icon in HACS's list. HACS 2.0.5 asks `brands.home-assistant.io`
       directly, which no longer takes custom integrations, so the list shows a
       blank tile while the rest of Home Assistant reads `brand/` through its

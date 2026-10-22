@@ -108,6 +108,23 @@ export function formatMonth(month: string, language: string): string {
   return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
 
+/**
+ * Write a `YYYY-MM` the way a sentence needs it: "October 2026", "octobre 2026",
+ * or the month alone, "septembre", for "compared with September".
+ *
+ * Left in the case the language writes it in mid-sentence, unlike `formatMonth`,
+ * which opens a line: French and Spanish months take no capital. Parsed by hand
+ * for the same reason as `formatMonth`.
+ */
+export function formatMonthLong(month: string, language: string, withYear = true): string {
+  const [year, index] = month.split("-").map(Number);
+
+  return new Intl.DateTimeFormat(language, {
+    month: "long",
+    ...(withYear ? { year: "numeric" } : {}),
+  }).format(new Date(year, index - 1, 1));
+}
+
 /** Return today as `YYYY-MM-DD`, for date inputs. */
 export function today(): string {
   const now = new Date();

@@ -277,6 +277,11 @@ export interface GroupStatistics {
   by_member: MemberTotal[];
   /** Every year holding an expense, for the period picker. Never filtered. */
   years: number[];
+  /**
+   * Every month holding an expense, chronological. Never filtered either: a
+   * month is compared with the one before it and drawn among its neighbours.
+   */
+  months: MonthTotal[];
 }
 
 /** What one currency was worth in another, on a given day. */

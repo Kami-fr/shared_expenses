@@ -21,7 +21,7 @@ No account to create, no cloud, nothing to sync.</p>
 | 🌍 **Another currency, frozen the day it was owed** | Pay in pounds on a trip counted in euros: the day's rate is fetched once, kept with the expense, and yours to overwrite. |
 | ✂️ **Split the way life splits** | Equally, by amounts, by percentages, or "share 40 of it, the rest is mine". A category can carry its own rule. |
 | ↩️ **Refunds and reimbursements, told apart** | A shop giving money back comes off the purchase it answers, split exactly as the purchase was. Paying a flatmate back is a different thing, and the list says so. |
-| 📊 **See where it went** | What the group spent, by category and by month, as bars or a ring, and what of it was yours. |
+| 📊 **See where it went** | Month by month: what the group spent, against the month before, by category as bars or a ring, and what of it was yours. |
 | 🏠 **Part of the house** | A card for the dashboard, optional sensors per group, `add_expense` and `settle_up` actions for a tile or an NFC tag, and an event on the bus for every change. |
 | 🕓 **Nothing is lost** | Every edit is in the history with who made it and what moved. A deleted expense comes back from there as the one it was. |
 | 🌐 **Eight languages** | EN · FR · DE · NL · ES · IT · PL · PT. Light or dark, in your own theme, built for a thumb. |
@@ -76,7 +76,7 @@ directory, restart Home Assistant, then add the integration as in step 2.
 | 🤝 **Reimbursements and debts** | Record money moved, or merely owed; someone who left the group can still be paid back. |
 | 🔍 **One list** | Expenses and reimbursements together, newest first, searchable by anything on the row: a shop, a person, a category, an amount. |
 | 🟢🔴 **Written from where you stand** | "You are owed", green when the money comes your way, red when it leaves. |
-| 📈 **Statistics** | What the group spent, by category and by month, as bars or a ring, and what of it was yours. |
+| 📈 **Statistics** | A month, a year or everything: the total and how it compares, where it went, the year around it, and who paid against whose share it was. |
 | 🕓 **History** | Every change, who made it, and what moved; deletions included, and a deleted expense can be brought back from there as the one it was. |
 | 🏠 **On the dashboard** | A card that tells each viewer what *they* owe, plus optional per-group sensors and `add_expense` / `settle_up` actions. |
 | 📱 **Mobile first** | A single panel, thumb-reachable, in your own theme, light or dark. |

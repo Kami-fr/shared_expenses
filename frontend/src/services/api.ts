@@ -399,11 +399,15 @@ export class SharedExpensesApi {
 
   // Statistics
 
-  /** What the group spent. Leave `year` out for everything, ever. */
-  public getStatistics(groupId: string, year?: number | null): Promise<GroupStatistics> {
+  /** What a group spent over a month (`YYYY-MM`), a year, or everything. */
+  public getStatistics(
+    groupId: string,
+    period: { year?: number; month?: string } = {},
+  ): Promise<GroupStatistics> {
     return this.call("get_statistics", {
       group_id: groupId,
-      ...(year ? { year } : {}),
+      ...(period.year ? { year: period.year } : {}),
+      ...(period.month ? { month: period.month } : {}),
     });
   }
 

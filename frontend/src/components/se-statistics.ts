@@ -3,14 +3,23 @@ import { customElement, property, state } from "lit/decorators.js";
 
 import "./se-icon";
 import type { SharedExpensesApi } from "../services/api";
-import { colorOf, formatMoney, formatMonth } from "../services/format";
+import { colorOf, formatMoney, formatMonthLong } from "../services/format";
 import { errorMessage, type Key, type Localizer } from "../services/localize";
+import {
+  type Period,
+  addMonths,
+  averageOf,
+  change,
+  inPeriod,
+  openingPeriod,
+  periodSpan,
+  stepPeriod,
+  totalOf,
+  trendWindow,
+} from "../services/statistics-period";
 import { sharedStyles } from "../styles/shared";
 import type { Category, CategoryTotal, GroupStatistics, Member } from "../types";
 import { renderAvatar } from "./avatar";
-
-/** Everything, ever. Not a year, so it can never collide with one. */
-const ALL = "all";
 
 /** What the uncategorised is drawn in, when a category would carry its own colour. */
 const NO_CATEGORY_COLOUR = "#8a9099";
@@ -29,9 +38,11 @@ const NO_CATEGORY_ICON = "mdi:tag-off-outline";
  * Reimbursements are left out throughout: moving money between members is not
  * spending it, and counting it would say the household spent 100 on a 90 shop.
  *
- * One reading, top to bottom: what was spent, what it says at a glance, where it
- * went, when, and by whom against for whom. Fetches once on connect, and again
- * whenever the period changes.
+ * One reading, top to bottom: which stretch of time, what it cost and how that
+ * compares, where it went, how it sits among the months around it, and who paid
+ * against whose share it was. It opens on the last month anything was spent in,
+ * because a household counts in months — "what did October cost?" — and the
+ * calendar's own month is empty on the 1st.
  */
 @customElement("se-statistics")
 export class SeStatistics extends LitElement {
@@ -55,10 +66,11 @@ export class SeStatistics extends LitElement {
 
   @state() private result?: GroupStatistics;
 
-  @state() private period: string = ALL;
+  /** The period asked for; none until the months are known to pick one from. */
+  @state() private period?: Period;
 
   /** The period the figures on screen are for — not one that failed on the way. */
-  private loaded: string = ALL;
+  private loaded?: Period;
 
   @state() private error?: string;
 
@@ -74,13 +86,10 @@ export class SeStatistics extends LitElement {
         gap: 12px;
       }
 
-      /* The period picker, as one segmented control rather than a row of pills:
-         a single choice among a few, which is what a segmented control is for. */
+      /* Which kind of period, as one segmented control across the width: a
+         single choice among three, which is what a segmented control is for. */
       .seg {
-        display: inline-flex;
-        align-self: flex-start;
-        max-width: 100%;
-        overflow-x: auto;
+        display: flex;
         gap: 2px;
         padding: 3px;
         border-radius: 12px;
@@ -88,15 +97,20 @@ export class SeStatistics extends LitElement {
       }
 
       .seg button {
+        flex: 1;
+        min-width: 0;
+        min-height: 36px;
         border: none;
         background: none;
         color: var(--secondary-text-color);
         font-family: inherit;
         font-size: 13px;
         font-weight: 600;
-        padding: 6px 13px;
+        padding: 6px 8px;
         border-radius: 9px;
         cursor: pointer;
+        overflow: hidden;
+        text-overflow: ellipsis;
         white-space: nowrap;
       }
 
@@ -106,6 +120,43 @@ export class SeStatistics extends LitElement {
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16);
       }
 
+      /* Which month or year, with a step either way. */
+      .stepper {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .stepper .now {
+        font-size: 16px;
+        font-weight: 600;
+        text-align: center;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .step {
+        width: 40px;
+        height: 40px;
+        flex: none;
+        border: none;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--divider-color, rgba(0, 0, 0, 0.08));
+        color: var(--primary-text-color);
+        cursor: pointer;
+      }
+
+      .step:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+
       .panel {
         background: var(--card-background-color, #fff);
         border-radius: var(--se-radius, 14px);
@@ -113,84 +164,58 @@ export class SeStatistics extends LitElement {
         padding: 16px;
       }
 
-      /* The hero. Follows the user's theme rather than a colour of our own, so
-         it sits in whatever Home Assistant is wearing. */
-      .hero {
-        background: linear-gradient(
-          150deg,
-          var(--primary-color, #03a9f4),
-          var(--dark-primary-color, #0277bd)
-        );
-        color: var(--text-primary-color, #fff);
-      }
-
+      /* What the period cost. A card like the others rather than a block of
+         colour: the figure is what should stand out, not the box around it. */
       .hero .lbl {
-        font-size: 12px;
-        font-weight: 600;
-        letter-spacing: 0.4px;
-        text-transform: uppercase;
-        opacity: 0.85;
+        font-size: 13px;
+        color: var(--secondary-text-color);
       }
 
       .hero .big {
-        font-size: 38px;
-        font-weight: 800;
-        letter-spacing: -1px;
-        margin: 2px 0 12px;
-        font-variant-numeric: tabular-nums;
-      }
-
-      .pills {
-        display: flex;
-        gap: 10px;
-      }
-
-      .pill {
-        flex: 1;
-        min-width: 0;
-        padding: 9px 12px;
-        border-radius: 11px;
-        background: rgba(255, 255, 255, 0.16);
-      }
-
-      .pill .k {
-        font-size: 11.5px;
-        opacity: 0.85;
-      }
-
-      .pill .v {
-        font-size: 17px;
+        font-size: 34px;
         font-weight: 700;
-        margin-top: 1px;
+        letter-spacing: -0.5px;
+        margin: 2px 0 2px;
         font-variant-numeric: tabular-nums;
       }
 
-      .pill .sub {
-        font-size: 11px;
-        opacity: 0.8;
-        margin-top: 1px;
+      .hero .cmp {
+        font-size: 13px;
+        color: var(--secondary-text-color);
         font-variant-numeric: tabular-nums;
       }
 
-      /* The one sentence worth reading before the charts. */
-      .insight {
-        display: flex;
-        gap: 11px;
-        align-items: center;
-        padding: 13px 14px;
-        border-radius: 14px;
-        background: var(--secondary-background-color, #eef4f0);
-        background: color-mix(
-          in srgb,
-          var(--primary-color, #03a9f4) 10%,
-          var(--card-background-color, #fff)
-        );
+      /* More spent is the figure to notice, less is the good news; the sign in
+         the text says which, the colour only repeats it. */
+      .hero .cmp.up {
+        color: var(--se-negative);
+        font-weight: 600;
       }
 
-      .insight p {
-        font-size: 13.5px;
-        line-height: 1.45;
-        color: var(--primary-text-color);
+      .hero .cmp.down {
+        color: var(--se-positive);
+        font-weight: 600;
+      }
+
+      .mine {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 14px;
+        padding-top: 14px;
+        border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.1));
+      }
+
+      .mine .k {
+        font-size: 12px;
+        color: var(--secondary-text-color);
+      }
+
+      .mine .v {
+        font-size: 17px;
+        font-weight: 600;
+        margin-top: 2px;
+        font-variant-numeric: tabular-nums;
       }
 
       .sec {
@@ -213,6 +238,12 @@ export class SeStatistics extends LitElement {
 
       .head .sec {
         margin-bottom: 0;
+      }
+
+      .head .aside {
+        font-size: 13px;
+        color: var(--secondary-text-color);
+        font-variant-numeric: tabular-nums;
       }
 
       /* Which chart, on the switch the split editor puts the currency and the
@@ -302,9 +333,12 @@ export class SeStatistics extends LitElement {
         min-width: 0;
       }
 
+      /* Name, then what it cost and its share of the whole on one line: the
+         share sits against the figure it is a share of, not in a column of its
+         own that a long name pushes out of line. */
       .cb .t {
         display: flex;
-        justify-content: space-between;
+        align-items: baseline;
         gap: 8px;
         font-size: 14.5px;
         font-weight: 600;
@@ -312,6 +346,8 @@ export class SeStatistics extends LitElement {
       }
 
       .cb .t .nm {
+        flex: 1;
+        min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -320,6 +356,15 @@ export class SeStatistics extends LitElement {
       .cb .t .amt {
         font-variant-numeric: tabular-nums;
         flex: none;
+      }
+
+      .cb .t .pc {
+        flex: none;
+        min-width: 34px;
+        text-align: right;
+        font-size: 12.5px;
+        color: var(--secondary-text-color);
+        font-variant-numeric: tabular-nums;
       }
 
       .track {
@@ -335,89 +380,123 @@ export class SeStatistics extends LitElement {
         border-radius: 4px;
       }
 
-      .pc {
-        width: 34px;
-        flex: none;
-        text-align: right;
-        font-size: 12.5px;
-        font-weight: 600;
-        color: var(--secondary-text-color);
-        font-variant-numeric: tabular-nums;
-      }
-
-      /* When, as bars: a run of months is read as time, and each month keeps its
-         own figure above it. */
-      .months {
+      /* A year of months as bars, no figure on them: twelve figures do not fit
+         a phone, and the one being read is in the title above. Each bar is the
+         way to that month. */
+      .trend {
+        position: relative;
         display: flex;
         align-items: flex-end;
-        gap: 8px;
-        height: 108px;
+        gap: 5px;
+        height: 112px;
       }
 
-      .mo {
+      .trend button {
         flex: 1;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 6px;
+        min-width: 0;
         height: 100%;
-        justify-content: flex-end;
+        display: flex;
+        align-items: flex-end;
+        padding: 0;
+        border: none;
+        background: none;
+        cursor: pointer;
       }
 
-      .mo .bx {
+      .trend .bx {
         width: 100%;
         min-height: 3px;
-        border-radius: 6px 6px 3px 3px;
-        background: color-mix(
-          in srgb,
-          var(--primary-color, #03a9f4) 22%,
-          transparent
-        );
+        border-radius: 5px 5px 2px 2px;
+        background: color-mix(in srgb, var(--primary-color, #03a9f4) 22%, transparent);
       }
 
-      .mo.pk .bx {
+      .trend button[aria-pressed="true"] .bx {
         background: var(--primary-color, #03a9f4);
       }
 
-      .mo .ml {
+      .trend .avg {
+        position: absolute;
+        left: 0;
+        right: 0;
+        border-top: 2px dashed var(--secondary-text-color);
+        opacity: 0.6;
+        pointer-events: none;
+      }
+
+      .letters {
+        display: flex;
+        gap: 5px;
+        margin-top: 6px;
+      }
+
+      .letters span {
+        flex: 1;
+        min-width: 0;
+        text-align: center;
         font-size: 11px;
-        font-weight: 600;
         color: var(--secondary-text-color);
       }
 
-      .mo .mv {
-        font-size: 10px;
+      .letters span.on {
+        color: var(--primary-text-color);
+        font-weight: 700;
+      }
+
+      .legend {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 10px;
+        font-size: 12px;
         color: var(--secondary-text-color);
         font-variant-numeric: tabular-nums;
       }
 
-      .mo.pk .mv {
-        color: var(--primary-color, #03a9f4);
-        font-weight: 700;
+      .legend::before {
+        content: "";
+        width: 18px;
+        border-top: 2px dashed var(--secondary-text-color);
       }
 
-      /* Who paid against who consumed, as cards: their gap is the balance, said
-         in the words the rest of the app says it in. */
-      .mem {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      /* Who paid against whose share it was. The gap between the two is said as
+         a gap: a debt is the group page's to tell, since only it counts the
+         reimbursements that settle one. */
+      .who {
+        display: flex;
+        align-items: center;
         gap: 12px;
       }
 
-      .mcard {
-        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.1));
-        border-radius: 14px;
-        padding: 13px;
+      .who + .who {
+        margin-top: 14px;
       }
 
-      .mcard .top {
+      .who .mid {
+        flex: 1;
+        min-width: 0;
+      }
+
+      /* Two lines, each a pair: the name and the gap, then what was paid and
+         borne and what the gap means. The words for the gap run long in some
+         languages ("weniger als der eigene Anteil"); kept in a column of their
+         own they squeezed the figures beside them onto three lines, so they
+         share the second line and drop below it only when they must. */
+      .who .r1,
+      .who .r2 {
         display: flex;
-        align-items: center;
-        gap: 9px;
-        margin-bottom: 10px;
+        align-items: baseline;
+        justify-content: space-between;
+        column-gap: 10px;
       }
 
-      .mcard .nm {
+      .who .r2 {
+        flex-wrap: wrap;
+        font-size: 12px;
+        color: var(--secondary-text-color);
+      }
+
+      .who .nm {
+        min-width: 0;
         font-size: 14.5px;
         font-weight: 600;
         overflow: hidden;
@@ -425,43 +504,34 @@ export class SeStatistics extends LitElement {
         white-space: nowrap;
       }
 
-      .kv {
-        display: flex;
-        justify-content: space-between;
-        gap: 8px;
-        font-size: 12.5px;
-        color: var(--secondary-text-color);
-        margin-bottom: 5px;
-      }
-
-      .kv b {
-        color: var(--primary-text-color);
+      .who .ps {
         font-variant-numeric: tabular-nums;
       }
 
-      .bal {
-        margin-top: 9px;
-        text-align: center;
-        font-size: 13px;
-        font-weight: 700;
-        border-radius: 9px;
-        padding: 7px 4px;
+      .who .gw {
+        margin-left: auto;
+        font-size: 11px;
+      }
+
+      .who .gap {
+        flex: none;
+        font-size: 14.5px;
         font-variant-numeric: tabular-nums;
       }
 
-      .bal.up {
+      .who .gap.more {
         color: var(--se-positive);
-        background: color-mix(in srgb, var(--se-positive) 14%, transparent);
       }
 
-      .bal.dn {
+      .who .gap.less {
         color: var(--se-negative);
-        background: color-mix(in srgb, var(--se-negative) 14%, transparent);
       }
 
-      .bal.even {
+      .note {
+        margin-top: 14px;
+        font-size: 12px;
+        line-height: 1.45;
         color: var(--secondary-text-color);
-        background: var(--divider-color, rgba(0, 0, 0, 0.06));
       }
     `,
   ];
@@ -475,7 +545,7 @@ export class SeStatistics extends LitElement {
     const translate = this.localize;
 
     // Nothing has ever come through: the error is all there is to show.
-    if (!this.result) {
+    if (!this.result || !this.period) {
       if (this.error) {
         return html`<div class="error">${this.error}</div>`;
       }
@@ -493,123 +563,115 @@ export class SeStatistics extends LitElement {
     // screen with no way forward but closing the dialog.
     return html`
       ${this.error ? html`<div class="error">${this.error}</div>` : nothing}
-      ${this.renderPeriod()} ${this.renderHero()} ${this.renderInsight()}
-      ${this.renderCategories()} ${this.renderMonths()} ${this.renderMembers()}
+      ${this.renderPeriod()} ${this.renderHero()} ${this.renderCategories()}
+      ${this.renderTrend()} ${this.renderMembers()}
     `;
   }
 
   private renderPeriod() {
+    const period = this.period!;
+    const result = this.result!;
+    const kinds: [Period["kind"], Key][] = [
+      ["month", "period_month"],
+      ["year", "period_year"],
+      ["all", "period_all"],
+    ];
+
+    const before = stepPeriod(period, -1, result.months, result.years);
+    const after = stepPeriod(period, 1, result.months, result.years);
+
     return html`
       <div class="seg" role="group">
-        <button aria-pressed=${this.period === ALL} @click=${() => this.pick(ALL)}>
-          ${this.localize("period_all")}
-        </button>
-        ${this.result!.years.map(
-          (year) => html`
-            <button
-              aria-pressed=${this.period === String(year)}
-              @click=${() => this.pick(String(year))}
-            >
-              ${year}
+        ${kinds.map(
+          ([kind, key]) => html`
+            <button aria-pressed=${period.kind === kind} @click=${() => this.pickKind(kind)}>
+              ${this.localize(key)}
             </button>
           `,
         )}
       </div>
+      ${period.kind === "all"
+        ? nothing
+        : html`
+            <div class="stepper">
+              <button
+                class="step"
+                aria-label=${this.localize("stat_previous")}
+                title=${this.localize("stat_previous")}
+                ?disabled=${!before}
+                @click=${() => before && this.pick(before)}
+              >
+                ${chevron("M15 18l-6-6 6-6")}
+              </button>
+              <span class="now">${this.periodName(period)}</span>
+              <button
+                class="step"
+                aria-label=${this.localize("stat_next")}
+                title=${this.localize("stat_next")}
+                ?disabled=${!after}
+                @click=${() => after && this.pick(after)}
+              >
+                ${chevron("M9 18l6-6-6-6")}
+              </button>
+            </div>
+          `}
     `;
   }
 
   private renderHero() {
     const result = this.result!;
+    const period = this.period!;
     const mine = result.by_member.find((item) => item.member_id === this.meId);
-    const average = result.count > 0 ? Math.round(result.total / result.count) : 0;
+
+    let label: string;
+    let comparison: unknown = nothing;
+
+    if (period.kind === "month") {
+      label = this.fill("stat_spent_month", {
+        month: formatMonthLong(period.month, this.language),
+      });
+
+      const previous = addMonths(period.month, -1);
+      const moved = change(result.total, totalOf(result.months, previous));
+
+      if (moved !== null) {
+        comparison = html`<div class="cmp ${moved > 0 ? "up" : moved < 0 ? "down" : ""}">
+          ${this.fill("stat_change", {
+            change: this.percent(moved),
+            month: formatMonthLong(previous, this.language, false),
+          })}
+        </div>`;
+      }
+    } else {
+      label =
+        period.kind === "year"
+          ? this.fill("stat_spent_year", { year: String(period.year) })
+          : this.localize("stat_spent_all");
+
+      const span = periodSpan(period, result.months);
+
+      comparison = html`<div class="cmp">
+        ${this.fill("stat_per_month", { amount: this.money(Math.round(result.total / span)) })}
+      </div>`;
+    }
 
     return html`
       <div class="panel hero">
-        <div class="lbl">${this.localize("total_spent")}</div>
+        <div class="lbl">${label}</div>
         <div class="big">${this.money(result.total)}</div>
-        <div class="pills">
-          ${mine
-            ? html`<div class="pill">
+        ${comparison}
+        ${mine
+          ? html`<div class="mine">
+              <div>
                 <div class="k">${this.localize("your_share")}</div>
                 <div class="v">${this.money(mine.share)}</div>
-              </div>`
-            : nothing}
-          <div class="pill">
-            <div class="k">${this.localize("expenses")}</div>
-            <div class="v">${result.count}</div>
-            ${result.count > 0
-              ? html`<div class="sub">
-                  ${this.fill("stat_avg", { amount: this.money(average) })}
-                </div>`
-              : nothing}
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  /**
-   * The one line worth reading first: the dominant category, and the peak month.
-   *
-   * Shown only when it has something to say — categories spread evenly, or a
-   * single month, leave it out rather than state the obvious.
-   */
-  private renderInsight() {
-    const result = this.result!;
-
-    if (result.total <= 0) {
-      return nothing;
-    }
-
-    const parts: string[] = [];
-    const top = result.by_category[0];
-
-    if (top) {
-      const share = top.total / result.total;
-      const name = this.categoryName(top.category_id);
-
-      if (share >= 0.5) {
-        parts.push(this.fill("stat_insight_half", { cat: name }));
-      } else if (share >= 0.34) {
-        parts.push(
-          this.fill("stat_insight_mostly", {
-            cat: name,
-            pct: String(Math.round(share * 100)),
-          }),
-        );
-      }
-    }
-
-    if (result.by_month.length >= 2) {
-      const peak = result.by_month.reduce((a, b) => (b.total > a.total ? b : a));
-      parts.push(
-        this.fill("stat_insight_peak", {
-          month: formatMonth(peak.month, this.language),
-          amount: this.money(peak.total),
-        }),
-      );
-    }
-
-    if (parts.length === 0) {
-      return nothing;
-    }
-
-    const topCategory = top ? this.category(top.category_id) : undefined;
-    // The dominant category can be the uncategorised one: give it the same
-    // struck tag it wears below, not the blank the missing icon would leave.
-    const topIcon =
-      top && !topCategory ? NO_CATEGORY_ICON : topCategory?.icon;
-
-    return html`
-      <div class="insight">
-        <se-icon
-          plain
-          .size=${20}
-          .icon=${topIcon}
-          .fallback=${""}
-          style=${`color:${top ? this.categoryColour(top.category_id) : "var(--primary-color)"}`}
-        ></se-icon>
-        <p>${parts.join(" ")}</p>
+              </div>
+              <div>
+                <div class="k">${this.localize("stat_you_paid")}</div>
+                <div class="v">${this.money(mine.paid)}</div>
+              </div>
+            </div>`
+          : nothing}
       </div>
     `;
   }
@@ -774,24 +836,24 @@ export class SeStatistics extends LitElement {
           <div class="t">
             <span class="nm">${this.categoryName(item.category_id)}</span>
             <span class="amt">${this.money(item.total)}</span>
+            <!--
+              Never below nothing, and never a share of nothing. A category refunded
+              past what it cost comes out negative, and a share of what the group
+              spent cannot be: "-12 %" is not a fact about anything. A period that
+              came out refunded to the last cent has no total to take a share of at
+              all, and dividing by it would print "Infinity%" or "NaN%" on the row.
+              Nothing is hidden by flooring either — the bar below it is drawn on
+              the size, and the figure beside it carries its own minus.
+            -->
+            <span class="pc">
+              ${this.percent(total > 0 ? Math.max(0, item.total / total) : 0, false)}
+            </span>
           </div>
           <div class="track">
             <i
               style=${`width:${Math.max(3, (Math.abs(item.total) / biggest) * 100)}%;background:${colour}`}
             ></i>
           </div>
-        </div>
-        <!--
-          Never below nothing, and never a share of nothing. A category refunded
-          past what it cost comes out negative, and a share of what the group
-          spent cannot be: "-12 %" is not a fact about anything. A period that
-          came out refunded to the last cent has no total to take a share of at
-          all, and dividing by it would print "Infinity%" or "NaN%" on the row.
-          Nothing is hidden by flooring either — the bar beside it is drawn on
-          the size, and the figure on the row carries its own minus.
-        -->
-        <div class="pc">
-          ${total > 0 ? Math.max(0, Math.round((item.total / total) * 100)) : 0}%
         </div>
       </div>
     `;
@@ -806,38 +868,66 @@ export class SeStatistics extends LitElement {
     rememberPieStyle(pie);
   }
 
-  private renderMonths() {
+  /**
+   * The months around the period, as bars to compare it with and to go to.
+   *
+   * A year at most, from the first expense on, empty months drawn at nothing
+   * rather than left out: a gap in the run would read as the months on either
+   * side being neighbours. The dashed line is the average of what is drawn.
+   */
+  private renderTrend() {
     const result = this.result!;
+    const period = this.period!;
+    const window = trendWindow(result.months, period);
 
-    if (result.by_month.length === 0) {
+    // One month is not a trend, and its bar would only repeat the total above.
+    if (window.length < 2) {
       return nothing;
     }
 
-    const peak = result.by_month.reduce((a, b) => (b.total > a.total ? b : a));
-
-    // At least one, so a run of months that all came out refunded cannot turn
-    // every bar upside down by dividing by a negative peak.
-    const tallest = Math.max(peak.total, 1);
+    const tallest = Math.max(...window.map((item) => item.total), 1);
+    const average = averageOf(window);
+    const narrow = new Intl.DateTimeFormat(this.language, { month: "narrow" });
 
     return html`
       <div class="panel">
-        <div class="sec">${this.localize("by_month")}</div>
-        <div class="months">
-          ${result.by_month.map((item) => {
-            const isPeak = item.month === peak.month;
+        <div class="head">
+          <div class="sec">${this.localize("stat_trend")}</div>
+          ${period.kind === "month"
+            ? html`<span class="aside">${this.money(totalOf(result.months, period.month))}</span>`
+            : nothing}
+        </div>
+        <div class="trend">
+          ${average > 0
+            ? html`<div class="avg" style=${`bottom:${(average / tallest) * 100}%`}></div>`
+            : nothing}
+          ${window.map(
+            (item) => html`
+              <button
+                aria-pressed=${inPeriod(item.month, period)}
+                aria-label=${`${formatMonthLong(item.month, this.language)}: ${this.money(item.total)}`}
+                title=${`${formatMonthLong(item.month, this.language)}: ${this.money(item.total)}`}
+                @click=${() => this.pick({ kind: "month", month: item.month })}
+              >
+                <div class="bx" style=${`height:${Math.max(0, (item.total / tallest) * 100)}%`}></div>
+              </button>
+            `,
+          )}
+        </div>
+        <div class="letters" aria-hidden="true">
+          ${window.map((item) => {
+            const [year, index] = item.month.split("-").map(Number);
 
-            return html`
-              <div class="mo ${isPeak ? "pk" : ""}">
-                <div class="mv">${this.money(item.total)}</div>
-                <div
-                  class="bx"
-                  style=${`height:${Math.max(0, (item.total / tallest) * 100)}%`}
-                ></div>
-                <div class="ml">${formatMonth(item.month, this.language)}</div>
-              </div>
-            `;
+            return html`<span class=${inPeriod(item.month, period) ? "on" : ""}>
+              ${narrow.format(new Date(year, index - 1, 1))}
+            </span>`;
           })}
         </div>
+        ${average > 0
+          ? html`<div class="legend">
+              ${this.fill("stat_average", { amount: this.money(average) })}
+            </div>`
+          : nothing}
       </div>
     `;
   }
@@ -851,48 +941,41 @@ export class SeStatistics extends LitElement {
 
     return html`
       <div class="panel">
-        <div class="sec">${this.localize("by_member")}</div>
-        <div class="mem">
-          ${result.by_member.map((item) => {
-            const member = this.members.find((m) => m.id === item.member_id);
-            const name = member?.name ?? "?";
-            const balance = item.paid - item.share;
+        <div class="sec">${this.localize("stat_who_paid")}</div>
+        ${result.by_member.map((item) => {
+          const member = this.members.find((m) => m.id === item.member_id);
+          const name = member?.name ?? "?";
+          const gap = item.paid - item.share;
+          const way = gap > 0 ? "more" : gap < 0 ? "less" : "";
 
-            return html`
-              <div class="mcard">
-                <div class="top">
-                  ${renderAvatar(member, name, item.member_id)}
+          return html`
+            <div class="who">
+              ${renderAvatar(member, name, item.member_id)}
+              <div class="mid">
+                <div class="r1">
                   <span class="nm">${name}</span>
+                  <b class="gap ${way}">
+                    ${gap > 0 ? "+" : gap < 0 ? "−" : ""}${this.money(Math.abs(gap))}
+                  </b>
                 </div>
-                <div class="kv">
-                  <span>${this.localize("paid_total")}</span><b>${this.money(item.paid)}</b>
+                <div class="r2">
+                  <span class="ps">
+                    ${this.fill("stat_paid_share", {
+                      paid: this.money(item.paid),
+                      share: this.money(item.share),
+                    })}
+                  </span>
+                  <span class="gw">
+                    ${this.localize(gap > 0 ? "stat_more" : gap < 0 ? "stat_less" : "stat_exact")}
+                  </span>
                 </div>
-                <div class="kv">
-                  <span>${this.localize("consumed")}</span><b>${this.money(item.share)}</b>
-                </div>
-                ${this.renderBalance(balance)}
               </div>
-            `;
-          })}
-        </div>
+            </div>
+          `;
+        })}
+        <div class="note">${this.localize("stat_not_settling")}</div>
       </div>
     `;
-  }
-
-  private renderBalance(balance: number) {
-    if (balance > 0) {
-      return html`<div class="bal up">
-        ${this.fill("stat_owed", { amount: this.money(balance) })}
-      </div>`;
-    }
-
-    if (balance < 0) {
-      return html`<div class="bal dn">
-        ${this.fill("stat_owes", { amount: this.money(-balance) })}
-      </div>`;
-    }
-
-    return html`<div class="bal even">${this.localize("stat_even")}</div>`;
   }
 
   private category(id: string | null): Category | undefined {
@@ -938,8 +1021,63 @@ export class SeStatistics extends LitElement {
     return text;
   }
 
-  private pick(period: string) {
-    if (period === this.period) {
+  /**
+   * A fraction as the language writes a percentage: "−17 %", "+9%".
+   *
+   * Signed for a change, where which way it went is the point; plain for a
+   * share, which is never below nothing.
+   */
+  private percent(fraction: number, signed = true): string {
+    return new Intl.NumberFormat(this.language, {
+      style: "percent",
+      maximumFractionDigits: 0,
+      signDisplay: signed ? "exceptZero" : "auto",
+    }).format(fraction);
+  }
+
+  /** The period as the stepper names it, opening its line. */
+  private periodName(period: Period): string {
+    if (period.kind === "month") {
+      const name = formatMonthLong(period.month, this.language);
+
+      return name.charAt(0).toUpperCase() + name.slice(1);
+    }
+
+    return period.kind === "year" ? String(period.year) : this.localize("period_all");
+  }
+
+  /**
+   * Switch between a month, a year and everything, keeping to the same time.
+   *
+   * From a month, the year it is in; from a year, the last month spent in that
+   * year. Jumping back to today on every switch would lose the place somebody
+   * had stepped back to.
+   */
+  private pickKind(kind: Period["kind"]) {
+    const period = this.period!;
+    const months = this.result!.months;
+
+    if (kind === period.kind) {
+      return;
+    }
+
+    if (kind === "all") {
+      this.pick({ kind: "all" });
+    } else if (kind === "year") {
+      this.pick({
+        kind: "year",
+        year: period.kind === "month" ? Number(period.month.slice(0, 4)) : this.result!.years[0],
+      });
+    } else {
+      const within =
+        period.kind === "year" ? months.filter((item) => inPeriod(item.month, period)) : months;
+
+      this.pick(openingPeriod(within));
+    }
+  }
+
+  private pick(period: Period) {
+    if (this.period && JSON.stringify(period) === JSON.stringify(this.period)) {
       return;
     }
 
@@ -948,15 +1086,43 @@ export class SeStatistics extends LitElement {
   }
 
   private async load() {
-    const asked = this.period;
-
     this.error = undefined;
 
     try {
-      this.result = await this.api.getStatistics(
+      // The first time, the months are not known yet, and the month to open on
+      // is the last of them: everything is asked for first, which answers with
+      // every month whatever it covers.
+      if (!this.period) {
+        const everything = await this.api.getStatistics(this.groupId);
+        const opening = openingPeriod(everything.months);
+
+        if (opening.kind === "all") {
+          this.result = everything;
+          this.period = this.loaded = opening;
+
+          return;
+        }
+
+        this.period = opening;
+      }
+
+      const asked = this.period;
+      const result = await this.api.getStatistics(
         this.groupId,
-        asked === ALL ? null : Number(asked),
+        asked.kind === "month"
+          ? { month: asked.month }
+          : asked.kind === "year"
+            ? { year: asked.year }
+            : {},
       );
+
+      // Another period was picked while this one was on its way; its own answer
+      // is coming, and this one would only flash past before it.
+      if (asked !== this.period) {
+        return;
+      }
+
+      this.result = result;
       this.loaded = asked;
     } catch (error) {
       this.error = errorMessage(error, this.localize);
@@ -967,6 +1133,23 @@ export class SeStatistics extends LitElement {
       this.period = this.loaded;
     }
   }
+}
+
+/** A chevron for the steppers, drawn here so it shows with or without Home Assistant's icons. */
+function chevron(path: string) {
+  return html`<svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2.2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d=${path}></path>
+  </svg>`;
 }
 
 /** The disc, in the 100-square the pie is drawn in. */
