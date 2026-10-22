@@ -2,8 +2,9 @@ import { LitElement, css, html, nothing, svg } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
 import "./se-icon";
+import "./se-segmented";
 import type { SharedExpensesApi } from "../services/api";
-import { colorOf, formatMoney, formatMonthLong } from "../services/format";
+import { colorOf, formatMoney, formatMonthLong, formatSignedMoney } from "../services/format";
 import { errorMessage, type Key, type Localizer } from "../services/localize";
 import {
   type Period,
@@ -86,40 +87,6 @@ export class SeStatistics extends LitElement {
         gap: 12px;
       }
 
-      /* Which kind of period, as one segmented control across the width: a
-         single choice among three, which is what a segmented control is for. */
-      .seg {
-        display: flex;
-        gap: 2px;
-        padding: 3px;
-        border-radius: 12px;
-        background: var(--divider-color, rgba(0, 0, 0, 0.08));
-      }
-
-      .seg button {
-        flex: 1;
-        min-width: 0;
-        min-height: 36px;
-        border: none;
-        background: none;
-        color: var(--secondary-text-color);
-        font-family: inherit;
-        font-size: 13px;
-        font-weight: 600;
-        padding: 6px 8px;
-        border-radius: 9px;
-        cursor: pointer;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .seg button[aria-pressed="true"] {
-        background: var(--card-background-color, #fff);
-        color: var(--primary-text-color);
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16);
-      }
-
       /* Which month or year, with a step either way. */
       .stepper {
         display: flex;
@@ -138,6 +105,8 @@ export class SeStatistics extends LitElement {
         white-space: nowrap;
       }
 
+      /* The step either way, as the "›" every row that leads somewhere wears in
+         this panel, given a round target a thumb can find. */
       .step {
         width: 40px;
         height: 40px;
@@ -147,8 +116,12 @@ export class SeStatistics extends LitElement {
         display: flex;
         align-items: center;
         justify-content: center;
+        padding: 0 0 3px;
         background: var(--divider-color, rgba(0, 0, 0, 0.08));
         color: var(--primary-text-color);
+        font-family: inherit;
+        font-size: 24px;
+        line-height: 1;
         cursor: pointer;
       }
 
@@ -618,15 +591,11 @@ export class SeStatistics extends LitElement {
     const after = stepPeriod(period, 1, result.months, result.years);
 
     return html`
-      <div class="seg" role="group">
-        ${kinds.map(
-          ([kind, key]) => html`
-            <button aria-pressed=${period.kind === kind} @click=${() => this.pickKind(kind)}>
-              ${this.localize(key)}
-            </button>
-          `,
-        )}
-      </div>
+      <se-segmented
+        .value=${period.kind}
+        .options=${kinds.map(([kind, key]) => ({ value: kind, label: this.localize(key) }))}
+        @value-changed=${(event: CustomEvent) => this.pickKind(event.detail.value)}
+      ></se-segmented>
       ${period.kind === "all"
         ? nothing
         : html`
@@ -638,7 +607,7 @@ export class SeStatistics extends LitElement {
                 ?disabled=${!before}
                 @click=${() => before && this.pick(before)}
               >
-                ${chevron("M15 18l-6-6 6-6")}
+                <span aria-hidden="true">‹</span>
               </button>
               <span class="now">${this.periodName(period)}</span>
               <button
@@ -648,7 +617,7 @@ export class SeStatistics extends LitElement {
                 ?disabled=${!after}
                 @click=${() => after && this.pick(after)}
               >
-                ${chevron("M9 18l6-6-6-6")}
+                <span aria-hidden="true">›</span>
               </button>
             </div>
           `}
@@ -995,7 +964,7 @@ export class SeStatistics extends LitElement {
                 <div class="r1">
                   <span class="nm">${name}</span>
                   <b class="gap ${way}">
-                    ${gap > 0 ? "+" : gap < 0 ? "−" : ""}${this.money(Math.abs(gap))}
+                    ${formatSignedMoney(gap, this.currency, this.language)}
                   </b>
                 </div>
                 <div class="r2">
@@ -1173,23 +1142,6 @@ export class SeStatistics extends LitElement {
       this.period = this.loaded;
     }
   }
-}
-
-/** A chevron for the steppers, drawn here so it shows with or without Home Assistant's icons. */
-function chevron(path: string) {
-  return html`<svg
-    width="20"
-    height="20"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="2.2"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    aria-hidden="true"
-  >
-    <path d=${path}></path>
-  </svg>`;
 }
 
 /** The disc, in the 100-square the pie is drawn in. */
