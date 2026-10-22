@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/screenshots/hero.png" width="720" alt="Shared Expenses on three phones"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/Kami-fr/shared_expenses/main/docs/screenshots/hero.png" width="720" alt="Shared Expenses on three phones"></p>
 
 <h1 align="center">💸 Shared Expenses</h1>
 <p align="center"><b>Who paid, who owes what, and who pays whom back. Inside Home Assistant.</b><br>
@@ -44,22 +44,22 @@ directory, restart Home Assistant, then add the integration as in step 2.
 ## 📸 A look around
 
 <p align="center">
-  <img src="docs/screenshots/tour.gif" width="270" alt="A quick tour: the apartment's balances, a 36 dollar wine and cheese of which 20 is shared, the weekend in London in pounds, then where the money went, as bars and as a ring" title="Balances, a bill shared in part, a trip in pounds, and where it all went">
+  <img src="https://raw.githubusercontent.com/Kami-fr/shared_expenses/main/docs/screenshots/tour.gif" width="270" alt="A quick tour: the apartment's balances, a 36 dollar wine and cheese of which 20 is shared, the weekend in London in pounds, then where the money went, as bars and as a ring" title="Balances, a bill shared in part, a trip in pounds, and where it all went">
 </p>
 
 <p align="center"><sub>Balances, a bill shared in part, a trip in pounds, and where it all went.</sub></p>
 
 <p align="center">
-  <img src="docs/screenshots/01-groups.jpg" width="176" alt="Your groups, one tap in" title="Your groups, one tap in">&nbsp;
-  <img src="docs/screenshots/02-balances.jpg" width="176" alt="Who owes what, from where you stand" title="Who owes what, from where you stand">&nbsp;
-  <img src="docs/screenshots/03-trip-currency.jpg" width="176" alt="Two of you, in a currency the group doesn't count in" title="Two of you, in a currency the group doesn't count in">&nbsp;
-  <img src="docs/screenshots/04-split-part.jpg" width="176" alt="Share part of it, the rest to whoever paid" title="Share part of it, the rest to whoever paid">
+  <img src="https://raw.githubusercontent.com/Kami-fr/shared_expenses/main/docs/screenshots/01-groups.jpg" width="176" alt="Your groups, one tap in" title="Your groups, one tap in">&nbsp;
+  <img src="https://raw.githubusercontent.com/Kami-fr/shared_expenses/main/docs/screenshots/02-balances.jpg" width="176" alt="Who owes what, from where you stand" title="Who owes what, from where you stand">&nbsp;
+  <img src="https://raw.githubusercontent.com/Kami-fr/shared_expenses/main/docs/screenshots/03-trip-currency.jpg" width="176" alt="Two of you, in a currency the group doesn't count in" title="Two of you, in a currency the group doesn't count in">&nbsp;
+  <img src="https://raw.githubusercontent.com/Kami-fr/shared_expenses/main/docs/screenshots/04-split-part.jpg" width="176" alt="Share part of it, the rest to whoever paid" title="Share part of it, the rest to whoever paid">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/05-edit-currency.jpg" width="176" alt="The rate, frozen the day it was owed" title="The rate, frozen the day it was owed">&nbsp;
-  <img src="docs/screenshots/06-statistics.jpg" width="176" alt="Where the money went" title="Where the money went">&nbsp;
-  <img src="docs/screenshots/07-reimbursement.jpg" width="176" alt="Record money paid back" title="Record money paid back">
+  <img src="https://raw.githubusercontent.com/Kami-fr/shared_expenses/main/docs/screenshots/05-edit-currency.jpg" width="176" alt="The rate, frozen the day it was owed" title="The rate, frozen the day it was owed">&nbsp;
+  <img src="https://raw.githubusercontent.com/Kami-fr/shared_expenses/main/docs/screenshots/06-statistics.jpg" width="176" alt="Where the money went" title="Where the money went">&nbsp;
+  <img src="https://raw.githubusercontent.com/Kami-fr/shared_expenses/main/docs/screenshots/07-reimbursement.jpg" width="176" alt="Record money paid back" title="Record money paid back">
 </p>
 
 ## 🧰 What is in the box
@@ -157,11 +157,11 @@ tap_action:
 
 📚 **More recipes** — a reimbursement tile, a monthly gauge, calling from an
 automation, and where the ids come from — are in
-**[docs/dashboard.md](docs/dashboard.md)**.
+**[docs/dashboard.md](https://github.com/Kami-fr/shared_expenses/blob/main/docs/dashboard.md)**.
 
 🔔 And the other direction: every write fires a `shared_expenses_changed` event
 on the bus, so an automation can notify, remind, or react when an expense lands
-or a debt is settled — **[docs/events.md](docs/events.md)**.
+or a debt is settled — **[docs/events.md](https://github.com/Kami-fr/shared_expenses/blob/main/docs/events.md)**.
 
 ## 🔐 Requirements, and what leaves your instance
 
