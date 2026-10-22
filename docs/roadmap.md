@@ -806,6 +806,16 @@ something false about people.
       described no expense. The share of each category sits against its
       amount instead of in a column a long name pushed out of line. The disc
       stays, as the switch it was.
+- [x] **Your own month, reimbursements included.** The page counts spending,
+      and a reimbursement is not spending, so "what did October cost me" had
+      no answer on it. "Your summary" adds it up: the expenses you paid, plus
+      the reimbursements you made, less those you received, is what left your
+      pocket; set against your share, the difference is how far your balance
+      moved over the period. Over everything, it is your balance. Both kinds
+      of payment count: a debt recorded is money lent, which leaves a pocket
+      as surely as money paid back.
+- [x] The backend sends, beside each member and for the period, what they
+      handed over and got back. Never in a total: the totals stay spending.
 - [x] The backend answers a month (`YYYY-MM`, exclusive with a year in the
       schema) and always sends every month, unfiltered, the way it already
       sent every year: a month is read against its neighbours, and cut to the

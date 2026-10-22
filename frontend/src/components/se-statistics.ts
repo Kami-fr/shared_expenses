@@ -191,25 +191,49 @@ export class SeStatistics extends LitElement {
         font-weight: 600;
       }
 
-      .mine {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
-        margin-top: 14px;
-        padding-top: 14px;
-        border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.1));
-      }
-
-      .mine .k {
-        font-size: 12px;
+      /* Your own month, line by line down to the one figure it comes to: what
+         left your pocket, against what was yours to bear. Laid out as the sum
+         it is, so the result can be checked by eye. */
+      .line {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        font-size: 14px;
         color: var(--secondary-text-color);
       }
 
-      .mine .v {
-        font-size: 17px;
+      .line + .line {
+        margin-top: 8px;
+      }
+
+      .line b {
+        flex: none;
+        color: var(--primary-text-color);
         font-weight: 600;
-        margin-top: 2px;
         font-variant-numeric: tabular-nums;
+      }
+
+      .line.sum {
+        padding-top: 8px;
+        border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        color: var(--primary-text-color);
+        font-weight: 600;
+      }
+
+      .verdict {
+        margin-top: 12px;
+        font-size: 14px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .verdict.up {
+        color: var(--se-positive);
+      }
+
+      .verdict.down {
+        color: var(--se-negative);
       }
 
       .sec {
@@ -573,7 +597,8 @@ export class SeStatistics extends LitElement {
     // screen with no way forward but closing the dialog.
     return html`
       ${this.error ? html`<div class="error">${this.error}</div>` : nothing}
-      ${this.renderPeriod()} ${this.renderHero()} ${this.renderCategories()}
+      ${this.renderPeriod()} ${this.renderHero()} ${this.renderMine()}
+      ${this.renderCategories()}
       ${this.renderTrend()} ${this.renderMembers()}
     `;
   }
@@ -627,8 +652,6 @@ export class SeStatistics extends LitElement {
   private renderHero() {
     const result = this.result!;
     const period = this.period!;
-    const mine = result.by_member.find((item) => item.member_id === this.meId);
-
     let label: string;
     let comparison: unknown = nothing;
 
@@ -666,18 +689,59 @@ export class SeStatistics extends LitElement {
         <div class="lbl">${label}</div>
         <div class="big">${this.money(result.total)}</div>
         ${comparison}
-        ${mine
-          ? html`<div class="mine">
-              <div>
-                <div class="k">${this.localize("your_share")}</div>
-                <div class="v">${this.money(mine.share)}</div>
-              </div>
-              <div>
-                <div class="k">${this.localize("stat_you_paid")}</div>
-                <div class="v">${this.money(mine.paid)}</div>
-              </div>
+      </div>
+    `;
+  }
+
+  /**
+   * What the period came to for whoever is looking, reimbursements included.
+   *
+   * The rest of the page counts spending, and a reimbursement is not spending.
+   * But "what did this month cost me" is answered out of a pocket: what you
+   * paid for the group, plus what you handed back, less what came back to you.
+   * Set against your share, the difference is how far your balance moved over
+   * the period — over everything, it is your balance.
+   */
+  private renderMine() {
+    const mine = this.result!.by_member.find((item) => item.member_id === this.meId);
+
+    if (!mine) {
+      return nothing;
+    }
+
+    const out = mine.paid + mine.given - mine.received;
+    const moved = out - mine.share;
+    const signed = (cents: number) => formatSignedMoney(cents, this.currency, this.language);
+
+    return html`
+      <div class="panel">
+        <div class="sec">${this.localize("stat_yours")}</div>
+        <div class="line">
+          <span>${this.localize("stat_mine_paid")}</span><b>${this.money(mine.paid)}</b>
+        </div>
+        ${mine.given
+          ? html`<div class="line">
+              <span>${this.localize("stat_mine_given")}</span><b>${signed(mine.given)}</b>
             </div>`
           : nothing}
+        ${mine.received
+          ? html`<div class="line">
+              <span>${this.localize("stat_mine_received")}</span><b>${signed(-mine.received)}</b>
+            </div>`
+          : nothing}
+        <div class="line sum">
+          <span>${this.localize("stat_mine_out")}</span><b>${this.money(out)}</b>
+        </div>
+        <div class="line">
+          <span>${this.localize("your_share")}</span><b>${this.money(mine.share)}</b>
+        </div>
+        <div class="verdict ${moved > 0 ? "up" : moved < 0 ? "down" : ""}">
+          ${moved === 0
+            ? this.localize("stat_balance_same")
+            : this.fill(moved > 0 ? "stat_balance_up" : "stat_balance_down", {
+                amount: this.money(Math.abs(moved)),
+              })}
+        </div>
       </div>
     `;
   }

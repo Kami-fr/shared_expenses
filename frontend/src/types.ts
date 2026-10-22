@@ -265,6 +265,9 @@ export interface MemberTotal {
   member_id: string;
   paid: number;
   share: number;
+  /** Reimbursements over the period, both kinds: handed over, and got back. */
+  given: number;
+  received: number;
 }
 
 /** What a group spent, cut three ways. Reimbursements are not spending. */
