@@ -408,7 +408,7 @@ export class SeStatistics extends LitElement {
         position: relative;
         display: flex;
         align-items: flex-end;
-        gap: 5px;
+        gap: 4px;
         height: 112px;
       }
 
@@ -444,23 +444,39 @@ export class SeStatistics extends LitElement {
         pointer-events: none;
       }
 
+      /* Each month named under its bar, short: an initial alone left J, J and
+         J to be told apart by position. Measured at 360 pixels, the longest
+         abbreviation in the eight languages ("mars") is a hair wider than its
+         bar, so each name is centred on the bar and allowed past its edges; two
+         neighbours' halves still fit in a bar and a gap. The year is written
+         where it turns, and under the first month, so a run that crosses
+         January says which side is which. */
       .letters {
         display: flex;
-        gap: 5px;
+        gap: 4px;
         margin-top: 6px;
       }
 
-      .letters span {
+      .letters > span {
         flex: 1;
         min-width: 0;
-        text-align: center;
-        font-size: 11px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        font-size: 10px;
+        line-height: 1.25;
+        white-space: nowrap;
         color: var(--secondary-text-color);
       }
 
-      .letters span.on {
+      .letters > span.on {
         color: var(--primary-text-color);
         font-weight: 700;
+      }
+
+      .letters .yr {
+        font-size: 9px;
+        opacity: 0.8;
       }
 
       .legend {
@@ -908,7 +924,7 @@ export class SeStatistics extends LitElement {
 
     const tallest = Math.max(...window.map((item) => item.total), 1);
     const average = averageOf(window);
-    const narrow = new Intl.DateTimeFormat(this.language, { month: "narrow" });
+    const short = new Intl.DateTimeFormat(this.language, { month: "short" });
 
     return html`
       <div class="panel">
@@ -936,11 +952,14 @@ export class SeStatistics extends LitElement {
           )}
         </div>
         <div class="letters" aria-hidden="true">
-          ${window.map((item) => {
+          ${window.map((item, position) => {
             const [year, index] = item.month.split("-").map(Number);
 
+            // The dot some languages abbreviate with ("oct.") is a character
+            // the bar has no room for, and says nothing a short name does not.
             return html`<span class=${inPeriod(item.month, period) ? "on" : ""}>
-              ${narrow.format(new Date(year, index - 1, 1))}
+              ${short.format(new Date(year, index - 1, 1)).replace(/\.$/, "")}
+              ${position === 0 || index === 1 ? html`<span class="yr">${year}</span>` : nothing}
             </span>`;
           })}
         </div>

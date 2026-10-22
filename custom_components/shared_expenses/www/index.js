@@ -10860,7 +10860,7 @@ let W = class extends _ {
     const e = this.result, t = this.period, r = Li(e.months, t);
     if (r.length < 2)
       return d;
-    const i = Math.max(...r.map((o) => o.total), 1), a = Wi(r), s = new Intl.DateTimeFormat(this.language, { month: "narrow" });
+    const i = Math.max(...r.map((o) => o.total), 1), a = Wi(r), s = new Intl.DateTimeFormat(this.language, { month: "short" });
     return n`
       <div class="panel">
         <div class="head">
@@ -10883,10 +10883,11 @@ let W = class extends _ {
     )}
         </div>
         <div class="letters" aria-hidden="true">
-          ${r.map((o) => {
-      const [p, h] = o.month.split("-").map(Number);
+          ${r.map((o, p) => {
+      const [h, u] = o.month.split("-").map(Number);
       return n`<span class=${At(o.month, t) ? "on" : ""}>
-              ${s.format(new Date(p, h - 1, 1))}
+              ${s.format(new Date(h, u - 1, 1)).replace(/\.$/, "")}
+              ${p === 0 || u === 1 ? n`<span class="yr">${h}</span>` : d}
             </span>`;
     })}
         </div>
@@ -11362,7 +11363,7 @@ W.styles = [
         position: relative;
         display: flex;
         align-items: flex-end;
-        gap: 5px;
+        gap: 4px;
         height: 112px;
       }
 
@@ -11398,23 +11399,39 @@ W.styles = [
         pointer-events: none;
       }
 
+      /* Each month named under its bar, short: an initial alone left J, J and
+         J to be told apart by position. Measured at 360 pixels, the longest
+         abbreviation in the eight languages ("mars") is a hair wider than its
+         bar, so each name is centred on the bar and allowed past its edges; two
+         neighbours' halves still fit in a bar and a gap. The year is written
+         where it turns, and under the first month, so a run that crosses
+         January says which side is which. */
       .letters {
         display: flex;
-        gap: 5px;
+        gap: 4px;
         margin-top: 6px;
       }
 
-      .letters span {
+      .letters > span {
         flex: 1;
         min-width: 0;
-        text-align: center;
-        font-size: 11px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        font-size: 10px;
+        line-height: 1.25;
+        white-space: nowrap;
         color: var(--secondary-text-color);
       }
 
-      .letters span.on {
+      .letters > span.on {
         color: var(--primary-text-color);
         font-weight: 700;
+      }
+
+      .letters .yr {
+        font-size: 9px;
+        opacity: 0.8;
       }
 
       .legend {
