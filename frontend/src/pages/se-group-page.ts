@@ -124,6 +124,9 @@ export class SeGroupPage extends LitElement {
   /** What is typed in the search box. Filters the list, never the balance. */
   @state() private query = "";
 
+  /** The search box is open: the magnifier in the header was pressed. */
+  @state() private searching = false;
+
   @state() private loading = true;
 
   @state() private error?: string;
@@ -699,6 +702,28 @@ export class SeGroupPage extends LitElement {
           </button>
         </div>
 
+        <!--
+          The two things read most after the list itself, on the bar rather than
+          in the menu: the statistics were the richest screen here and the
+          hardest to find, behind a menu shared with renaming and deleting.
+        -->
+        <button
+          class="icon"
+          aria-label=${translate(this.searching ? "search_close" : "search_open")}
+          title=${translate(this.searching ? "search_close" : "search_open")}
+          aria-pressed=${this.searching}
+          @click=${this.toggleSearch}
+        >
+          <se-icon plain .icon=${"mdi:magnify"} fallback="⌕" .size=${22}></se-icon>
+        </button>
+        <button
+          class="icon"
+          aria-label=${translate("statistics")}
+          title=${translate("statistics")}
+          @click=${() => this.openDialog("statistics")}
+        >
+          <se-icon plain .icon=${"mdi:chart-bar"} fallback="▥" .size=${22}></se-icon>
+        </button>
         <button
           class="icon"
           aria-label=${translate("more")}
@@ -766,15 +791,20 @@ export class SeGroupPage extends LitElement {
    * The members and the project stay reachable either way: the first is where
    * you rename yourself or leave, the second where you read what the project
    * counts in. Both dialogs shut their own doors rather than close.
+   *
+   * Three groups, each under a rule: what is read, what is managed, and what
+   * puts the group away — the one that cannot be undone last and on its own,
+   * never a slip of the thumb away from the history somebody came for.
    */
   private renderMoreMenu() {
     const translate = this.localize;
+    const archiving = this.may("manage_group");
 
     return html`
-      <button role="menuitem" @click=${() => this.openDialog("group")}>
-        ${this.may("manage_group") ? translate("edit_group") : translate("group_details")}
+      <button role="menuitem" @click=${() => this.openDialog("history")}>
+        ${translate("group_history")}
       </button>
-      <button role="menuitem" @click=${() => this.openDialog("member")}>
+      <button role="menuitem" class="separated" @click=${() => this.openDialog("member")}>
         ${translate("members")}
       </button>
       ${this.may("manage_categories")
@@ -782,13 +812,10 @@ export class SeGroupPage extends LitElement {
             ${translate("categories")}
           </button>`
         : nothing}
-      <button role="menuitem" @click=${() => this.openDialog("statistics")}>
-        ${translate("statistics")}
+      <button role="menuitem" @click=${() => this.openDialog("group")}>
+        ${this.may("manage_group") ? translate("edit_group") : translate("group_details")}
       </button>
-      <button role="menuitem" @click=${() => this.openDialog("history")}>
-        ${translate("group_history")}
-      </button>
-      ${this.may("manage_group")
+      ${archiving
         ? html`<button
             role="menuitem"
             class="separated"
@@ -801,7 +828,7 @@ export class SeGroupPage extends LitElement {
       ${this.myRole() === "admin"
         ? html`<button
             role="menuitem"
-            class="danger separated"
+            class=${archiving ? "danger" : "danger separated"}
             ?disabled=${this.busy}
             @click=${this.deleteGroup}
           >
@@ -887,21 +914,22 @@ export class SeGroupPage extends LitElement {
         @settle-up=${this.settleUp}
       ></se-balance-card>
 
-      ${this.renderSearch()} ${this.renderActivityCard()}
+      ${this.searching ? this.renderSearch() : nothing} ${this.renderActivityCard()}
     `;
   }
 
   /**
-   * Always there.
+   * The search box, while the magnifier in the header has it open.
    *
-   * It used to appear only past a few entries, on the grounds that a short list
-   * reads at a glance — which is true, and beside the point: a control that
-   * comes and goes on its own is read as a bug, and a new group is exactly when
-   * you have not yet learnt where things are.
+   * It used to stand above the list at all times, a full line of the phone
+   * spent on something looked for now and then. It still never comes and goes
+   * on its own — a control that does is read as a bug — only on the button
+   * that says it will, which is always there, in the same place.
    */
   private renderSearch() {
     return html`
       <se-field
+        class="search"
         .value=${this.query}
         .label=${""}
         placeholder=${this.localize("search")}
@@ -909,6 +937,29 @@ export class SeGroupPage extends LitElement {
       ></se-field>
     `;
   }
+
+  /**
+   * Open the search box with the caret in it, or close it and forget it.
+   *
+   * Closed means not filtering: a list still cut down by a query nobody can
+   * see any more would read as expenses gone missing.
+   */
+  private toggleSearch = async () => {
+    if (this.searching) {
+      this.searching = false;
+      this.query = "";
+
+      return;
+    }
+
+    this.searching = true;
+    await this.updateComplete;
+
+    const field = this.renderRoot.querySelector("se-field.search");
+
+    await (field as LitElement | null)?.updateComplete;
+    field?.shadowRoot?.querySelector("input")?.focus();
+  };
 
   private renderActivityCard() {
     const entries = this.matching();
