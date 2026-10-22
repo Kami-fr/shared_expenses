@@ -20,6 +20,7 @@ import {
   isoToDateInput,
   parseMoney,
   today,
+  typedExample,
 } from "../services/format";
 import { errorMessage, type Localizer } from "../services/localize";
 import { apportion, CURRENCIES, RATE_ONE } from "../services/currency";
@@ -500,7 +501,9 @@ export class SeExpenseDialog extends LitElement {
             .label=${translate("expense_title")}
             .value=${this.expenseTitle}
             required
-            placeholder=${refund ? "Retour Decathlon" : "Courses Carrefour"}
+            placeholder=${translate(
+              refund ? "refund_title_example" : "expense_title_example",
+            )}
             @value-changed=${(e: CustomEvent) =>
               this.typed("expenseTitle", e.detail.value)}
           ></se-field>
@@ -511,7 +514,7 @@ export class SeExpenseDialog extends LitElement {
               .value=${this.amountInput}
               required
               decimal
-              placeholder="85,42"
+              placeholder=${typedExample(85.42, 2, this.language)}
               @value-changed=${this.setAmount}
             >
               <!--

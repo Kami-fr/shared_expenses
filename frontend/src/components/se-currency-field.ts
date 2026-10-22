@@ -4,7 +4,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import "./se-field";
 import type { SharedExpensesApi } from "../services/api";
 import { convert, formatRate, parseRate } from "../services/currency";
-import { formatDayDate, formatMoney } from "../services/format";
+import { formatDayDate, formatMoney, typedExample } from "../services/format";
 import { errorMessage, type Localizer } from "../services/localize";
 import { sharedStyles } from "../styles/shared";
 import type { ExchangeRate } from "../types";
@@ -196,7 +196,7 @@ export class SeCurrencyField extends LitElement {
             .label=${translate("rate_label")}
             .value=${this.typed || (rate === null ? "" : formatRate(rate))}
             decimal
-            placeholder="0,87681"
+            placeholder=${typedExample(0.87681, 5, this.language)}
             @value-changed=${(e: CustomEvent) => this.type(e.detail.value)}
           ></se-field>
         </div>

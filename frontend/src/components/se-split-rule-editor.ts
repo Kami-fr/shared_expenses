@@ -3,7 +3,7 @@ import { customElement, property, state } from "lit/decorators.js";
 
 import "./se-field";
 import "./se-select";
-import { formatMoney, parseMoney } from "../services/format";
+import { formatMoney, parseMoney, typedExample } from "../services/format";
 import { renderAvatar as avatar } from "./avatar";
 import type { Localizer } from "../services/localize";
 import { resolveShares } from "../services/splits";
@@ -517,7 +517,7 @@ export class SeSplitRuleEditor extends LitElement {
           .value=${this.envelopeInput}
           .suffix=${this.currency}
           decimal
-          placeholder="5,00"
+          placeholder=${typedExample(5, 2, this.language)}
           @value-changed=${(e: CustomEvent) => this.setEnvelope(e.detail.value)}
         ></se-field>
 

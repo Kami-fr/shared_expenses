@@ -151,6 +151,21 @@ export function centsToInput(cents: number): string {
 }
 
 /**
+ * Write a figure the way it would be typed in this language, for a placeholder.
+ *
+ * "85,42" was French in every language, and an English reader takes it for a
+ * list of two numbers. The parsers read either separator, so the example only
+ * has to look right. No grouping: nobody types a thousands separator.
+ */
+export function typedExample(value: number, digits: number, language: string): string {
+  return new Intl.NumberFormat(language, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+    useGrouping: false,
+  }).format(value);
+}
+
+/**
  * Return what somebody goes by, in one word.
  *
  * For the places a name is a label rather than a sentence — a column beside a
