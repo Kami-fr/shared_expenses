@@ -70,21 +70,34 @@ class GroupStatistics:
     #: Every year holding an expense, for a period picker. Never filtered.
     years: Sequence[int]
 
+    #: Every month holding an expense, chronological. Never filtered either: a
+    #: month is read against the ones around it — the one before it, the run of
+    #: a year, the average — and a period that cut those away would leave the
+    #: month with nothing to be compared to.
+    months: Sequence[MonthTotal] = ()
+
 
 def compute_statistics(
     *,
     expenses: Iterable[Expense],
     shares: Iterable[ExpenseShare],
     year: int | None = None,
+    month: str | None = None,
 ) -> GroupStatistics:
-    """Return what a group spent, over one year or over everything.
+    """Return what a group spent, over a month, a year or everything.
 
     Cut on the date typed on the expense, not on when it was entered: a shop
-    backdated to December belongs to December.
+    backdated to December belongs to December. `month` is `YYYY-MM`, the same
+    key `by_month` is written in.
     """
 
     everything = list(expenses)
-    kept = [e for e in everything if year is None or e.expense_date.year == year]
+    kept = [
+        e
+        for e in everything
+        if (year is None or e.expense_date.year == year)
+        and (month is None or _month_of(e) == month)
+    ]
     ids = {expense.id for expense in kept}
 
     by_category: dict[str | None, int] = {}
@@ -101,8 +114,7 @@ def compute_statistics(
             by_category.get(expense.category_id, 0) + cost
         )
 
-        month = f"{expense.expense_date.year:04d}-{expense.expense_date.month:02d}"
-        by_month[month] = by_month.get(month, 0) + cost
+        by_month[_month_of(expense)] = by_month.get(_month_of(expense), 0) + cost
 
         paid[expense.paid_by_member_id] = paid.get(expense.paid_by_member_id, 0) + cost
 
@@ -142,4 +154,24 @@ def compute_statistics(
             for member_id in sorted(paid.keys() | consumed.keys())
         ),
         years=tuple(sorted({e.expense_date.year for e in everything}, reverse=True)),
+        months=_months(everything),
     )
+
+
+def _month_of(expense: Expense) -> str:
+    """Return the `YYYY-MM` an expense is counted in, on the date typed."""
+
+    return f"{expense.expense_date.year:04d}-{expense.expense_date.month:02d}"
+
+
+def _months(expenses: Iterable[Expense]) -> tuple[MonthTotal, ...]:
+    """Return what every month cost, chronological, refunds netted in."""
+
+    totals: dict[str, int] = {}
+
+    for expense in expenses:
+        totals[_month_of(expense)] = (
+            totals.get(_month_of(expense), 0) + expense.converted_amount
+        )
+
+    return tuple(MonthTotal(month=key, total=totals[key]) for key in sorted(totals))

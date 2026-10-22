@@ -435,6 +435,23 @@ async def test_every_command_is_registered_once():
             {"type": "shared_expenses/get_statistics", "group_id": "g", "year": 12},
         ),
         (
+            lambda: statistics.websocket_get_statistics,
+            {
+                "type": "shared_expenses/get_statistics",
+                "group_id": "g",
+                "month": "2026-13",
+            },
+        ),
+        (
+            lambda: statistics.websocket_get_statistics,
+            {
+                "type": "shared_expenses/get_statistics",
+                "group_id": "g",
+                "year": 2026,
+                "month": "2026-07",
+            },
+        ),
+        (
             lambda: payments.websocket_create_payment,
             {
                 "type": "shared_expenses/create_payment",

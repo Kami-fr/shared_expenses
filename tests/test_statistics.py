@@ -258,6 +258,62 @@ async def make_group(manager: SharedExpensesManager, **kwargs):
     )
 
 
+def test_a_month_cuts_on_the_date_you_typed():
+    """The month a statistic is asked for, and nothing either side of it."""
+
+    expenses = [
+        expense("e1", 1000, date=datetime(2026, 6, 30, tzinfo=UTC)),
+        expense("e2", 2000, payer="m2", date=datetime(2026, 7, 1, tzinfo=UTC)),
+        expense("e3", -500, payer="m2", date=datetime(2026, 7, 31, tzinfo=UTC)),
+        expense("e4", 4000, date=datetime(2025, 7, 15, tzinfo=UTC)),
+    ]
+    shares = [
+        share("e1", "m1", 1000),
+        share("e2", "m1", 1000),
+        share("e2", "m2", 1000),
+        share("e3", "m1", -250),
+        share("e3", "m2", -250),
+    ]
+
+    result = compute_statistics(expenses=expenses, shares=shares, month="2026-07")
+
+    # July 2026 alone: not June the day before, not July a year earlier.
+    assert result.total == 1500
+    assert result.count == 1
+    assert [(m.month, m.total) for m in result.by_month] == [("2026-07", 1500)]
+    assert [(m.member_id, m.paid, m.share) for m in result.by_member] == [
+        ("m1", 0, 750),
+        ("m2", 1500, 750),
+    ]
+
+
+def test_every_month_is_offered_whatever_the_period():
+    """A month is read against its neighbours, so the run of them is never cut.
+
+    The panel compares a month with the one before it and draws the year around
+    it from this list; cut to the period, the month asked for would be alone in
+    it and every comparison would be with nothing.
+    """
+
+    expenses = [
+        expense("e1", 1000, date=datetime(2025, 12, 24, tzinfo=UTC)),
+        expense("e2", 2000, date=datetime(2026, 7, 1, tzinfo=UTC)),
+        expense("e3", -500, date=datetime(2026, 7, 2, tzinfo=UTC)),
+        expense("e4", 3000, date=datetime(2026, 5, 1, tzinfo=UTC)),
+    ]
+
+    everything = [("2025-12", 1000), ("2026-05", 3000), ("2026-07", 1500)]
+
+    for period in ({}, {"year": 2025}, {"month": "2026-05"}):
+        result = compute_statistics(expenses=expenses, shares=[], **period)
+
+        assert [(m.month, m.total) for m in result.months] == everything
+
+
+def test_no_expense_no_month():
+    assert compute_statistics(expenses=[], shares=[]).months == ()
+
+
 async def test_statistics_end_to_end(manager: SharedExpensesManager):
     group = await make_group(manager)
     antonin = await manager.create_group_member(group_id=group.id, name="Antonin")
@@ -350,3 +406,25 @@ async def test_the_statistics_of_another_group_never_leak(
 
     assert (await manager.get_statistics(mine.id)).total == 0
     assert (await manager.get_statistics(theirs.id)).total == 4000
+
+
+async def test_a_month_through_the_manager(manager: SharedExpensesManager):
+    group = await make_group(manager, group_name="Appartement")
+    admin = (await manager.list_group_members(group.id))[0]
+
+    for day, amount in ((datetime(2026, 6, 30, tzinfo=UTC), 1000), (NOW, 4000)):
+        await manager.create_expense(
+            group_id=group.id,
+            title="Courses",
+            amount=amount,
+            paid_by_member_id=admin.id,
+            expense_date=day,
+        )
+
+    july = await manager.get_statistics(group.id, month="2026-07")
+
+    assert july.total == 4000
+    assert [(m.month, m.total) for m in july.months] == [
+        ("2026-06", 1000),
+        ("2026-07", 4000),
+    ]

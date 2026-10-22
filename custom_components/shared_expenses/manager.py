@@ -2058,8 +2058,9 @@ class SharedExpensesManager:
         self,
         group_id: str,
         year: int | None = None,
+        month: str | None = None,
     ) -> GroupStatistics:
-        """Return what a group spent, over one year or over everything."""
+        """Return what a group spent, over a month, a year or everything."""
 
         await self.get_group(group_id)
 
@@ -2069,6 +2070,7 @@ class SharedExpensesManager:
                 group_id
             ),
             year=year,
+            month=month,
         )
 
     #
