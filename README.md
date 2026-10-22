@@ -192,6 +192,7 @@ ruff check .
 
 cd frontend
 npm ci
+npm test                      # the panel's pure helpers, with Vitest
 npm run build                 # writes custom_components/shared_expenses/www
 ```
 

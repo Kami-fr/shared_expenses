@@ -791,10 +791,11 @@ anybody reads, and it is read inside Home Assistant as often as on GitHub.
       part nobody has written: serve the bundle over HTTP, since ES modules do
       not load from `file://`, and read the answer out of the DOM rather than
       out of a screenshot.
-- [ ] Tests for what is already pure. `autoColors` is a function of a list and
+- [x] Tests for what is already pure. `autoColors` is a function of a list and
       nothing else, and it was checked with a script that should have been a
-      test file. `resolveShares` and `apportion` have harnesses; the panel's own
-      helpers have none.
+      test file. Vitest now runs the panel's own helpers in CI — money, dates,
+      names, colours, rates, percentages — under `frontend/tests/`, each one
+      seen failing on a sabotaged helper before it was trusted.
 - [ ] A native read of the translations. Twenty-one keys across eight languages
       by one non-native hand, the newest being Sprints 24 and 25. FR is the one
       this household reads and will catch for itself; DE, NL, ES, IT, PL and PT

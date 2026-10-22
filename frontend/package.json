@@ -7,13 +7,15 @@
   "scripts": {
     "dev": "vite build --watch",
     "build": "tsc --noEmit && vite build",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "lit": "^3.2.1"
   },
   "devDependencies": {
     "typescript": "^5.7.2",
-    "vite": "^6.0.5"
+    "vite": "^6.0.5",
+    "vitest": "^3.2.7"
   }
 }
