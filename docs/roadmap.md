@@ -811,11 +811,14 @@ something false about people.
       no answer on it. "Your summary" adds it up: the expenses you paid, plus
       the reimbursements you made, less those you received, is what left your
       pocket; set against your share, the difference is how far your balance
-      moved over the period. Over everything, it is your balance. Both kinds
-      of payment count: a debt recorded is money lent, which leaves a pocket
-      as surely as money paid back.
+      moved over the period. Over everything, it is your balance, to the cent
+      the group page shows — checked against the balances' own code on random
+      groups, and month by month adding up to the whole. A debt written down
+      is not in the pocket: often no money moved. It has lines of its own
+      after the share, and moves the balance all the same.
 - [x] The backend sends, beside each member and for the period, what they
-      handed over and got back. Never in a total: the totals stay spending.
+      handed over and got back, and the debts written down for and against
+      them. Never in a total: the totals stay spending.
 - [x] The backend answers a month (`YYYY-MM`, exclusive with a year in the
       schema) and always sends every month, unfiltered, the way it already
       sent every year: a month is read against its neighbours, and cut to the

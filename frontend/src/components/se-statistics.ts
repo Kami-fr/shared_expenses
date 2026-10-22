@@ -699,8 +699,10 @@ export class SeStatistics extends LitElement {
    * The rest of the page counts spending, and a reimbursement is not spending.
    * But "what did this month cost me" is answered out of a pocket: what you
    * paid for the group, plus what you handed back, less what came back to you.
-   * Set against your share, the difference is how far your balance moved over
-   * the period — over everything, it is your balance.
+   * A debt written down is not in it — often no money moved — and comes after
+   * the share instead, since it moves the balance all the same. What it all
+   * comes to is how far your balance moved over the period; over everything,
+   * it is your balance, to the cent the group page shows.
    */
   private renderMine() {
     const mine = this.result!.by_member.find((item) => item.member_id === this.meId);
@@ -710,7 +712,7 @@ export class SeStatistics extends LitElement {
     }
 
     const out = mine.paid + mine.given - mine.received;
-    const moved = out - mine.share;
+    const moved = out - mine.share + mine.owed_to - mine.owed_by;
     const signed = (cents: number) => formatSignedMoney(cents, this.currency, this.language);
 
     return html`
@@ -735,6 +737,16 @@ export class SeStatistics extends LitElement {
         <div class="line">
           <span>${this.localize("your_share")}</span><b>${this.money(mine.share)}</b>
         </div>
+        ${mine.owed_to
+          ? html`<div class="line">
+              <span>${this.localize("stat_mine_owed_to")}</span><b>${signed(mine.owed_to)}</b>
+            </div>`
+          : nothing}
+        ${mine.owed_by
+          ? html`<div class="line">
+              <span>${this.localize("stat_mine_owed_by")}</span><b>${signed(-mine.owed_by)}</b>
+            </div>`
+          : nothing}
         <div class="verdict ${moved > 0 ? "up" : moved < 0 ? "down" : ""}">
           ${moved === 0
             ? this.localize("stat_balance_same")

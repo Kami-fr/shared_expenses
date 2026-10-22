@@ -18,7 +18,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
-from ..models import Expense, ExpenseShare, Payment
+from ..models import Expense, ExpenseShare, Payment, PaymentKind
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,13 +49,20 @@ class MemberTotal:
     paid: int
     share: int
 
-    #: Reimbursements over the period, both kinds, in the group's currency:
-    #: what this member handed to another, and what another handed to them.
-    #: A debt recorded is money lent, so it left a pocket as surely as a
-    #: reimbursement did. `paid + given - received` is what the period really
-    #: cost them; less `share`, it is how far their balance moved.
+    #: Reimbursements over the period, in the group's currency: money this
+    #: member handed to another, and money another handed to them.
+    #: `paid + given - received` is what really left their pocket.
     given: int = 0
     received: int = 0
+
+    #: Debts written down over the period: owed to this member, and owed by
+    #: them. Kept apart from the reimbursements because a debt is "a loan, or a
+    #: debt simply being written down" — often no money moved at all, and a
+    #: pocket it never left must not be said to have paid it. The balance
+    #: moves all the same: out of pocket, less the share, plus `owed_to`, less
+    #: `owed_by`, is how far it moved over the period.
+    owed_to: int = 0
+    owed_by: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,17 +148,26 @@ def compute_statistics(
 
     given: dict[str, int] = {}
     received: dict[str, int] = {}
+    owed_to: dict[str, int] = {}
+    owed_by: dict[str, int] = {}
 
     for payment in payments:
         if not in_period(payment.payment_date):
             continue
 
+        # `from` is whoever is out of pocket or owed, `to` whoever was paid or
+        # owes: the balances' own reading of a payment, kept by kind.
+        if payment.kind == PaymentKind.DEBT:
+            out, back = owed_to, owed_by
+        else:
+            out, back = given, received
+
         # What it came to for the group, as the balances count it.
-        given[payment.from_member_id] = (
-            given.get(payment.from_member_id, 0) + payment.converted_amount
+        out[payment.from_member_id] = (
+            out.get(payment.from_member_id, 0) + payment.converted_amount
         )
-        received[payment.to_member_id] = (
-            received.get(payment.to_member_id, 0) + payment.converted_amount
+        back[payment.to_member_id] = (
+            back.get(payment.to_member_id, 0) + payment.converted_amount
         )
 
     return GroupStatistics(
@@ -180,9 +196,16 @@ def compute_statistics(
                 share=consumed.get(member_id, 0),
                 given=given.get(member_id, 0),
                 received=received.get(member_id, 0),
+                owed_to=owed_to.get(member_id, 0),
+                owed_by=owed_by.get(member_id, 0),
             )
             for member_id in sorted(
-                paid.keys() | consumed.keys() | given.keys() | received.keys()
+                paid.keys()
+                | consumed.keys()
+                | given.keys()
+                | received.keys()
+                | owed_to.keys()
+                | owed_by.keys()
             )
         ),
         years=tuple(sorted({e.expense_date.year for e in everything}, reverse=True)),

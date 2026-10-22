@@ -184,6 +184,8 @@ def statistics_to_dict(statistics: GroupStatistics) -> dict[str, Any]:
                 "share": item.share,
                 "given": item.given,
                 "received": item.received,
+                "owed_to": item.owed_to,
+                "owed_by": item.owed_by,
             }
             for item in statistics.by_member
         ],

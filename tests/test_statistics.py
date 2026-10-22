@@ -3,10 +3,17 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import random
 
+from custom_components.shared_expenses.helpers.balances import compute_balances
 from custom_components.shared_expenses.helpers.statistics import compute_statistics
 from custom_components.shared_expenses.manager import SharedExpensesManager
-from custom_components.shared_expenses.models import Expense, ExpenseShare, Payment
+from custom_components.shared_expenses.models import (
+    Expense,
+    ExpenseShare,
+    Payment,
+    PaymentKind,
+)
 
 NOW = datetime(2026, 7, 14, 12, 0, tzinfo=UTC)
 
@@ -44,7 +51,14 @@ def expense(
 
 
 def payment(
-    payment_id: str, giver: str, taker: str, amount: int, *, date: datetime = NOW
+    payment_id: str,
+    giver: str,
+    taker: str,
+    amount: int,
+    *,
+    date: datetime = NOW,
+    converted: int | None = None,
+    kind: PaymentKind = PaymentKind.REIMBURSEMENT,
 ) -> Payment:
     return Payment(
         id=payment_id,
@@ -56,7 +70,8 @@ def payment(
         currency="EUR",
         payment_date=date,
         created_at=NOW,
-        converted_amount=amount,
+        converted_amount=amount if converted is None else converted,
+        kind=kind,
     )
 
 
@@ -344,6 +359,16 @@ def test_what_each_member_handed_over_and_got_back_in_the_period():
         payment("p3", "m2", "m1", 500, date=datetime(2026, 8, 1, tzinfo=UTC)),
         # A third member who only ever received money is still a row.
         payment("p4", "m1", "m3", 200, date=datetime(2026, 7, 22, tzinfo=UTC)),
+        # A debt written down: m2 owes m1 300. No money moved, so it is not a
+        # reimbursement either way, and it has lines of its own.
+        payment(
+            "p5",
+            "m1",
+            "m2",
+            300,
+            date=datetime(2026, 7, 23, tzinfo=UTC),
+            kind=PaymentKind.DEBT,
+        ),
     ]
 
     result = compute_statistics(
@@ -353,12 +378,103 @@ def test_what_each_member_handed_over_and_got_back_in_the_period():
     assert result.total == 9000
     assert result.count == 1
     assert [
-        (m.member_id, m.paid, m.share, m.given, m.received) for m in result.by_member
+        (m.member_id, m.paid, m.share, m.given, m.received, m.owed_to, m.owed_by)
+        for m in result.by_member
     ] == [
-        ("m1", 9000, 4500, 1200, 4000),
-        ("m2", 0, 4500, 4000, 1000),
-        ("m3", 0, 0, 0, 200),
+        ("m1", 9000, 4500, 1200, 4000, 300, 0),
+        ("m2", 0, 4500, 4000, 1000, 0, 300),
+        ("m3", 0, 0, 0, 200, 0, 0),
     ]
+
+
+def _random_group(seed: int):
+    """Expenses, refunds and payments of both kinds over a year, at random.
+
+    Shares are drawn freely rather than made to add up: the identity checked
+    below holds whatever the shares are, and a generator that only made tidy
+    ones could not catch a term counted on one side and not the other.
+    """
+
+    rng = random.Random(seed)
+    members = ["m1", "m2", "m3"]
+    expenses, shares, payments = [], [], []
+
+    for n in range(40):
+        day = datetime(2026, rng.randint(1, 12), rng.randint(1, 28), tzinfo=UTC)
+        cost = rng.randint(1, 20000) * (-1 if rng.random() < 0.15 else 1)
+        expenses.append(
+            expense(f"e{n}", cost, payer=rng.choice(members), date=day,
+                    converted=cost * rng.choice((1, 2)))
+        )
+        for member in rng.sample(members, rng.randint(1, 3)):
+            shares.append(share(f"e{n}", member, rng.randint(-500, 9000)))
+
+    for n in range(15):
+        giver, taker = rng.sample(members, 2)
+        day = datetime(2026, rng.randint(1, 12), rng.randint(1, 28), tzinfo=UTC)
+        handed = rng.randint(1, 15000)
+        payments.append(
+            payment(
+                f"p{n}", giver, taker, handed, date=day,
+                converted=handed * rng.choice((1, 3)),
+                kind=rng.choice(list(PaymentKind)),
+            )
+        )
+
+    return members, expenses, shares, payments
+
+
+def _moved(row) -> int:
+    """Return what the panel's summary comes to: out of pocket, less the share."""
+
+    return (
+        row.paid + row.given - row.received - row.share + row.owed_to - row.owed_by
+    )
+
+
+def test_over_everything_the_summary_is_the_balance():
+    """The panel says "your balance moved by X"; over everything, X is the balance.
+
+    Checked against the balances' own computation rather than a formula of
+    its own, on groups with refunds, both kinds of payment and converted
+    amounts, so a term the two count differently cannot hide.
+    """
+
+    for seed in range(25):
+        members, expenses, shares, payments = _random_group(seed)
+
+        balances = compute_balances(
+            member_ids=members, expenses=expenses, shares=shares, payments=payments
+        )
+        result = compute_statistics(
+            expenses=expenses, shares=shares, payments=payments
+        )
+
+        moved = {row.member_id: _moved(row) for row in result.by_member}
+
+        for member in members:
+            assert moved.get(member, 0) == balances[member], (seed, member)
+
+
+def test_the_months_add_up_to_the_whole():
+    """Twelve months' moves are the year's: nothing falls between two months."""
+
+    for seed in range(10):
+        _, expenses, shares, payments = _random_group(seed)
+        whole = compute_statistics(expenses=expenses, shares=shares, payments=payments)
+        summed: dict[str, int] = {}
+
+        for month in range(1, 13):
+            part = compute_statistics(
+                expenses=expenses,
+                shares=shares,
+                payments=payments,
+                month=f"2026-{month:02d}",
+            )
+            for row in part.by_member:
+                summed[row.member_id] = summed.get(row.member_id, 0) + _moved(row)
+
+        assert summed == {row.member_id: _moved(row) for row in whole.by_member}
 
 
 def test_no_expense_no_month():
