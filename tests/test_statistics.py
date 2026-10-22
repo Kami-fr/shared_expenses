@@ -159,6 +159,12 @@ def test_a_refund_comes_off_what_a_member_paid_and_bore():
         ("m2", 0, 1500),
     ]
 
+    # Netted into what m1 paid, and told apart as well: 50 bought, 20 back.
+    assert [(m.member_id, m.shop_refunds) for m in result.by_member] == [
+        ("m1", 2000),
+        ("m2", 0),
+    ]
+
 
 def test_categories_are_ranked_by_what_they_cost():
     """A breakdown is asked as a ranking: biggest first."""

@@ -265,6 +265,8 @@ export interface MemberTotal {
   member_id: string;
   paid: number;
   share: number;
+  /** What shops gave back to them, positive; already netted into `paid`. */
+  shop_refunds: number;
   /** Reimbursements over the period: money handed over, and got back. */
   given: number;
   received: number;

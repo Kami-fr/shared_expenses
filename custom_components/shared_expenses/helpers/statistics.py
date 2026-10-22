@@ -49,6 +49,12 @@ class MemberTotal:
     paid: int
     share: int
 
+    #: What shops gave back to this member over the period, as a positive
+    #: figure. Already netted into `paid`, which is what a refund does to what
+    #: somebody paid; kept apart as well so that "paid" can be shown as what
+    #: was bought and what came back, rather than one figure hiding both.
+    shop_refunds: int = 0
+
     #: Reimbursements over the period, in the group's currency: money this
     #: member handed to another, and money another handed to them.
     #: `paid + given - received` is what really left their pocket.
@@ -123,6 +129,7 @@ def compute_statistics(
     by_category: dict[str | None, int] = {}
     by_month: dict[str, int] = {}
     paid: dict[str, int] = {}
+    refunded: dict[str, int] = {}
     consumed: dict[str, int] = {}
 
     for expense in kept:
@@ -137,6 +144,13 @@ def compute_statistics(
         by_month[_month_of(expense)] = by_month.get(_month_of(expense), 0) + cost
 
         paid[expense.paid_by_member_id] = paid.get(expense.paid_by_member_id, 0) + cost
+
+        # A refund is the purchase the other way, and whoever it was paid back
+        # to is its payer: what the shop handed them.
+        if cost < 0:
+            refunded[expense.paid_by_member_id] = (
+                refunded.get(expense.paid_by_member_id, 0) - cost
+            )
 
     for share in shares:
         # The shares of every expense of the group arrive together; only those
@@ -194,6 +208,7 @@ def compute_statistics(
                 member_id=member_id,
                 paid=paid.get(member_id, 0),
                 share=consumed.get(member_id, 0),
+                shop_refunds=refunded.get(member_id, 0),
                 given=given.get(member_id, 0),
                 received=received.get(member_id, 0),
                 owed_to=owed_to.get(member_id, 0),

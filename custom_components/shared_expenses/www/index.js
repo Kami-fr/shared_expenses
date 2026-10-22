@@ -1269,6 +1269,7 @@ const gt = {
   your_share: "Your share",
   stat_yours: "Your summary",
   stat_mine_paid: "Expenses you paid",
+  stat_mine_refunds: "Shop refunds you received",
   stat_mine_given: "Reimbursements you made",
   stat_mine_received: "Reimbursements you received",
   stat_mine_out: "Out of your pocket",
@@ -1589,6 +1590,7 @@ const gt = {
   your_share: "Ta part",
   stat_yours: "Ton bilan",
   stat_mine_paid: "Dépenses que tu as payées",
+  stat_mine_refunds: "Remboursements d'enseigne reçus",
   stat_mine_given: "Remboursements que tu as faits",
   stat_mine_received: "Remboursements reçus",
   stat_mine_out: "Sorti de ta poche",
@@ -1908,6 +1910,7 @@ const gt = {
   your_share: "Dein Anteil",
   stat_yours: "Deine Bilanz",
   stat_mine_paid: "Von dir bezahlte Ausgaben",
+  stat_mine_refunds: "Erhaltene Rückerstattungen",
   stat_mine_given: "Deine Rückzahlungen",
   stat_mine_received: "Erhaltene Rückzahlungen",
   stat_mine_out: "Aus deiner Tasche",
@@ -2227,6 +2230,7 @@ const gt = {
   your_share: "Jouw deel",
   stat_yours: "Jouw overzicht",
   stat_mine_paid: "Uitgaven die jij betaalde",
+  stat_mine_refunds: "Terugbetalingen van winkels",
   stat_mine_given: "Terugbetalingen door jou",
   stat_mine_received: "Ontvangen terugbetalingen",
   stat_mine_out: "Uit je eigen zak",
@@ -2546,6 +2550,7 @@ const gt = {
   your_share: "Tu parte",
   stat_yours: "Tu balance",
   stat_mine_paid: "Gastos que pagaste",
+  stat_mine_refunds: "Reembolsos de tiendas recibidos",
   stat_mine_given: "Reembolsos que hiciste",
   stat_mine_received: "Reembolsos recibidos",
   stat_mine_out: "De tu bolsillo",
@@ -2865,6 +2870,7 @@ const gt = {
   your_share: "La tua parte",
   stat_yours: "Il tuo bilancio",
   stat_mine_paid: "Spese che hai pagato",
+  stat_mine_refunds: "Rimborsi da negozi ricevuti",
   stat_mine_given: "Rimborsi che hai fatto",
   stat_mine_received: "Rimborsi ricevuti",
   stat_mine_out: "Dalla tua tasca",
@@ -3184,6 +3190,7 @@ const gt = {
   your_share: "Twoja część",
   stat_yours: "Twoje podsumowanie",
   stat_mine_paid: "Wydatki zapłacone przez ciebie",
+  stat_mine_refunds: "Zwroty ze sklepów",
   stat_mine_given: "Zwroty od ciebie",
   stat_mine_received: "Otrzymane zwroty",
   stat_mine_out: "Z twojej kieszeni",
@@ -3503,6 +3510,7 @@ const gt = {
   your_share: "Sua parte",
   stat_yours: "Seu balanço",
   stat_mine_paid: "Despesas que você pagou",
+  stat_mine_refunds: "Reembolsos de lojas recebidos",
   stat_mine_given: "Reembolsos que você fez",
   stat_mine_received: "Reembolsos recebidos",
   stat_mine_out: "Do seu bolso",
@@ -10795,8 +10803,12 @@ let W = class extends _ {
       <div class="panel">
         <div class="sec">${this.localize("stat_yours")}</div>
         <div class="line">
-          <span>${this.localize("stat_mine_paid")}</span><b>${this.money(e.paid)}</b>
+          <span>${this.localize("stat_mine_paid")}</span>
+          <b>${this.money(e.paid + e.shop_refunds)}</b>
         </div>
+        ${e.shop_refunds ? o`<div class="line">
+              <span>${this.localize("stat_mine_refunds")}</span><b>${a(-e.shop_refunds)}</b>
+            </div>` : d}
         ${e.given ? o`<div class="line">
               <span>${this.localize("stat_mine_given")}</span><b>${a(e.given)}</b>
             </div>` : d}

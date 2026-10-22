@@ -719,8 +719,14 @@ export class SeStatistics extends LitElement {
       <div class="panel">
         <div class="sec">${this.localize("stat_yours")}</div>
         <div class="line">
-          <span>${this.localize("stat_mine_paid")}</span><b>${this.money(mine.paid)}</b>
+          <span>${this.localize("stat_mine_paid")}</span>
+          <b>${this.money(mine.paid + mine.shop_refunds)}</b>
         </div>
+        ${mine.shop_refunds
+          ? html`<div class="line">
+              <span>${this.localize("stat_mine_refunds")}</span><b>${signed(-mine.shop_refunds)}</b>
+            </div>`
+          : nothing}
         ${mine.given
           ? html`<div class="line">
               <span>${this.localize("stat_mine_given")}</span><b>${signed(mine.given)}</b>

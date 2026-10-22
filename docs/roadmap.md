@@ -816,6 +816,10 @@ something false about people.
       groups, and month by month adding up to the whole. A debt written down
       is not in the pocket: often no money moved. It has lines of its own
       after the share, and moves the balance all the same.
+- [x] What shops gave back is a line of its own too, under what was bought,
+      rather than a refund silently netted into "expenses you paid". In most
+      of the eight languages a shop refund and a reimbursement share a word,
+      so the line says which, as the panel already does.
 - [x] The backend sends, beside each member and for the period, what they
       handed over and got back, and the debts written down for and against
       them. Never in a total: the totals stay spending.
