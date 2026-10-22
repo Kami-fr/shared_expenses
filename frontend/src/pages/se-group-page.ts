@@ -21,10 +21,12 @@ import {
   colorOf,
   formatDayDate,
   formatMoney,
+  formatMonthLong,
   moneyNeedles,
   sortByName,
 } from "../services/format";
 import { errorMessage, type Localizer } from "../services/localize";
+import { monthOf } from "../services/statistics-period";
 import { sharedStyles } from "../styles/shared";
 import type {
   Category,
@@ -564,6 +566,39 @@ export class SeGroupPage extends LitElement {
         display: flex;
       }
 
+      /*
+       * A month of the list: its name and what it cost, over its rows. A run
+       * of dates in full on every line said when, but never where one month
+       * stopped and the next began, nor what a month came to — which is the
+       * question the statistics now answer, a month at a time.
+       */
+      .month {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .month-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 0 4px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        color: var(--secondary-text-color);
+      }
+
+      .month-head b {
+        font-size: 13px;
+        letter-spacing: 0;
+        text-transform: none;
+        color: var(--primary-text-color);
+        font-variant-numeric: tabular-nums;
+      }
+
       .stack-avatars .avatar.small {
         width: 26px;
         height: 26px;
@@ -976,15 +1011,71 @@ export class SeGroupPage extends LitElement {
       `;
     }
 
-    return html`
-      <div class="card">
-        ${entries.map((entry) =>
-          entry.kind === "expense"
-            ? this.renderExpense(entry.expense)
-            : this.renderPayment(entry.payment),
-        )}
-      </div>
-    `;
+    // While searching, a month says no total: what it cost is the month's,
+    // and a figure over a filtered list would be read as the sum of the rows
+    // left — the balance's rule, for the same reason.
+    const searching = this.query.trim() !== "";
+
+    return html`${this.byMonth(entries).map(
+      ({ month, entries: rows }) => html`
+        <section class="month">
+          <div class="month-head">
+            <span>${this.monthName(month)}</span>
+            ${searching ? nothing : html`<b>${this.money(this.spentIn(month))}</b>`}
+          </div>
+          <div class="card">
+            ${rows.map((entry) =>
+              entry.kind === "expense"
+                ? this.renderExpense(entry.expense)
+                : this.renderPayment(entry.payment),
+            )}
+          </div>
+        </section>
+      `,
+    )}`;
+  }
+
+  /**
+   * The list cut into months, in the order it already runs in.
+   *
+   * By the day typed, read in UTC as the panel reads it everywhere, so a month
+   * here is the month the statistics count the same expense in.
+   */
+  private byMonth(entries: Activity[]): { month: string; entries: Activity[] }[] {
+    const months: { month: string; entries: Activity[] }[] = [];
+
+    for (const entry of entries) {
+      const month = monthOf(entry.at);
+      const last = months.at(-1);
+
+      if (last?.month === month) {
+        last.entries.push(entry);
+      } else {
+        months.push({ month, entries: [entry] });
+      }
+    }
+
+    return months;
+  }
+
+  /**
+   * What the group spent in a month: its expenses, refunds netted in, never
+   * a reimbursement — the figure the statistics give for the same month.
+   */
+  private spentIn(month: string): number {
+    return this.expenses
+      .filter((expense) => monthOf(expense.expense_date) === month)
+      .reduce((sum, expense) => sum + expense.converted_amount, 0);
+  }
+
+  private monthName(month: string): string {
+    const name = formatMonthLong(month, this.language);
+
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  }
+
+  private money(cents: number): string {
+    return formatMoney(cents, this.group!.currency, this.language);
   }
 
   /**
