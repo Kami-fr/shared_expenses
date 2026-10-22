@@ -668,6 +668,113 @@ Three things this panel knew and did not show.
       shipped ellipsed on a control whose whole job is to name both choices.
       The word alone fits everywhere and loses nothing.
 
+## Sprint 26 — Every line, read (1.1.0)
+
+Nothing since the 1.0.0 tag had reached anybody, and the manifest had walked
+up to 1.0.12 a sprint at a time. Before tagging what was there, every source
+file was read end to end rather than one symptom chased at a time.
+
+- [x] Ninety-six suspicions, each put to a second reader whose only job was to
+      refute it before a line changed. Eighty-two survived, fourteen did not —
+      and the refutations are the reason to trust the rest. Almost none of the
+      eighty-two is a mistake in the line it sits on; they are what a reader
+      only sees with the caller and the callee open at the same time.
+- [x] Three ways into a group you are not in. `ensure_may_edit_member` took the
+      group id on trust, and explicit shares and both payment writes accepted a
+      member of another group — after which the group's balances no longer
+      summed to zero over its own members and settlement suggested repaying a
+      stranger. Members who have left stay allowed, because they can still owe.
+- [x] Money that was not there: a converted amount of exactly zero read back
+      as the foreign one, so 3 JPY in a euro group became 3 EUR; percentage
+      shares put the odd cent on a different person in the panel and the
+      backend; IDR was offered though its rate is past `RATE_MAX`.
+- [x] Controls drawing from their list rather than from their value — four
+      components, one habit. `se-select` showed a value matching no option as
+      the first option, the expense picker showed nothing chosen while still
+      saving a link. That is where the rule "a control must draw from its
+      value" was earned.
+- [x] A migration that could brick the integration for good. Each statement
+      landed on its own, so one that died between adding the columns and
+      bumping the version left every later retry on `duplicate column name`.
+      A script runs in one transaction now. The one fix here about a machine
+      that has already gone wrong.
+- [x] Four tests that could not fail, rewritten until they could. A test that
+      cannot fail is a claim in the suite's own voice that the thing is checked.
+- [x] Minor, not patch: no API and no stored shape moves, the schema is at v16
+      either side, but a reader deciding whether to take the update should not
+      be told "patch" about the version that stops a non-member editing their
+      household's journal. Tagged `v1.1.0`; HACS took the integration into its
+      default store on 2026-10-18.
+
+## Sprint 27 — The card before the integration (1.1.1)
+
+- [x] **The dashboard card no longer turns red after every update of Home
+      Assistant.** Pages are served from the first stage of boot, a custom
+      integration registers its module in the last, and a page rendered in
+      between never learns of the card. Opening the panel defined it, which is
+      the cure people had found without knowing why.
+- [x] The bundle is copied into the configuration's `www/`, served at `/local/`
+      from the first stage, and declared as a Lovelace resource, which the
+      dashboard reads before anything of ours runs. The panel takes the same
+      URL, because a browser evaluates a module once per URL, not per file.
+      The run that creates `www/` cannot be served from it; that run keeps the
+      integration's own URL and the log says so. ADR-016 keeps the reasoning
+      and the three half-cures rejected.
+- [x] The card starts over on the connection's `ready`. The WebSocket library
+      re-sends every subscription while the integration is still loading, a
+      refused one is dropped without a word, and a tablet sat on the balances
+      of before the restart, looking current the whole time.
+- [x] **A default split rule is refused where it is written**, not on the
+      first expense. A real database held one that could not resolve — an
+      envelope of 0 and nobody on the rest — and the panel had survived it by
+      asking on every expense. A script calling the service has no dialog to
+      ask in. The rule is run once, as an expense would run it, on an amount
+      chosen to reach every part of it; a rule that merely wants a bigger bill
+      is not refused. A rule is validated where it is written, not where it is
+      read.
+- [x] **A member born with a Home Assistant account wears its photo from the
+      start**, whichever of the three ways it is born. Without an account there
+      is no photo to borrow, and the initials stay. Existing members are left
+      as they are; the member dialog still switches both ways.
+- [x] One branch. Every change had gone through `develop`, a pull request and a
+      squash into `main`, and nothing was ever held back on `develop` waiting
+      for a release. What it guarded is guarded elsewhere: CI on every push and
+      green before any tag, the bundle checked against a fresh build, HACS
+      installing from Releases only. ADR-017 supersedes ADR-004.
+
+## Sprint 28 — What a stranger meets (1.1.2)
+
+With the integration in the default store, the README is the first thing
+anybody reads, and it is read inside Home Assistant as often as on GitHub.
+
+- [x] The seven screenshots dated from 1.0.0 and showed none of three months
+      of work. Retaken on the current bundle, same scenes and demo data, at the
+      July size (400×805 CSS pixels at 2.7) so the pictures do not change scale
+      between commits. They stand in two plain rows: an HTML table gave them
+      grey borders, a striped row and two empty cells.
+- [x] The README is rewritten to be read first: three phones at the top, what
+      sets it apart, the install in two steps, the manual one folded away. The
+      Development section stops promising a `pip install -e ".[dev]"` that this
+      layout cannot honour.
+- [x] A quick tour opens the gallery, twenty-six seconds: balances, a bill
+      shared in part, a trip in pounds, where it all went. The demo members
+      have drawn faces (DiceBear, public domain), each with its own colour and
+      one trait so they can be told apart at the size of an avatar; one stays a
+      guest with initials, the other half of the rule.
+- [x] **The pictures show in HACS too.** HACS renders the README inside Home
+      Assistant, where a relative `src` is resolved against the Home Assistant
+      server — and its sanitiser empties any address that does not start with
+      a scheme, `/`, `./` or `#`. Every image and every link into `docs/` is
+      absolute now. HACS reads the README of the installed version and fetches
+      it once per run of Home Assistant, so an update shows the old one until
+      the next restart.
+- [x] **The expense dialog's examples speak the reader's language.** "Courses
+      Carrefour" and "85,42" were French in all eight languages, and so were
+      the shared amount's "5,00" and the rate's "0,87681". The titles are two
+      keys in every language; the figures are written by `Intl` in the
+      reader's own decimal separator, without grouping, since nobody types
+      one. Found on the tour, which still shows them for two seconds.
+
 ## Later
 
 - [ ] Weighted splits (by shares, rather than by amount or percentage)
@@ -702,3 +809,10 @@ Three things this panel knew and did not show.
 - [ ] `formatSignedMoney` would put a "+" back on a refund, and keep a second
       signal for whoever reads colour poorly, if that turns out to matter more
       than the quiet figure does.
+- [ ] Re-record the tour. It still shows the French examples of the expense
+      dialog for two seconds, and has to be recorded again on a re-seeded Home
+      Assistant with the screenshot tooling kept outside the repository.
+- [ ] The icon in HACS's list. HACS 2.0.5 asks `brands.home-assistant.io`
+      directly, which no longer takes custom integrations, so the list shows a
+      blank tile while the rest of Home Assistant reads `brand/` through its
+      proxy. Nothing to do here until HACS reads brands the same way.
