@@ -157,15 +157,36 @@ export class SeStatistics extends LitElement {
         cursor: default;
       }
 
+      /* Each section on a surface of its own. The dialog is drawn in the card
+         colour, so a card in that same colour with a theme's shadow — which a
+         dark theme commonly turns off — left the whole page one flat sheet on a
+         phone, and the sections ran into each other. Mixed from the theme's own
+         text and card colours, so the step is there in a light theme, a dark one
+         and whatever a household wears, and a hairline makes it a boundary. */
       .panel {
-        background: var(--card-background-color, #fff);
+        background: var(--secondary-background-color, #f2f2f2);
+        background: color-mix(
+          in srgb,
+          var(--primary-text-color, #212121) 5%,
+          var(--card-background-color, #fff)
+        );
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
         border-radius: var(--se-radius, 14px);
-        box-shadow: var(--ha-card-box-shadow, 0 1px 2px rgba(20, 30, 40, 0.08));
         padding: 16px;
       }
 
-      /* What the period cost. A card like the others rather than a block of
-         colour: the figure is what should stand out, not the box around it. */
+      /* What the period cost, the first thing read: tinted with the theme's own
+         colour so the page has somewhere to start, without the block of solid
+         colour it used to be, which drowned the figure it was there to carry. */
+      .hero {
+        background: color-mix(
+          in srgb,
+          var(--primary-color, #03a9f4) 13%,
+          var(--card-background-color, #fff)
+        );
+        border-color: color-mix(in srgb, var(--primary-color, #03a9f4) 35%, transparent);
+      }
+
       .hero .lbl {
         font-size: 13px;
         color: var(--secondary-text-color);
@@ -370,7 +391,7 @@ export class SeStatistics extends LitElement {
       .track {
         height: 7px;
         border-radius: 4px;
-        background: var(--divider-color, rgba(0, 0, 0, 0.08));
+        background: color-mix(in srgb, var(--primary-text-color, #212121) 12%, transparent);
         overflow: hidden;
       }
 
@@ -828,7 +849,7 @@ export class SeStatistics extends LitElement {
       <div class="cat">
         <div
           class="chip"
-          style=${`background:color-mix(in srgb, ${colour} 15%, transparent);color:${colour}`}
+          style=${`background:color-mix(in srgb, ${colour} 24%, transparent);color:${colour}`}
         >
           <se-icon plain .size=${20} .icon=${icon} .fallback=${fallback}></se-icon>
         </div>
