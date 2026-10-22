@@ -108,6 +108,15 @@ export class SeExpenseDialog extends LitElement {
   /** Which member you are, to fill in who paid. Null: nobody in this group. */
   @property({ type: String }) public meId: string | null = null;
 
+  /**
+   * A new entry opens as money a shop gave back rather than as a purchase.
+   *
+   * Asked for by the add button's own choice, so the reader who picked "shop
+   * refund" is not met with "expense" and a switch to flip. Read once, when a
+   * new entry is set up; an existing one knows its own direction.
+   */
+  @property({ type: Boolean }) public startRefund = false;
+
   @property({ type: String }) public language = "en";
 
   /** Named `expenseTitle` because `title` is taken by HTMLElement. */
@@ -337,6 +346,7 @@ export class SeExpenseDialog extends LitElement {
 
       this.currency = this.group.currency;
       this.rate = RATE_ONE;
+      this.refunding = this.startRefund;
 
       return;
     }
@@ -795,6 +805,25 @@ export class SeExpenseDialog extends LitElement {
           ${amount === null
             ? this.localize("split_needs_amount")
             : this.localize("rule_invalid")}
+        </div>
+      `;
+    }
+
+    // Equal to the cent: said as the rule it is, rather than as a list that
+    // makes the reader check four figures to find they are the same. Shares an
+    // odd total leaves a cent apart stay a list — "3,33 each" over a 3,34
+    // would be a figure off by the cent this panel never rounds away — and so
+    // do unequal ones, since there the figures are the point.
+    const figures = Object.values(shares)
+      .filter((value) => value !== 0)
+      .map(Math.abs);
+
+    if (figures.length > 1 && Math.max(...figures) === Math.min(...figures)) {
+      return html`
+        <div class="summary">
+          ${this.localize("split_equal_between")
+            .replace("{count}", String(figures.length))
+            .replace("{amount}", formatMoney(Math.min(...figures), this.currency, this.language))}
         </div>
       `;
     }

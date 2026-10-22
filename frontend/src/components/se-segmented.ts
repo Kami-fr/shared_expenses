@@ -76,14 +76,15 @@ export class SeSegmented extends LitElement {
       border-radius: 9px;
       cursor: pointer;
       /*
-       * A long option is cut rather than allowed to push the other one narrow:
-       * two segments that resize as you switch between them read as the control
-       * moving under the finger. "Remboursement d'enseigne" is the one that
-       * needs it, on the narrowest glass in common use.
+       * A long option takes a second line rather than pushing the other one
+       * narrow: two segments that resize as you switch between them read as
+       * the control moving under the finger, so both keep their half. It used
+       * to be cut with an ellipsis instead, and "Remboursement d'enseigne" was
+       * written "Remboursement" to dodge it — which said refund in a language
+       * where a reimbursement between members is the same word.
        */
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      line-height: 1.2;
+      overflow-wrap: anywhere;
     }
 
     .seg button:disabled {
