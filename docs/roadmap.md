@@ -53,8 +53,9 @@
 - [x] CI (ruff, pytest, hassfest, HACS, frontend build)
 - [x] README
 - [x] Screenshots
-- [ ] Publish to HACS. Everything the store asks for is in place and every HACS
-      check is green (Sprint 17); what is left is the submission itself.
+- [x] Publish to HACS. Everything the store asks for was in place and every
+      HACS check green (Sprint 17); the submission, `hacs/default#9302`, was
+      merged on 2026-10-18, and the integration is in HACS's default list.
 
 ## Sprint 7 — Accountability
 
@@ -902,10 +903,6 @@ something false about people.
       test file. Vitest now runs the panel's own helpers in CI — money, dates,
       names, colours, rates, percentages — under `frontend/tests/`, each one
       seen failing on a sabotaged helper before it was trusted.
-- [ ] A native read of the translations. Twenty-one keys across eight languages
-      by one non-native hand, the newest being Sprints 24 and 25. FR is the one
-      this household reads and will catch for itself; DE, NL, ES, IT, PL and PT
-      deserve a second pair of eyes.
 - [ ] Whether an expense should say which payments were about it. Sprint 24
       settled that it says nothing, deliberately, and left the index off for the
       same reason. If it turns out somebody wants "who has paid me back for
