@@ -872,6 +872,8 @@ something false about people.
       presses where the thumb already is add one — the user's idea, better
       than the close button it replaced. Back and the dim around them close.
       The drag to reimburse stays for whoever learnt it.
+- [x] The README's pictures and tour retaken on the new bar, list and plus;
+      the tour now stops on the plus's four choices for a moment.
 
 ## Later
 
