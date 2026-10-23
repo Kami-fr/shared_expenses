@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { resolve } from "node:path";
 import { defineConfig } from "vite";
 
@@ -23,5 +24,26 @@ export default defineConfig({
         inlineDynamicImports: true,
       },
     },
+  },
+  test: {
+    projects: [
+      // The pure helpers, in Node.
+      { extends: true, test: { name: "unit", include: ["tests/*.test.ts"] } },
+      // The panel laid out in Chromium at a phone's width (tests/layout/harness.ts).
+      {
+        extends: true,
+        test: {
+          name: "layout",
+          include: ["tests/layout/*.test.ts"],
+          browser: {
+            enabled: true,
+            provider: "playwright",
+            headless: true,
+            viewport: { width: 360, height: 780 },
+            instances: [{ browser: "chromium" }],
+          },
+        },
+      },
+    ],
   },
 });

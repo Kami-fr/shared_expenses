@@ -45,7 +45,7 @@
       existing twice and checked against the other on generated cases. Each
       harness has a test that sabotages one side, to prove it can still fail.
 
-- [ ] Frontend tests
+- [x] Frontend tests (see Later: the helpers, then the layout)
 
 ## Sprint 6 — Release
 
@@ -881,16 +881,22 @@ something false about people.
 - [ ] The actions take ids, because no selector knows what a project is. A
       picker would mean teaching a form about them — worth doing, not worth
       holding the actions back for.
-- [ ] Frontend tests. Every bug above that reached a user lived in the panel,
+- [x] Frontend tests. Every bug above that reached a user lived in the panel,
       where neither `tsc` nor the build nor the Python suite can see. Layout,
-      at least, is measurable: a headless browser against the built bundle
-      catches what the eye does not — that is how the balance card was found
-      spilling its figures on a phone, and how four of eight languages were
-      caught shipping an ellipsed segment in Sprint 25. Both times it was a
-      throwaway script. The measurement is ten minutes and the harness is the
-      part nobody has written: serve the bundle over HTTP, since ES modules do
-      not load from `file://`, and read the answer out of the DOM rather than
-      out of a screenshot.
+      at least, is measurable: a headless browser catches what the eye does
+      not — that is how the balance card was found spilling its figures on a
+      phone, and how four of eight languages were caught shipping an ellipsed
+      segment in Sprint 25. Both times it was a throwaway script. It is now
+      `frontend/tests/layout/`: Vitest's browser mode lays the group page out
+      in Chromium at 360 px, on answers recorded from a real backend, in
+      Roboto as Home Assistant declares it (no 600: a 600 is drawn in 700
+      there), and opens every screen a finger reaches from it — the menus,
+      the plus and its four choices, the statistics over each period, the
+      dialogs — in the eight languages, on both demo groups. Anything that
+      holds more than it shows fails, unless it is listed as meant with its
+      reason. Its figures were checked against the same screens in a running
+      Home Assistant and agree to the pixel; putting back the header's old
+      gap fails French and Spanish, as it should.
 - [x] Tests for what is already pure. `autoColors` is a function of a list and
       nothing else, and it was checked with a script that should have been a
       test file. Vitest now runs the panel's own helpers in CI — money, dates,

@@ -1,0 +1,4433 @@
+{
+ "user": {
+  "id": "417341e0a3e746fc8f07a5c053176a11",
+  "name": "Alex",
+  "is_admin": true
+ },
+ "groups": {
+  "apartment": "01M5N3R3MVC6W3NEM495DR4Y94",
+  "london": "01M5N3R3RNEZK7YXQWNKESW2T7"
+ },
+ "answers": [
+  {
+   "request": {
+    "type": "shared_expenses/list_groups",
+    "include_archived": true
+   },
+   "result": [
+    {
+     "id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "name": "The Apartment",
+     "description": "Everyday shared costs",
+     "currency": "USD",
+     "icon": null,
+     "color": "#4a7c59",
+     "archived": false,
+     "exposed": false,
+     "created_at": "2026-10-23T19:28:03.227699+00:00",
+     "split_rule": null,
+     "default_category_id": null,
+     "permissions": [
+      "edit_others",
+      "manage_categories",
+      "manage_group",
+      "manage_members"
+     ]
+    },
+    {
+     "id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+     "name": "Weekend in London",
+     "description": "Two of us, October 2026",
+     "currency": "USD",
+     "icon": null,
+     "color": "#c98b3e",
+     "archived": false,
+     "exposed": false,
+     "created_at": "2026-10-23T19:28:03.349202+00:00",
+     "split_rule": null,
+     "default_category_id": null,
+     "permissions": [
+      "edit_others",
+      "manage_categories",
+      "manage_group",
+      "manage_members"
+     ]
+    }
+   ]
+  },
+  {
+   "request": {
+    "type": "shared_expenses/list_groups",
+    "include_archived": false
+   },
+   "result": [
+    {
+     "id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "name": "The Apartment",
+     "description": "Everyday shared costs",
+     "currency": "USD",
+     "icon": null,
+     "color": "#4a7c59",
+     "archived": false,
+     "exposed": false,
+     "created_at": "2026-10-23T19:28:03.227699+00:00",
+     "split_rule": null,
+     "default_category_id": null,
+     "permissions": [
+      "edit_others",
+      "manage_categories",
+      "manage_group",
+      "manage_members"
+     ]
+    },
+    {
+     "id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+     "name": "Weekend in London",
+     "description": "Two of us, October 2026",
+     "currency": "USD",
+     "icon": null,
+     "color": "#c98b3e",
+     "archived": false,
+     "exposed": false,
+     "created_at": "2026-10-23T19:28:03.349202+00:00",
+     "split_rule": null,
+     "default_category_id": null,
+     "permissions": [
+      "edit_others",
+      "manage_categories",
+      "manage_group",
+      "manage_members"
+     ]
+    }
+   ]
+  },
+  {
+   "request": {
+    "type": "shared_expenses/list_ha_users"
+   },
+   "result": [
+    {
+     "id": "417341e0a3e746fc8f07a5c053176a11",
+     "name": "Alex",
+     "is_owner": true,
+     "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7"
+    }
+   ]
+  },
+  {
+   "request": {
+    "type": "shared_expenses/get_group",
+    "group_id": "01M5N3R3MVC6W3NEM495DR4Y94"
+   },
+   "result": {
+    "id": "01M5N3R3MVC6W3NEM495DR4Y94",
+    "name": "The Apartment",
+    "description": "Everyday shared costs",
+    "currency": "USD",
+    "icon": null,
+    "color": "#4a7c59",
+    "archived": false,
+    "exposed": false,
+    "created_at": "2026-10-23T19:28:03.227699+00:00",
+    "split_rule": null,
+    "default_category_id": null,
+    "permissions": [
+     "edit_others",
+     "manage_categories",
+     "manage_group",
+     "manage_members"
+    ]
+   }
+  },
+  {
+   "request": {
+    "type": "shared_expenses/get_balances",
+    "group_id": "01M5N3R3MVC6W3NEM495DR4Y94"
+   },
+   "result": {
+    "balances": [
+     {
+      "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+      "amount": 2078
+     },
+     {
+      "member_id": "01M5N3R3N5R8FE0EPSK19R63GM",
+      "amount": -14969
+     },
+     {
+      "member_id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+      "amount": 5340
+     },
+     {
+      "member_id": "01M5N3R3NCR99091EQC99FDF8T",
+      "amount": 7551
+     }
+    ],
+    "settlements": [
+     {
+      "from_member_id": "01M5N3R3N5R8FE0EPSK19R63GM",
+      "to_member_id": "01M5N3R3NCR99091EQC99FDF8T",
+      "amount": 7551
+     },
+     {
+      "from_member_id": "01M5N3R3N5R8FE0EPSK19R63GM",
+      "to_member_id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+      "amount": 5340
+     },
+     {
+      "from_member_id": "01M5N3R3N5R8FE0EPSK19R63GM",
+      "to_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+      "amount": 2078
+     }
+    ]
+   }
+  },
+  {
+   "request": {
+    "type": "shared_expenses/list_members",
+    "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+    "include_left": false
+   },
+   "result": [
+    {
+     "id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "name": "Alex",
+     "color": "#5f7a3d",
+     "use_ha_avatar": true,
+     "created_at": "2026-10-23T19:28:03.227699+00:00"
+    },
+    {
+     "id": "01M5N3R3N5R8FE0EPSK19R63GM",
+     "user_id": null,
+     "name": "Emma",
+     "color": "#8b5fbf",
+     "use_ha_avatar": false,
+     "created_at": "2026-10-23T19:28:03.237236+00:00"
+    },
+    {
+     "id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+     "user_id": null,
+     "name": "Marcus",
+     "color": "#c05746",
+     "use_ha_avatar": false,
+     "created_at": "2026-10-23T19:28:03.240941+00:00"
+    },
+    {
+     "id": "01M5N3R3NCR99091EQC99FDF8T",
+     "user_id": null,
+     "name": "Priya",
+     "color": "#3f7cac",
+     "use_ha_avatar": false,
+     "created_at": "2026-10-23T19:28:03.244826+00:00"
+    }
+   ]
+  },
+  {
+   "request": {
+    "type": "shared_expenses/list_members",
+    "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+    "include_left": true
+   },
+   "result": [
+    {
+     "id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "name": "Alex",
+     "color": "#5f7a3d",
+     "use_ha_avatar": true,
+     "created_at": "2026-10-23T19:28:03.227699+00:00"
+    },
+    {
+     "id": "01M5N3R3N5R8FE0EPSK19R63GM",
+     "user_id": null,
+     "name": "Emma",
+     "color": "#8b5fbf",
+     "use_ha_avatar": false,
+     "created_at": "2026-10-23T19:28:03.237236+00:00"
+    },
+    {
+     "id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+     "user_id": null,
+     "name": "Marcus",
+     "color": "#c05746",
+     "use_ha_avatar": false,
+     "created_at": "2026-10-23T19:28:03.240941+00:00"
+    },
+    {
+     "id": "01M5N3R3NCR99091EQC99FDF8T",
+     "user_id": null,
+     "name": "Priya",
+     "color": "#3f7cac",
+     "use_ha_avatar": false,
+     "created_at": "2026-10-23T19:28:03.244826+00:00"
+    }
+   ]
+  },
+  {
+   "request": {
+    "type": "shared_expenses/list_memberships",
+    "group_id": "01M5N3R3MVC6W3NEM495DR4Y94"
+   },
+   "result": [
+    {
+     "id": "01M5N3R3MWTH1D4GNMNDJA1TN8",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "role": "admin",
+     "joined_at": "2026-10-23T19:28:03.227699+00:00",
+     "left_at": null,
+     "created_at": "2026-10-23T19:28:03.227699+00:00"
+    },
+    {
+     "id": "01M5N3R3N5R8FE0EPSK19R63GN",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "member_id": "01M5N3R3N5R8FE0EPSK19R63GM",
+     "role": "member",
+     "joined_at": "2026-10-23T19:28:03.237236+00:00",
+     "left_at": null,
+     "created_at": "2026-10-23T19:28:03.237236+00:00"
+    },
+    {
+     "id": "01M5N3R3N8H2M2NRMC0FPWJG37",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "member_id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+     "role": "member",
+     "joined_at": "2026-10-23T19:28:03.240941+00:00",
+     "left_at": null,
+     "created_at": "2026-10-23T19:28:03.240941+00:00"
+    },
+    {
+     "id": "01M5N3R3NCR99091EQC99FDF8V",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "member_id": "01M5N3R3NCR99091EQC99FDF8T",
+     "role": "member",
+     "joined_at": "2026-10-23T19:28:03.244826+00:00",
+     "left_at": null,
+     "created_at": "2026-10-23T19:28:03.244826+00:00"
+    }
+   ]
+  },
+  {
+   "request": {
+    "type": "shared_expenses/list_categories",
+    "group_id": "01M5N3R3MVC6W3NEM495DR4Y94"
+   },
+   "result": [
+    {
+     "id": "01M5N3R3NSVFNE0QJZZP1VJ2ZK",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "name": "Dining Out",
+     "icon": "mdi:silverware-fork-knife",
+     "color": "#c98b3e",
+     "created_at": "2026-10-23T19:28:03.257286+00:00",
+     "split_rule": null
+    },
+    {
+     "id": "01M5N3R3NX86J75ZJ9NJ62QG2V",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "name": "Entertainment",
+     "icon": "mdi:party-popper",
+     "color": "#8b5fbf",
+     "created_at": "2026-10-23T19:28:03.261175+00:00",
+     "split_rule": null
+    },
+    {
+     "id": "01M5N3R3NM7D5FP3M4VWPPHFHP",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "name": "Groceries",
+     "icon": "mdi:cart",
+     "color": "#4a7c59",
+     "created_at": "2026-10-23T19:28:03.252906+00:00",
+     "split_rule": null
+    },
+    {
+     "id": "01M5N3R3NGV1QHX1TR3HZQWFXJ",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "name": "Rent & Utilities",
+     "icon": "mdi:home-city",
+     "color": "#3f7cac",
+     "created_at": "2026-10-23T19:28:03.248690+00:00",
+     "split_rule": null
+    }
+   ]
+  },
+  {
+   "request": {
+    "type": "shared_expenses/list_expenses",
+    "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+    "with_shares": true
+   },
+   "result": [
+    {
+     "id": "01M5N3R3RHYRN2NJWS1NPH0S14",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "category_id": "01M5N3R3NM7D5FP3M4VWPPHFHP",
+     "title": "Groceries + BBQ",
+     "description": "Rooftop BBQ",
+     "amount": 13460,
+     "currency": "USD",
+     "paid_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "expense_date": "2026-10-18T10:00:00+00:00",
+     "created_at": "2026-10-23T19:28:03.345641+00:00",
+     "created_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "converted_amount": 13460,
+     "exchange_rate": 1000000,
+     "rate_as_of": null,
+     "refund_of": null,
+     "split_rule": {
+      "envelope": 4000,
+      "participants": [
+       "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "01M5N3R3N5R8FE0EPSK19R63GM",
+       "01M5N3R3N8H2M2NRMC0FPWJG36",
+       "01M5N3R3NCR99091EQC99FDF8T"
+      ],
+      "remainder": {
+       "members": [
+        "01M5N3R3MWTH1D4GNMNDJA1TN7"
+       ],
+       "fixed": {},
+       "percent": {}
+      }
+     },
+     "shares": [
+      {
+       "id": "01M5N3R3RJGDR8MSYXW8JVGFMQ",
+       "expense_id": "01M5N3R3RHYRN2NJWS1NPH0S14",
+       "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "amount": 10460,
+       "created_at": "2026-10-23T19:28:03.345641+00:00"
+      },
+      {
+       "id": "01M5N3R3RJGDR8MSYXW8JVGFMR",
+       "expense_id": "01M5N3R3RHYRN2NJWS1NPH0S14",
+       "member_id": "01M5N3R3N5R8FE0EPSK19R63GM",
+       "amount": 1000,
+       "created_at": "2026-10-23T19:28:03.345641+00:00"
+      },
+      {
+       "id": "01M5N3R3RJGDR8MSYXW8JVGFMS",
+       "expense_id": "01M5N3R3RHYRN2NJWS1NPH0S14",
+       "member_id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+       "amount": 1000,
+       "created_at": "2026-10-23T19:28:03.345641+00:00"
+      },
+      {
+       "id": "01M5N3R3RJGDR8MSYXW8JVGFMT",
+       "expense_id": "01M5N3R3RHYRN2NJWS1NPH0S14",
+       "member_id": "01M5N3R3NCR99091EQC99FDF8T",
+       "amount": 1000,
+       "created_at": "2026-10-23T19:28:03.345641+00:00"
+      }
+     ]
+    },
+    {
+     "id": "01M5N3R3RC5YA5ASBEAQ6PK098",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "category_id": "01M5N3R3NSVFNE0QJZZP1VJ2ZK",
+     "title": "Italian restaurant",
+     "description": null,
+     "amount": 8840,
+     "currency": "USD",
+     "paid_by_member_id": "01M5N3R3N5R8FE0EPSK19R63GM",
+     "expense_date": "2026-10-11T10:00:00+00:00",
+     "created_at": "2026-10-23T19:28:03.340378+00:00",
+     "created_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "converted_amount": 8840,
+     "exchange_rate": 1000000,
+     "rate_as_of": null,
+     "refund_of": null,
+     "split_rule": {
+      "envelope": null,
+      "participants": [
+       "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "01M5N3R3N5R8FE0EPSK19R63GM",
+       "01M5N3R3N8H2M2NRMC0FPWJG36",
+       "01M5N3R3NCR99091EQC99FDF8T"
+      ],
+      "remainder": {
+       "members": [
+        "01M5N3R3N5R8FE0EPSK19R63GM"
+       ],
+       "fixed": {},
+       "percent": {}
+      }
+     },
+     "shares": [
+      {
+       "id": "01M5N3R3RC5YA5ASBEAQ6PK099",
+       "expense_id": "01M5N3R3RC5YA5ASBEAQ6PK098",
+       "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "amount": 2210,
+       "created_at": "2026-10-23T19:28:03.340378+00:00"
+      },
+      {
+       "id": "01M5N3R3RC5YA5ASBEAQ6PK09A",
+       "expense_id": "01M5N3R3RC5YA5ASBEAQ6PK098",
+       "member_id": "01M5N3R3N5R8FE0EPSK19R63GM",
+       "amount": 2210,
+       "created_at": "2026-10-23T19:28:03.340378+00:00"
+      },
+      {
+       "id": "01M5N3R3RC5YA5ASBEAQ6PK09B",
+       "expense_id": "01M5N3R3RC5YA5ASBEAQ6PK098",
+       "member_id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+       "amount": 2210,
+       "created_at": "2026-10-23T19:28:03.340378+00:00"
+      },
+      {
+       "id": "01M5N3R3RC5YA5ASBEAQ6PK09C",
+       "expense_id": "01M5N3R3RC5YA5ASBEAQ6PK098",
+       "member_id": "01M5N3R3NCR99091EQC99FDF8T",
+       "amount": 2210,
+       "created_at": "2026-10-23T19:28:03.340378+00:00"
+      }
+     ]
+    },
+    {
+     "id": "01M5N3R3R3P6VTYZXGP4281G5A",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "category_id": "01M5N3R3NX86J75ZJ9NJ62QG2V",
+     "title": "Concert tickets",
+     "description": null,
+     "amount": 15600,
+     "currency": "USD",
+     "paid_by_member_id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+     "expense_date": "2026-10-04T10:00:00+00:00",
+     "created_at": "2026-10-23T19:28:03.331414+00:00",
+     "created_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "converted_amount": 15600,
+     "exchange_rate": 1000000,
+     "rate_as_of": null,
+     "refund_of": null,
+     "split_rule": {
+      "envelope": null,
+      "participants": [
+       "01M5N3R3N8H2M2NRMC0FPWJG36",
+       "01M5N3R3N5R8FE0EPSK19R63GM"
+      ],
+      "remainder": {
+       "members": [
+        "01M5N3R3N8H2M2NRMC0FPWJG36"
+       ],
+       "fixed": {},
+       "percent": {}
+      }
+     },
+     "shares": [
+      {
+       "id": "01M5N3R3R3P6VTYZXGP4281G5B",
+       "expense_id": "01M5N3R3R3P6VTYZXGP4281G5A",
+       "member_id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+       "amount": 7800,
+       "created_at": "2026-10-23T19:28:03.331414+00:00"
+      },
+      {
+       "id": "01M5N3R3R3P6VTYZXGP4281G5C",
+       "expense_id": "01M5N3R3R3P6VTYZXGP4281G5A",
+       "member_id": "01M5N3R3N5R8FE0EPSK19R63GM",
+       "amount": 7800,
+       "created_at": "2026-10-23T19:28:03.331414+00:00"
+      }
+     ]
+    },
+    {
+     "id": "01M5N3R3PJMQPE8W07AM7BFQD4",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "category_id": "01M5N3R3NGV1QHX1TR3HZQWFXJ",
+     "title": "Oct rent",
+     "description": null,
+     "amount": 120000,
+     "currency": "USD",
+     "paid_by_member_id": "01M5N3R3NCR99091EQC99FDF8T",
+     "expense_date": "2026-10-01T10:00:00+00:00",
+     "created_at": "2026-10-23T19:28:03.282178+00:00",
+     "created_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "converted_amount": 120000,
+     "exchange_rate": 1000000,
+     "rate_as_of": null,
+     "refund_of": null,
+     "split_rule": {
+      "envelope": null,
+      "participants": [
+       "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "01M5N3R3N5R8FE0EPSK19R63GM",
+       "01M5N3R3N8H2M2NRMC0FPWJG36",
+       "01M5N3R3NCR99091EQC99FDF8T"
+      ],
+      "remainder": {
+       "members": [
+        "01M5N3R3NCR99091EQC99FDF8T"
+       ],
+       "fixed": {},
+       "percent": {}
+      }
+     },
+     "shares": [
+      {
+       "id": "01M5N3R3PJMQPE8W07AM7BFQD5",
+       "expense_id": "01M5N3R3PJMQPE8W07AM7BFQD4",
+       "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "amount": 30000,
+       "created_at": "2026-10-23T19:28:03.282178+00:00"
+      },
+      {
+       "id": "01M5N3R3PJMQPE8W07AM7BFQD6",
+       "expense_id": "01M5N3R3PJMQPE8W07AM7BFQD4",
+       "member_id": "01M5N3R3N5R8FE0EPSK19R63GM",
+       "amount": 30000,
+       "created_at": "2026-10-23T19:28:03.282178+00:00"
+      },
+      {
+       "id": "01M5N3R3PJMQPE8W07AM7BFQD7",
+       "expense_id": "01M5N3R3PJMQPE8W07AM7BFQD4",
+       "member_id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+       "amount": 30000,
+       "created_at": "2026-10-23T19:28:03.282178+00:00"
+      },
+      {
+       "id": "01M5N3R3PJMQPE8W07AM7BFQD8",
+       "expense_id": "01M5N3R3PJMQPE8W07AM7BFQD4",
+       "member_id": "01M5N3R3NCR99091EQC99FDF8T",
+       "amount": 30000,
+       "created_at": "2026-10-23T19:28:03.282178+00:00"
+      }
+     ]
+    },
+    {
+     "id": "01M5N3R3QXQQJC4QXXDJ71A3ZY",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "category_id": "01M5N3R3NM7D5FP3M4VWPPHFHP",
+     "title": "Costco run",
+     "description": null,
+     "amount": 9340,
+     "currency": "USD",
+     "paid_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "expense_date": "2026-09-28T10:00:00+00:00",
+     "created_at": "2026-10-23T19:28:03.325948+00:00",
+     "created_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "converted_amount": 9340,
+     "exchange_rate": 1000000,
+     "rate_as_of": null,
+     "refund_of": null,
+     "split_rule": {
+      "envelope": null,
+      "participants": [
+       "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "01M5N3R3N5R8FE0EPSK19R63GM",
+       "01M5N3R3N8H2M2NRMC0FPWJG36",
+       "01M5N3R3NCR99091EQC99FDF8T"
+      ],
+      "remainder": {
+       "members": [
+        "01M5N3R3MWTH1D4GNMNDJA1TN7"
+       ],
+       "fixed": {},
+       "percent": {}
+      }
+     },
+     "shares": [
+      {
+       "id": "01M5N3R3QYNBGJHQ1DM2QM6E1D",
+       "expense_id": "01M5N3R3QXQQJC4QXXDJ71A3ZY",
+       "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "amount": 2335,
+       "created_at": "2026-10-23T19:28:03.325948+00:00"
+      },
+      {
+       "id": "01M5N3R3QYNBGJHQ1DM2QM6E1E",
+       "expense_id": "01M5N3R3QXQQJC4QXXDJ71A3ZY",
+       "member_id": "01M5N3R3N5R8FE0EPSK19R63GM",
+       "amount": 2335,
+       "created_at": "2026-10-23T19:28:03.325948+00:00"
+      },
+      {
+       "id": "01M5N3R3QYNBGJHQ1DM2QM6E1F",
+       "expense_id": "01M5N3R3QXQQJC4QXXDJ71A3ZY",
+       "member_id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+       "amount": 2335,
+       "created_at": "2026-10-23T19:28:03.325948+00:00"
+      },
+      {
+       "id": "01M5N3R3QYNBGJHQ1DM2QM6E1G",
+       "expense_id": "01M5N3R3QXQQJC4QXXDJ71A3ZY",
+       "member_id": "01M5N3R3NCR99091EQC99FDF8T",
+       "amount": 2335,
+       "created_at": "2026-10-23T19:28:03.325948+00:00"
+      }
+     ]
+    },
+    {
+     "id": "01M5N3R3QRFDXJXT0DG2BVCR0D",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "category_id": "01M5N3R3NGV1QHX1TR3HZQWFXJ",
+     "title": "Electricity",
+     "description": null,
+     "amount": 16412,
+     "currency": "USD",
+     "paid_by_member_id": "01M5N3R3NCR99091EQC99FDF8T",
+     "expense_date": "2026-09-24T10:00:00+00:00",
+     "created_at": "2026-10-23T19:28:03.320530+00:00",
+     "created_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "converted_amount": 16412,
+     "exchange_rate": 1000000,
+     "rate_as_of": null,
+     "refund_of": null,
+     "split_rule": {
+      "envelope": null,
+      "participants": [
+       "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "01M5N3R3N5R8FE0EPSK19R63GM",
+       "01M5N3R3N8H2M2NRMC0FPWJG36",
+       "01M5N3R3NCR99091EQC99FDF8T"
+      ],
+      "remainder": {
+       "members": [
+        "01M5N3R3NCR99091EQC99FDF8T"
+       ],
+       "fixed": {},
+       "percent": {}
+      }
+     },
+     "shares": [
+      {
+       "id": "01M5N3R3QRFDXJXT0DG2BVCR0E",
+       "expense_id": "01M5N3R3QRFDXJXT0DG2BVCR0D",
+       "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "amount": 4103,
+       "created_at": "2026-10-23T19:28:03.320530+00:00"
+      },
+      {
+       "id": "01M5N3R3QRFDXJXT0DG2BVCR0F",
+       "expense_id": "01M5N3R3QRFDXJXT0DG2BVCR0D",
+       "member_id": "01M5N3R3N5R8FE0EPSK19R63GM",
+       "amount": 4103,
+       "created_at": "2026-10-23T19:28:03.320530+00:00"
+      },
+      {
+       "id": "01M5N3R3QRFDXJXT0DG2BVCR0G",
+       "expense_id": "01M5N3R3QRFDXJXT0DG2BVCR0D",
+       "member_id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+       "amount": 4103,
+       "created_at": "2026-10-23T19:28:03.320530+00:00"
+      },
+      {
+       "id": "01M5N3R3QRFDXJXT0DG2BVCR0H",
+       "expense_id": "01M5N3R3QRFDXJXT0DG2BVCR0D",
+       "member_id": "01M5N3R3NCR99091EQC99FDF8T",
+       "amount": 4103,
+       "created_at": "2026-10-23T19:28:03.320530+00:00"
+      }
+     ]
+    },
+    {
+     "id": "01M5N3R3QKZ7NQDHBCA4QTK04E",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "category_id": "01M5N3R3NSVFNE0QJZZP1VJ2ZK",
+     "title": "Sushi night",
+     "description": null,
+     "amount": 7200,
+     "currency": "USD",
+     "paid_by_member_id": "01M5N3R3NCR99091EQC99FDF8T",
+     "expense_date": "2026-09-13T10:00:00+00:00",
+     "created_at": "2026-10-23T19:28:03.315525+00:00",
+     "created_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "converted_amount": 7200,
+     "exchange_rate": 1000000,
+     "rate_as_of": null,
+     "refund_of": null,
+     "split_rule": {
+      "envelope": null,
+      "participants": [
+       "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "01M5N3R3N5R8FE0EPSK19R63GM",
+       "01M5N3R3N8H2M2NRMC0FPWJG36",
+       "01M5N3R3NCR99091EQC99FDF8T"
+      ],
+      "remainder": {
+       "members": [
+        "01M5N3R3NCR99091EQC99FDF8T"
+       ],
+       "fixed": {},
+       "percent": {}
+      }
+     },
+     "shares": [
+      {
+       "id": "01M5N3R3QKZ7NQDHBCA4QTK04F",
+       "expense_id": "01M5N3R3QKZ7NQDHBCA4QTK04E",
+       "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "amount": 1800,
+       "created_at": "2026-10-23T19:28:03.315525+00:00"
+      },
+      {
+       "id": "01M5N3R3QKZ7NQDHBCA4QTK04G",
+       "expense_id": "01M5N3R3QKZ7NQDHBCA4QTK04E",
+       "member_id": "01M5N3R3N5R8FE0EPSK19R63GM",
+       "amount": 1800,
+       "created_at": "2026-10-23T19:28:03.315525+00:00"
+      },
+      {
+       "id": "01M5N3R3QKZ7NQDHBCA4QTK04H",
+       "expense_id": "01M5N3R3QKZ7NQDHBCA4QTK04E",
+       "member_id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+       "amount": 1800,
+       "created_at": "2026-10-23T19:28:03.315525+00:00"
+      },
+      {
+       "id": "01M5N3R3QKZ7NQDHBCA4QTK04J",
+       "expense_id": "01M5N3R3QKZ7NQDHBCA4QTK04E",
+       "member_id": "01M5N3R3NCR99091EQC99FDF8T",
+       "amount": 1800,
+       "created_at": "2026-10-23T19:28:03.315525+00:00"
+      }
+     ]
+    },
+    {
+     "id": "01M5N3R3QDE1ES8JQS5GKG9HMM",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "category_id": "01M5N3R3NGV1QHX1TR3HZQWFXJ",
+     "title": "Internet",
+     "description": null,
+     "amount": 5999,
+     "currency": "USD",
+     "paid_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "expense_date": "2026-09-05T10:00:00+00:00",
+     "created_at": "2026-10-23T19:28:03.309705+00:00",
+     "created_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "converted_amount": 5999,
+     "exchange_rate": 1000000,
+     "rate_as_of": null,
+     "refund_of": null,
+     "split_rule": {
+      "envelope": null,
+      "participants": [
+       "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "01M5N3R3N5R8FE0EPSK19R63GM",
+       "01M5N3R3N8H2M2NRMC0FPWJG36",
+       "01M5N3R3NCR99091EQC99FDF8T"
+      ],
+      "remainder": {
+       "members": [
+        "01M5N3R3MWTH1D4GNMNDJA1TN7"
+       ],
+       "fixed": {},
+       "percent": {}
+      }
+     },
+     "shares": [
+      {
+       "id": "01M5N3R3QEY21WMKA07GA9BVKK",
+       "expense_id": "01M5N3R3QDE1ES8JQS5GKG9HMM",
+       "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "amount": 1500,
+       "created_at": "2026-10-23T19:28:03.309705+00:00"
+      },
+      {
+       "id": "01M5N3R3QEY21WMKA07GA9BVKM",
+       "expense_id": "01M5N3R3QDE1ES8JQS5GKG9HMM",
+       "member_id": "01M5N3R3N5R8FE0EPSK19R63GM",
+       "amount": 1500,
+       "created_at": "2026-10-23T19:28:03.309705+00:00"
+      },
+      {
+       "id": "01M5N3R3QEY21WMKA07GA9BVKN",
+       "expense_id": "01M5N3R3QDE1ES8JQS5GKG9HMM",
+       "member_id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+       "amount": 1499,
+       "created_at": "2026-10-23T19:28:03.309705+00:00"
+      },
+      {
+       "id": "01M5N3R3QEY21WMKA07GA9BVKP",
+       "expense_id": "01M5N3R3QDE1ES8JQS5GKG9HMM",
+       "member_id": "01M5N3R3NCR99091EQC99FDF8T",
+       "amount": 1500,
+       "created_at": "2026-10-23T19:28:03.309705+00:00"
+      }
+     ]
+    },
+    {
+     "id": "01M5N3R3PCVEE6WTY2ZRFRMM9T",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "category_id": "01M5N3R3NGV1QHX1TR3HZQWFXJ",
+     "title": "Sep rent",
+     "description": null,
+     "amount": 120000,
+     "currency": "USD",
+     "paid_by_member_id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+     "expense_date": "2026-09-01T10:00:00+00:00",
+     "created_at": "2026-10-23T19:28:03.276714+00:00",
+     "created_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "converted_amount": 120000,
+     "exchange_rate": 1000000,
+     "rate_as_of": null,
+     "refund_of": null,
+     "split_rule": {
+      "envelope": null,
+      "participants": [
+       "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "01M5N3R3N5R8FE0EPSK19R63GM",
+       "01M5N3R3N8H2M2NRMC0FPWJG36",
+       "01M5N3R3NCR99091EQC99FDF8T"
+      ],
+      "remainder": {
+       "members": [
+        "01M5N3R3N8H2M2NRMC0FPWJG36"
+       ],
+       "fixed": {},
+       "percent": {}
+      }
+     },
+     "shares": [
+      {
+       "id": "01M5N3R3PDG9WQ3C87FNSBPGVJ",
+       "expense_id": "01M5N3R3PCVEE6WTY2ZRFRMM9T",
+       "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "amount": 30000,
+       "created_at": "2026-10-23T19:28:03.276714+00:00"
+      },
+      {
+       "id": "01M5N3R3PDG9WQ3C87FNSBPGVK",
+       "expense_id": "01M5N3R3PCVEE6WTY2ZRFRMM9T",
+       "member_id": "01M5N3R3N5R8FE0EPSK19R63GM",
+       "amount": 30000,
+       "created_at": "2026-10-23T19:28:03.276714+00:00"
+      },
+      {
+       "id": "01M5N3R3PDG9WQ3C87FNSBPGVM",
+       "expense_id": "01M5N3R3PCVEE6WTY2ZRFRMM9T",
+       "member_id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+       "amount": 30000,
+       "created_at": "2026-10-23T19:28:03.276714+00:00"
+      },
+      {
+       "id": "01M5N3R3PDG9WQ3C87FNSBPGVN",
+       "expense_id": "01M5N3R3PCVEE6WTY2ZRFRMM9T",
+       "member_id": "01M5N3R3NCR99091EQC99FDF8T",
+       "amount": 30000,
+       "created_at": "2026-10-23T19:28:03.276714+00:00"
+      }
+     ]
+    },
+    {
+     "id": "01M5N3R3Q8NCBR25QN803APC6Z",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "category_id": "01M5N3R3NM7D5FP3M4VWPPHFHP",
+     "title": "Farmers market",
+     "description": null,
+     "amount": 4852,
+     "currency": "USD",
+     "paid_by_member_id": "01M5N3R3N5R8FE0EPSK19R63GM",
+     "expense_date": "2026-08-30T10:00:00+00:00",
+     "created_at": "2026-10-23T19:28:03.304313+00:00",
+     "created_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "converted_amount": 4852,
+     "exchange_rate": 1000000,
+     "rate_as_of": null,
+     "refund_of": null,
+     "split_rule": {
+      "envelope": null,
+      "participants": [
+       "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "01M5N3R3N5R8FE0EPSK19R63GM",
+       "01M5N3R3N8H2M2NRMC0FPWJG36",
+       "01M5N3R3NCR99091EQC99FDF8T"
+      ],
+      "remainder": {
+       "members": [
+        "01M5N3R3N5R8FE0EPSK19R63GM"
+       ],
+       "fixed": {},
+       "percent": {}
+      }
+     },
+     "shares": [
+      {
+       "id": "01M5N3R3Q8NCBR25QN803APC70",
+       "expense_id": "01M5N3R3Q8NCBR25QN803APC6Z",
+       "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "amount": 1213,
+       "created_at": "2026-10-23T19:28:03.304313+00:00"
+      },
+      {
+       "id": "01M5N3R3Q8NCBR25QN803APC71",
+       "expense_id": "01M5N3R3Q8NCBR25QN803APC6Z",
+       "member_id": "01M5N3R3N5R8FE0EPSK19R63GM",
+       "amount": 1213,
+       "created_at": "2026-10-23T19:28:03.304313+00:00"
+      },
+      {
+       "id": "01M5N3R3Q8NCBR25QN803APC72",
+       "expense_id": "01M5N3R3Q8NCBR25QN803APC6Z",
+       "member_id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+       "amount": 1213,
+       "created_at": "2026-10-23T19:28:03.304313+00:00"
+      },
+      {
+       "id": "01M5N3R3Q8NCBR25QN803APC73",
+       "expense_id": "01M5N3R3Q8NCBR25QN803APC6Z",
+       "member_id": "01M5N3R3NCR99091EQC99FDF8T",
+       "amount": 1213,
+       "created_at": "2026-10-23T19:28:03.304313+00:00"
+      }
+     ]
+    },
+    {
+     "id": "01M5N3R3Q3M6VKAQ83TTW248MS",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "category_id": "01M5N3R3NX86J75ZJ9NJ62QG2V",
+     "title": "Board game night",
+     "description": null,
+     "amount": 4800,
+     "currency": "USD",
+     "paid_by_member_id": "01M5N3R3NCR99091EQC99FDF8T",
+     "expense_date": "2026-08-15T10:00:00+00:00",
+     "created_at": "2026-10-23T19:28:03.299028+00:00",
+     "created_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "converted_amount": 4800,
+     "exchange_rate": 1000000,
+     "rate_as_of": null,
+     "refund_of": null,
+     "split_rule": {
+      "envelope": null,
+      "participants": [
+       "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "01M5N3R3N5R8FE0EPSK19R63GM",
+       "01M5N3R3N8H2M2NRMC0FPWJG36",
+       "01M5N3R3NCR99091EQC99FDF8T"
+      ],
+      "remainder": {
+       "members": [
+        "01M5N3R3NCR99091EQC99FDF8T"
+       ],
+       "fixed": {},
+       "percent": {}
+      }
+     },
+     "shares": [
+      {
+       "id": "01M5N3R3Q3M6VKAQ83TTW248MT",
+       "expense_id": "01M5N3R3Q3M6VKAQ83TTW248MS",
+       "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "amount": 1200,
+       "created_at": "2026-10-23T19:28:03.299028+00:00"
+      },
+      {
+       "id": "01M5N3R3Q3M6VKAQ83TTW248MV",
+       "expense_id": "01M5N3R3Q3M6VKAQ83TTW248MS",
+       "member_id": "01M5N3R3N5R8FE0EPSK19R63GM",
+       "amount": 1200,
+       "created_at": "2026-10-23T19:28:03.299028+00:00"
+      },
+      {
+       "id": "01M5N3R3Q3M6VKAQ83TTW248MW",
+       "expense_id": "01M5N3R3Q3M6VKAQ83TTW248MS",
+       "member_id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+       "amount": 1200,
+       "created_at": "2026-10-23T19:28:03.299028+00:00"
+      },
+      {
+       "id": "01M5N3R3Q3M6VKAQ83TTW248MX",
+       "expense_id": "01M5N3R3Q3M6VKAQ83TTW248MS",
+       "member_id": "01M5N3R3NCR99091EQC99FDF8T",
+       "amount": 1200,
+       "created_at": "2026-10-23T19:28:03.299028+00:00"
+      }
+     ]
+    },
+    {
+     "id": "01M5N3R3PXMJY227FATB4BT7H8",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "category_id": "01M5N3R3NM7D5FP3M4VWPPHFHP",
+     "title": "Weekly groceries",
+     "description": null,
+     "amount": 15600,
+     "currency": "USD",
+     "paid_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "expense_date": "2026-08-09T10:00:00+00:00",
+     "created_at": "2026-10-23T19:28:03.293656+00:00",
+     "created_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "converted_amount": 15600,
+     "exchange_rate": 1000000,
+     "rate_as_of": null,
+     "refund_of": null,
+     "split_rule": {
+      "envelope": null,
+      "participants": [
+       "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "01M5N3R3N5R8FE0EPSK19R63GM",
+       "01M5N3R3N8H2M2NRMC0FPWJG36",
+       "01M5N3R3NCR99091EQC99FDF8T"
+      ],
+      "remainder": {
+       "members": [
+        "01M5N3R3MWTH1D4GNMNDJA1TN7"
+       ],
+       "fixed": {},
+       "percent": {}
+      }
+     },
+     "shares": [
+      {
+       "id": "01M5N3R3PXMJY227FATB4BT7H9",
+       "expense_id": "01M5N3R3PXMJY227FATB4BT7H8",
+       "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "amount": 3900,
+       "created_at": "2026-10-23T19:28:03.293656+00:00"
+      },
+      {
+       "id": "01M5N3R3PYQME9ENYZQV8VSEJJ",
+       "expense_id": "01M5N3R3PXMJY227FATB4BT7H8",
+       "member_id": "01M5N3R3N5R8FE0EPSK19R63GM",
+       "amount": 3900,
+       "created_at": "2026-10-23T19:28:03.293656+00:00"
+      },
+      {
+       "id": "01M5N3R3PYQME9ENYZQV8VSEJK",
+       "expense_id": "01M5N3R3PXMJY227FATB4BT7H8",
+       "member_id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+       "amount": 3900,
+       "created_at": "2026-10-23T19:28:03.293656+00:00"
+      },
+      {
+       "id": "01M5N3R3PYQME9ENYZQV8VSEJM",
+       "expense_id": "01M5N3R3PXMJY227FATB4BT7H8",
+       "member_id": "01M5N3R3NCR99091EQC99FDF8T",
+       "amount": 3900,
+       "created_at": "2026-10-23T19:28:03.293656+00:00"
+      }
+     ]
+    },
+    {
+     "id": "01M5N3R3P73QYF7292V5AYQ67E",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "category_id": "01M5N3R3NGV1QHX1TR3HZQWFXJ",
+     "title": "Aug rent",
+     "description": null,
+     "amount": 120000,
+     "currency": "USD",
+     "paid_by_member_id": "01M5N3R3N5R8FE0EPSK19R63GM",
+     "expense_date": "2026-08-01T10:00:00+00:00",
+     "created_at": "2026-10-23T19:28:03.271020+00:00",
+     "created_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "converted_amount": 120000,
+     "exchange_rate": 1000000,
+     "rate_as_of": null,
+     "refund_of": null,
+     "split_rule": {
+      "envelope": null,
+      "participants": [
+       "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "01M5N3R3N5R8FE0EPSK19R63GM",
+       "01M5N3R3N8H2M2NRMC0FPWJG36",
+       "01M5N3R3NCR99091EQC99FDF8T"
+      ],
+      "remainder": {
+       "members": [
+        "01M5N3R3N5R8FE0EPSK19R63GM"
+       ],
+       "fixed": {},
+       "percent": {}
+      }
+     },
+     "shares": [
+      {
+       "id": "01M5N3R3P73QYF7292V5AYQ67F",
+       "expense_id": "01M5N3R3P73QYF7292V5AYQ67E",
+       "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "amount": 30000,
+       "created_at": "2026-10-23T19:28:03.271020+00:00"
+      },
+      {
+       "id": "01M5N3R3P73QYF7292V5AYQ67G",
+       "expense_id": "01M5N3R3P73QYF7292V5AYQ67E",
+       "member_id": "01M5N3R3N5R8FE0EPSK19R63GM",
+       "amount": 30000,
+       "created_at": "2026-10-23T19:28:03.271020+00:00"
+      },
+      {
+       "id": "01M5N3R3P73QYF7292V5AYQ67H",
+       "expense_id": "01M5N3R3P73QYF7292V5AYQ67E",
+       "member_id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+       "amount": 30000,
+       "created_at": "2026-10-23T19:28:03.271020+00:00"
+      },
+      {
+       "id": "01M5N3R3P73QYF7292V5AYQ67J",
+       "expense_id": "01M5N3R3P73QYF7292V5AYQ67E",
+       "member_id": "01M5N3R3NCR99091EQC99FDF8T",
+       "amount": 30000,
+       "created_at": "2026-10-23T19:28:03.271020+00:00"
+      }
+     ]
+    },
+    {
+     "id": "01M5N3R3PRKZEBJKC9CAVGREH0",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "category_id": "01M5N3R3NSVFNE0QJZZP1VJ2ZK",
+     "title": "Pizza Friday",
+     "description": null,
+     "amount": 6400,
+     "currency": "USD",
+     "paid_by_member_id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+     "expense_date": "2026-07-24T10:00:00+00:00",
+     "created_at": "2026-10-23T19:28:03.288168+00:00",
+     "created_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "converted_amount": 6400,
+     "exchange_rate": 1000000,
+     "rate_as_of": null,
+     "refund_of": null,
+     "split_rule": {
+      "envelope": null,
+      "participants": [
+       "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "01M5N3R3N5R8FE0EPSK19R63GM",
+       "01M5N3R3N8H2M2NRMC0FPWJG36",
+       "01M5N3R3NCR99091EQC99FDF8T"
+      ],
+      "remainder": {
+       "members": [
+        "01M5N3R3N8H2M2NRMC0FPWJG36"
+       ],
+       "fixed": {},
+       "percent": {}
+      }
+     },
+     "shares": [
+      {
+       "id": "01M5N3R3PRKZEBJKC9CAVGREH1",
+       "expense_id": "01M5N3R3PRKZEBJKC9CAVGREH0",
+       "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "amount": 1600,
+       "created_at": "2026-10-23T19:28:03.288168+00:00"
+      },
+      {
+       "id": "01M5N3R3PRKZEBJKC9CAVGREH2",
+       "expense_id": "01M5N3R3PRKZEBJKC9CAVGREH0",
+       "member_id": "01M5N3R3N5R8FE0EPSK19R63GM",
+       "amount": 1600,
+       "created_at": "2026-10-23T19:28:03.288168+00:00"
+      },
+      {
+       "id": "01M5N3R3PRKZEBJKC9CAVGREH3",
+       "expense_id": "01M5N3R3PRKZEBJKC9CAVGREH0",
+       "member_id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+       "amount": 1600,
+       "created_at": "2026-10-23T19:28:03.288168+00:00"
+      },
+      {
+       "id": "01M5N3R3PRKZEBJKC9CAVGREH4",
+       "expense_id": "01M5N3R3PRKZEBJKC9CAVGREH0",
+       "member_id": "01M5N3R3NCR99091EQC99FDF8T",
+       "amount": 1600,
+       "created_at": "2026-10-23T19:28:03.288168+00:00"
+      }
+     ]
+    },
+    {
+     "id": "01M5N3R3P0J36NX09EXAVSSX3E",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "category_id": "01M5N3R3NGV1QHX1TR3HZQWFXJ",
+     "title": "Jul rent",
+     "description": null,
+     "amount": 120000,
+     "currency": "USD",
+     "paid_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "expense_date": "2026-07-01T10:00:00+00:00",
+     "created_at": "2026-10-23T19:28:03.264657+00:00",
+     "created_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "converted_amount": 120000,
+     "exchange_rate": 1000000,
+     "rate_as_of": null,
+     "refund_of": null,
+     "split_rule": {
+      "envelope": null,
+      "participants": [
+       "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "01M5N3R3N5R8FE0EPSK19R63GM",
+       "01M5N3R3N8H2M2NRMC0FPWJG36",
+       "01M5N3R3NCR99091EQC99FDF8T"
+      ],
+      "remainder": {
+       "members": [
+        "01M5N3R3MWTH1D4GNMNDJA1TN7"
+       ],
+       "fixed": {},
+       "percent": {}
+      }
+     },
+     "shares": [
+      {
+       "id": "01M5N3R3P1VNMV5JA5X74TV264",
+       "expense_id": "01M5N3R3P0J36NX09EXAVSSX3E",
+       "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "amount": 30000,
+       "created_at": "2026-10-23T19:28:03.264657+00:00"
+      },
+      {
+       "id": "01M5N3R3P1VNMV5JA5X74TV265",
+       "expense_id": "01M5N3R3P0J36NX09EXAVSSX3E",
+       "member_id": "01M5N3R3N5R8FE0EPSK19R63GM",
+       "amount": 30000,
+       "created_at": "2026-10-23T19:28:03.264657+00:00"
+      },
+      {
+       "id": "01M5N3R3P1VNMV5JA5X74TV266",
+       "expense_id": "01M5N3R3P0J36NX09EXAVSSX3E",
+       "member_id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+       "amount": 30000,
+       "created_at": "2026-10-23T19:28:03.264657+00:00"
+      },
+      {
+       "id": "01M5N3R3P1VNMV5JA5X74TV267",
+       "expense_id": "01M5N3R3P0J36NX09EXAVSSX3E",
+       "member_id": "01M5N3R3NCR99091EQC99FDF8T",
+       "amount": 30000,
+       "created_at": "2026-10-23T19:28:03.264657+00:00"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "request": {
+    "type": "shared_expenses/list_payments",
+    "group_id": "01M5N3R3MVC6W3NEM495DR4Y94"
+   },
+   "result": [
+    {
+     "id": "01M5N3R3R8MEQ85ASGVK8372BY",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "description": "October settle-up",
+     "from_member_id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+     "to_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "amount": 12000,
+     "currency": "USD",
+     "payment_date": "2026-10-09T10:00:00+00:00",
+     "created_at": "2026-10-23T19:28:03.336463+00:00",
+     "kind": "reimbursement",
+     "expense_id": null,
+     "created_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "converted_amount": 12000,
+     "exchange_rate": 1000000,
+     "rate_as_of": null
+    }
+   ]
+  },
+  {
+   "request": {
+    "type": "shared_expenses/list_revisions",
+    "group_id": "01M5N3R3MVC6W3NEM495DR4Y94"
+   },
+   "result": [
+    {
+     "id": "01M5N3R3RJGDR8MSYXW8JVGFMV",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "entity_type": "expense",
+     "entity_id": "01M5N3R3RHYRN2NJWS1NPH0S14",
+     "entity_label": "Groceries + BBQ",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "title",
+       "before": null,
+       "after": "Groceries + BBQ"
+      },
+      {
+       "field": "description",
+       "before": null,
+       "after": "Rooftop BBQ"
+      },
+      {
+       "field": "amount",
+       "before": null,
+       "after": 13460
+      },
+      {
+       "field": "currency",
+       "before": null,
+       "after": "USD"
+      },
+      {
+       "field": "paid_by_member_id",
+       "before": null,
+       "after": "01M5N3R3MWTH1D4GNMNDJA1TN7"
+      },
+      {
+       "field": "expense_date",
+       "before": null,
+       "after": "2026-10-18T10:00:00+00:00"
+      },
+      {
+       "field": "category_id",
+       "before": null,
+       "after": "01M5N3R3NM7D5FP3M4VWPPHFHP"
+      },
+      {
+       "field": "refund_of",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "shares",
+       "before": null,
+       "after": {
+        "01M5N3R3MWTH1D4GNMNDJA1TN7": 10460,
+        "01M5N3R3N5R8FE0EPSK19R63GM": 1000,
+        "01M5N3R3N8H2M2NRMC0FPWJG36": 1000,
+        "01M5N3R3NCR99091EQC99FDF8T": 1000
+       }
+      }
+     ],
+     "at": "2026-10-23T19:28:03.346868+00:00"
+    },
+    {
+     "id": "01M5N3R3RDWR6WQMEZVTGY4TBT",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "entity_type": "expense",
+     "entity_id": "01M5N3R3RC5YA5ASBEAQ6PK098",
+     "entity_label": "Italian restaurant",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "title",
+       "before": null,
+       "after": "Italian restaurant"
+      },
+      {
+       "field": "description",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "amount",
+       "before": null,
+       "after": 8840
+      },
+      {
+       "field": "currency",
+       "before": null,
+       "after": "USD"
+      },
+      {
+       "field": "paid_by_member_id",
+       "before": null,
+       "after": "01M5N3R3N5R8FE0EPSK19R63GM"
+      },
+      {
+       "field": "expense_date",
+       "before": null,
+       "after": "2026-10-11T10:00:00+00:00"
+      },
+      {
+       "field": "category_id",
+       "before": null,
+       "after": "01M5N3R3NSVFNE0QJZZP1VJ2ZK"
+      },
+      {
+       "field": "refund_of",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "shares",
+       "before": null,
+       "after": {
+        "01M5N3R3MWTH1D4GNMNDJA1TN7": 2210,
+        "01M5N3R3N5R8FE0EPSK19R63GM": 2210,
+        "01M5N3R3N8H2M2NRMC0FPWJG36": 2210,
+        "01M5N3R3NCR99091EQC99FDF8T": 2210
+       }
+      }
+     ],
+     "at": "2026-10-23T19:28:03.341620+00:00"
+    },
+    {
+     "id": "01M5N3R3R91QMBF3XJB4V7YXXQ",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "entity_type": "payment",
+     "entity_id": "01M5N3R3R8MEQ85ASGVK8372BY",
+     "entity_label": null,
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "description",
+       "before": null,
+       "after": "October settle-up"
+      },
+      {
+       "field": "amount",
+       "before": null,
+       "after": 12000
+      },
+      {
+       "field": "currency",
+       "before": null,
+       "after": "USD"
+      },
+      {
+       "field": "from_member_id",
+       "before": null,
+       "after": "01M5N3R3N8H2M2NRMC0FPWJG36"
+      },
+      {
+       "field": "to_member_id",
+       "before": null,
+       "after": "01M5N3R3MWTH1D4GNMNDJA1TN7"
+      },
+      {
+       "field": "payment_date",
+       "before": null,
+       "after": "2026-10-09T10:00:00+00:00"
+      },
+      {
+       "field": "kind",
+       "before": null,
+       "after": "reimbursement"
+      },
+      {
+       "field": "converted_amount",
+       "before": null,
+       "after": 12000
+      },
+      {
+       "field": "expense_id",
+       "before": null,
+       "after": null
+      }
+     ],
+     "at": "2026-10-23T19:28:03.337113+00:00"
+    },
+    {
+     "id": "01M5N3R3R4WN24VGXEA1FJ7EP7",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "entity_type": "expense",
+     "entity_id": "01M5N3R3R3P6VTYZXGP4281G5A",
+     "entity_label": "Concert tickets",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "title",
+       "before": null,
+       "after": "Concert tickets"
+      },
+      {
+       "field": "description",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "amount",
+       "before": null,
+       "after": 15600
+      },
+      {
+       "field": "currency",
+       "before": null,
+       "after": "USD"
+      },
+      {
+       "field": "paid_by_member_id",
+       "before": null,
+       "after": "01M5N3R3N8H2M2NRMC0FPWJG36"
+      },
+      {
+       "field": "expense_date",
+       "before": null,
+       "after": "2026-10-04T10:00:00+00:00"
+      },
+      {
+       "field": "category_id",
+       "before": null,
+       "after": "01M5N3R3NX86J75ZJ9NJ62QG2V"
+      },
+      {
+       "field": "refund_of",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "shares",
+       "before": null,
+       "after": {
+        "01M5N3R3N8H2M2NRMC0FPWJG36": 7800,
+        "01M5N3R3N5R8FE0EPSK19R63GM": 7800
+       }
+      }
+     ],
+     "at": "2026-10-23T19:28:03.332431+00:00"
+    },
+    {
+     "id": "01M5N3R3QZ32K836F7Q2Q858NH",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "entity_type": "expense",
+     "entity_id": "01M5N3R3QXQQJC4QXXDJ71A3ZY",
+     "entity_label": "Costco run",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "title",
+       "before": null,
+       "after": "Costco run"
+      },
+      {
+       "field": "description",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "amount",
+       "before": null,
+       "after": 9340
+      },
+      {
+       "field": "currency",
+       "before": null,
+       "after": "USD"
+      },
+      {
+       "field": "paid_by_member_id",
+       "before": null,
+       "after": "01M5N3R3MWTH1D4GNMNDJA1TN7"
+      },
+      {
+       "field": "expense_date",
+       "before": null,
+       "after": "2026-09-28T10:00:00+00:00"
+      },
+      {
+       "field": "category_id",
+       "before": null,
+       "after": "01M5N3R3NM7D5FP3M4VWPPHFHP"
+      },
+      {
+       "field": "refund_of",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "shares",
+       "before": null,
+       "after": {
+        "01M5N3R3MWTH1D4GNMNDJA1TN7": 2335,
+        "01M5N3R3N5R8FE0EPSK19R63GM": 2335,
+        "01M5N3R3N8H2M2NRMC0FPWJG36": 2335,
+        "01M5N3R3NCR99091EQC99FDF8T": 2335
+       }
+      }
+     ],
+     "at": "2026-10-23T19:28:03.327285+00:00"
+    },
+    {
+     "id": "01M5N3R3QSW14E86MG74V40FBZ",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "entity_type": "expense",
+     "entity_id": "01M5N3R3QRFDXJXT0DG2BVCR0D",
+     "entity_label": "Electricity",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "title",
+       "before": null,
+       "after": "Electricity"
+      },
+      {
+       "field": "description",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "amount",
+       "before": null,
+       "after": 16412
+      },
+      {
+       "field": "currency",
+       "before": null,
+       "after": "USD"
+      },
+      {
+       "field": "paid_by_member_id",
+       "before": null,
+       "after": "01M5N3R3NCR99091EQC99FDF8T"
+      },
+      {
+       "field": "expense_date",
+       "before": null,
+       "after": "2026-09-24T10:00:00+00:00"
+      },
+      {
+       "field": "category_id",
+       "before": null,
+       "after": "01M5N3R3NGV1QHX1TR3HZQWFXJ"
+      },
+      {
+       "field": "refund_of",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "shares",
+       "before": null,
+       "after": {
+        "01M5N3R3MWTH1D4GNMNDJA1TN7": 4103,
+        "01M5N3R3N5R8FE0EPSK19R63GM": 4103,
+        "01M5N3R3N8H2M2NRMC0FPWJG36": 4103,
+        "01M5N3R3NCR99091EQC99FDF8T": 4103
+       }
+      }
+     ],
+     "at": "2026-10-23T19:28:03.321723+00:00"
+    },
+    {
+     "id": "01M5N3R3QMKZSRRZG9M8D05VQK",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "entity_type": "expense",
+     "entity_id": "01M5N3R3QKZ7NQDHBCA4QTK04E",
+     "entity_label": "Sushi night",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "title",
+       "before": null,
+       "after": "Sushi night"
+      },
+      {
+       "field": "description",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "amount",
+       "before": null,
+       "after": 7200
+      },
+      {
+       "field": "currency",
+       "before": null,
+       "after": "USD"
+      },
+      {
+       "field": "paid_by_member_id",
+       "before": null,
+       "after": "01M5N3R3NCR99091EQC99FDF8T"
+      },
+      {
+       "field": "expense_date",
+       "before": null,
+       "after": "2026-09-13T10:00:00+00:00"
+      },
+      {
+       "field": "category_id",
+       "before": null,
+       "after": "01M5N3R3NSVFNE0QJZZP1VJ2ZK"
+      },
+      {
+       "field": "refund_of",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "shares",
+       "before": null,
+       "after": {
+        "01M5N3R3MWTH1D4GNMNDJA1TN7": 1800,
+        "01M5N3R3N5R8FE0EPSK19R63GM": 1800,
+        "01M5N3R3N8H2M2NRMC0FPWJG36": 1800,
+        "01M5N3R3NCR99091EQC99FDF8T": 1800
+       }
+      }
+     ],
+     "at": "2026-10-23T19:28:03.316768+00:00"
+    },
+    {
+     "id": "01M5N3R3QF7XZ69W5D29QV6YB9",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "entity_type": "expense",
+     "entity_id": "01M5N3R3QDE1ES8JQS5GKG9HMM",
+     "entity_label": "Internet",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "title",
+       "before": null,
+       "after": "Internet"
+      },
+      {
+       "field": "description",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "amount",
+       "before": null,
+       "after": 5999
+      },
+      {
+       "field": "currency",
+       "before": null,
+       "after": "USD"
+      },
+      {
+       "field": "paid_by_member_id",
+       "before": null,
+       "after": "01M5N3R3MWTH1D4GNMNDJA1TN7"
+      },
+      {
+       "field": "expense_date",
+       "before": null,
+       "after": "2026-09-05T10:00:00+00:00"
+      },
+      {
+       "field": "category_id",
+       "before": null,
+       "after": "01M5N3R3NGV1QHX1TR3HZQWFXJ"
+      },
+      {
+       "field": "refund_of",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "shares",
+       "before": null,
+       "after": {
+        "01M5N3R3MWTH1D4GNMNDJA1TN7": 1500,
+        "01M5N3R3N5R8FE0EPSK19R63GM": 1500,
+        "01M5N3R3N8H2M2NRMC0FPWJG36": 1499,
+        "01M5N3R3NCR99091EQC99FDF8T": 1500
+       }
+      }
+     ],
+     "at": "2026-10-23T19:28:03.311329+00:00"
+    },
+    {
+     "id": "01M5N3R3Q92SWAF6QMS9RM52JG",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "entity_type": "expense",
+     "entity_id": "01M5N3R3Q8NCBR25QN803APC6Z",
+     "entity_label": "Farmers market",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "title",
+       "before": null,
+       "after": "Farmers market"
+      },
+      {
+       "field": "description",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "amount",
+       "before": null,
+       "after": 4852
+      },
+      {
+       "field": "currency",
+       "before": null,
+       "after": "USD"
+      },
+      {
+       "field": "paid_by_member_id",
+       "before": null,
+       "after": "01M5N3R3N5R8FE0EPSK19R63GM"
+      },
+      {
+       "field": "expense_date",
+       "before": null,
+       "after": "2026-08-30T10:00:00+00:00"
+      },
+      {
+       "field": "category_id",
+       "before": null,
+       "after": "01M5N3R3NM7D5FP3M4VWPPHFHP"
+      },
+      {
+       "field": "refund_of",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "shares",
+       "before": null,
+       "after": {
+        "01M5N3R3MWTH1D4GNMNDJA1TN7": 1213,
+        "01M5N3R3N5R8FE0EPSK19R63GM": 1213,
+        "01M5N3R3N8H2M2NRMC0FPWJG36": 1213,
+        "01M5N3R3NCR99091EQC99FDF8T": 1213
+       }
+      }
+     ],
+     "at": "2026-10-23T19:28:03.305484+00:00"
+    },
+    {
+     "id": "01M5N3R3Q4T669NCEAC6MBMRK9",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "entity_type": "expense",
+     "entity_id": "01M5N3R3Q3M6VKAQ83TTW248MS",
+     "entity_label": "Board game night",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "title",
+       "before": null,
+       "after": "Board game night"
+      },
+      {
+       "field": "description",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "amount",
+       "before": null,
+       "after": 4800
+      },
+      {
+       "field": "currency",
+       "before": null,
+       "after": "USD"
+      },
+      {
+       "field": "paid_by_member_id",
+       "before": null,
+       "after": "01M5N3R3NCR99091EQC99FDF8T"
+      },
+      {
+       "field": "expense_date",
+       "before": null,
+       "after": "2026-08-15T10:00:00+00:00"
+      },
+      {
+       "field": "category_id",
+       "before": null,
+       "after": "01M5N3R3NX86J75ZJ9NJ62QG2V"
+      },
+      {
+       "field": "refund_of",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "shares",
+       "before": null,
+       "after": {
+        "01M5N3R3MWTH1D4GNMNDJA1TN7": 1200,
+        "01M5N3R3N5R8FE0EPSK19R63GM": 1200,
+        "01M5N3R3N8H2M2NRMC0FPWJG36": 1200,
+        "01M5N3R3NCR99091EQC99FDF8T": 1200
+       }
+      }
+     ],
+     "at": "2026-10-23T19:28:03.300220+00:00"
+    },
+    {
+     "id": "01M5N3R3PYQME9ENYZQV8VSEJN",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "entity_type": "expense",
+     "entity_id": "01M5N3R3PXMJY227FATB4BT7H8",
+     "entity_label": "Weekly groceries",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "title",
+       "before": null,
+       "after": "Weekly groceries"
+      },
+      {
+       "field": "description",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "amount",
+       "before": null,
+       "after": 15600
+      },
+      {
+       "field": "currency",
+       "before": null,
+       "after": "USD"
+      },
+      {
+       "field": "paid_by_member_id",
+       "before": null,
+       "after": "01M5N3R3MWTH1D4GNMNDJA1TN7"
+      },
+      {
+       "field": "expense_date",
+       "before": null,
+       "after": "2026-08-09T10:00:00+00:00"
+      },
+      {
+       "field": "category_id",
+       "before": null,
+       "after": "01M5N3R3NM7D5FP3M4VWPPHFHP"
+      },
+      {
+       "field": "refund_of",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "shares",
+       "before": null,
+       "after": {
+        "01M5N3R3MWTH1D4GNMNDJA1TN7": 3900,
+        "01M5N3R3N5R8FE0EPSK19R63GM": 3900,
+        "01M5N3R3N8H2M2NRMC0FPWJG36": 3900,
+        "01M5N3R3NCR99091EQC99FDF8T": 3900
+       }
+      }
+     ],
+     "at": "2026-10-23T19:28:03.294856+00:00"
+    },
+    {
+     "id": "01M5N3R3PSEB68EQWPVVYHV9A5",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "entity_type": "expense",
+     "entity_id": "01M5N3R3PRKZEBJKC9CAVGREH0",
+     "entity_label": "Pizza Friday",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "title",
+       "before": null,
+       "after": "Pizza Friday"
+      },
+      {
+       "field": "description",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "amount",
+       "before": null,
+       "after": 6400
+      },
+      {
+       "field": "currency",
+       "before": null,
+       "after": "USD"
+      },
+      {
+       "field": "paid_by_member_id",
+       "before": null,
+       "after": "01M5N3R3N8H2M2NRMC0FPWJG36"
+      },
+      {
+       "field": "expense_date",
+       "before": null,
+       "after": "2026-07-24T10:00:00+00:00"
+      },
+      {
+       "field": "category_id",
+       "before": null,
+       "after": "01M5N3R3NSVFNE0QJZZP1VJ2ZK"
+      },
+      {
+       "field": "refund_of",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "shares",
+       "before": null,
+       "after": {
+        "01M5N3R3MWTH1D4GNMNDJA1TN7": 1600,
+        "01M5N3R3N5R8FE0EPSK19R63GM": 1600,
+        "01M5N3R3N8H2M2NRMC0FPWJG36": 1600,
+        "01M5N3R3NCR99091EQC99FDF8T": 1600
+       }
+      }
+     ],
+     "at": "2026-10-23T19:28:03.289386+00:00"
+    },
+    {
+     "id": "01M5N3R3PKK49BGWPEJSAYMFTZ",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "entity_type": "expense",
+     "entity_id": "01M5N3R3PJMQPE8W07AM7BFQD4",
+     "entity_label": "Oct rent",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "title",
+       "before": null,
+       "after": "Oct rent"
+      },
+      {
+       "field": "description",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "amount",
+       "before": null,
+       "after": 120000
+      },
+      {
+       "field": "currency",
+       "before": null,
+       "after": "USD"
+      },
+      {
+       "field": "paid_by_member_id",
+       "before": null,
+       "after": "01M5N3R3NCR99091EQC99FDF8T"
+      },
+      {
+       "field": "expense_date",
+       "before": null,
+       "after": "2026-10-01T10:00:00+00:00"
+      },
+      {
+       "field": "category_id",
+       "before": null,
+       "after": "01M5N3R3NGV1QHX1TR3HZQWFXJ"
+      },
+      {
+       "field": "refund_of",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "shares",
+       "before": null,
+       "after": {
+        "01M5N3R3MWTH1D4GNMNDJA1TN7": 30000,
+        "01M5N3R3N5R8FE0EPSK19R63GM": 30000,
+        "01M5N3R3N8H2M2NRMC0FPWJG36": 30000,
+        "01M5N3R3NCR99091EQC99FDF8T": 30000
+       }
+      }
+     ],
+     "at": "2026-10-23T19:28:03.283585+00:00"
+    },
+    {
+     "id": "01M5N3R3PDG9WQ3C87FNSBPGVP",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "entity_type": "expense",
+     "entity_id": "01M5N3R3PCVEE6WTY2ZRFRMM9T",
+     "entity_label": "Sep rent",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "title",
+       "before": null,
+       "after": "Sep rent"
+      },
+      {
+       "field": "description",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "amount",
+       "before": null,
+       "after": 120000
+      },
+      {
+       "field": "currency",
+       "before": null,
+       "after": "USD"
+      },
+      {
+       "field": "paid_by_member_id",
+       "before": null,
+       "after": "01M5N3R3N8H2M2NRMC0FPWJG36"
+      },
+      {
+       "field": "expense_date",
+       "before": null,
+       "after": "2026-09-01T10:00:00+00:00"
+      },
+      {
+       "field": "category_id",
+       "before": null,
+       "after": "01M5N3R3NGV1QHX1TR3HZQWFXJ"
+      },
+      {
+       "field": "refund_of",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "shares",
+       "before": null,
+       "after": {
+        "01M5N3R3MWTH1D4GNMNDJA1TN7": 30000,
+        "01M5N3R3N5R8FE0EPSK19R63GM": 30000,
+        "01M5N3R3N8H2M2NRMC0FPWJG36": 30000,
+        "01M5N3R3NCR99091EQC99FDF8T": 30000
+       }
+      }
+     ],
+     "at": "2026-10-23T19:28:03.277944+00:00"
+    },
+    {
+     "id": "01M5N3R3P8WS572J2P3XNJ0V3N",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "entity_type": "expense",
+     "entity_id": "01M5N3R3P73QYF7292V5AYQ67E",
+     "entity_label": "Aug rent",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "title",
+       "before": null,
+       "after": "Aug rent"
+      },
+      {
+       "field": "description",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "amount",
+       "before": null,
+       "after": 120000
+      },
+      {
+       "field": "currency",
+       "before": null,
+       "after": "USD"
+      },
+      {
+       "field": "paid_by_member_id",
+       "before": null,
+       "after": "01M5N3R3N5R8FE0EPSK19R63GM"
+      },
+      {
+       "field": "expense_date",
+       "before": null,
+       "after": "2026-08-01T10:00:00+00:00"
+      },
+      {
+       "field": "category_id",
+       "before": null,
+       "after": "01M5N3R3NGV1QHX1TR3HZQWFXJ"
+      },
+      {
+       "field": "refund_of",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "shares",
+       "before": null,
+       "after": {
+        "01M5N3R3MWTH1D4GNMNDJA1TN7": 30000,
+        "01M5N3R3N5R8FE0EPSK19R63GM": 30000,
+        "01M5N3R3N8H2M2NRMC0FPWJG36": 30000,
+        "01M5N3R3NCR99091EQC99FDF8T": 30000
+       }
+      }
+     ],
+     "at": "2026-10-23T19:28:03.272298+00:00"
+    },
+    {
+     "id": "01M5N3R3P2JD1X8PQHJD5MWWFR",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "entity_type": "expense",
+     "entity_id": "01M5N3R3P0J36NX09EXAVSSX3E",
+     "entity_label": "Jul rent",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "title",
+       "before": null,
+       "after": "Jul rent"
+      },
+      {
+       "field": "description",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "amount",
+       "before": null,
+       "after": 120000
+      },
+      {
+       "field": "currency",
+       "before": null,
+       "after": "USD"
+      },
+      {
+       "field": "paid_by_member_id",
+       "before": null,
+       "after": "01M5N3R3MWTH1D4GNMNDJA1TN7"
+      },
+      {
+       "field": "expense_date",
+       "before": null,
+       "after": "2026-07-01T10:00:00+00:00"
+      },
+      {
+       "field": "category_id",
+       "before": null,
+       "after": "01M5N3R3NGV1QHX1TR3HZQWFXJ"
+      },
+      {
+       "field": "refund_of",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "shares",
+       "before": null,
+       "after": {
+        "01M5N3R3MWTH1D4GNMNDJA1TN7": 30000,
+        "01M5N3R3N5R8FE0EPSK19R63GM": 30000,
+        "01M5N3R3N8H2M2NRMC0FPWJG36": 30000,
+        "01M5N3R3NCR99091EQC99FDF8T": 30000
+       }
+      }
+     ],
+     "at": "2026-10-23T19:28:03.266209+00:00"
+    },
+    {
+     "id": "01M5N3R3NX86J75ZJ9NJ62QG2W",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "entity_type": "category",
+     "entity_id": "01M5N3R3NX86J75ZJ9NJ62QG2V",
+     "entity_label": "Entertainment",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "name",
+       "before": null,
+       "after": "Entertainment"
+      },
+      {
+       "field": "icon",
+       "before": null,
+       "after": "mdi:party-popper"
+      },
+      {
+       "field": "color",
+       "before": null,
+       "after": "#8b5fbf"
+      },
+      {
+       "field": "split_rule",
+       "before": null,
+       "after": null
+      }
+     ],
+     "at": "2026-10-23T19:28:03.261448+00:00"
+    },
+    {
+     "id": "01M5N3R3NSVFNE0QJZZP1VJ2ZM",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "entity_type": "category",
+     "entity_id": "01M5N3R3NSVFNE0QJZZP1VJ2ZK",
+     "entity_label": "Dining Out",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "name",
+       "before": null,
+       "after": "Dining Out"
+      },
+      {
+       "field": "icon",
+       "before": null,
+       "after": "mdi:silverware-fork-knife"
+      },
+      {
+       "field": "color",
+       "before": null,
+       "after": "#c98b3e"
+      },
+      {
+       "field": "split_rule",
+       "before": null,
+       "after": null
+      }
+     ],
+     "at": "2026-10-23T19:28:03.257583+00:00"
+    },
+    {
+     "id": "01M5N3R3NN3ZSWYKBWGYWP5Z7D",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "entity_type": "category",
+     "entity_id": "01M5N3R3NM7D5FP3M4VWPPHFHP",
+     "entity_label": "Groceries",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "name",
+       "before": null,
+       "after": "Groceries"
+      },
+      {
+       "field": "icon",
+       "before": null,
+       "after": "mdi:cart"
+      },
+      {
+       "field": "color",
+       "before": null,
+       "after": "#4a7c59"
+      },
+      {
+       "field": "split_rule",
+       "before": null,
+       "after": null
+      }
+     ],
+     "at": "2026-10-23T19:28:03.253295+00:00"
+    },
+    {
+     "id": "01M5N3R3NH82GBEKBJ036C5TSK",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "entity_type": "category",
+     "entity_id": "01M5N3R3NGV1QHX1TR3HZQWFXJ",
+     "entity_label": "Rent & Utilities",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "name",
+       "before": null,
+       "after": "Rent & Utilities"
+      },
+      {
+       "field": "icon",
+       "before": null,
+       "after": "mdi:home-city"
+      },
+      {
+       "field": "color",
+       "before": null,
+       "after": "#3f7cac"
+      },
+      {
+       "field": "split_rule",
+       "before": null,
+       "after": null
+      }
+     ],
+     "at": "2026-10-23T19:28:03.249038+00:00"
+    },
+    {
+     "id": "01M5N3R3ND7S3VBFS8PYC4066J",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "entity_type": "member",
+     "entity_id": "01M5N3R3NCR99091EQC99FDF8T",
+     "entity_label": "Priya",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "name",
+       "before": null,
+       "after": "Priya"
+      },
+      {
+       "field": "color",
+       "before": null,
+       "after": "#3f7cac"
+      },
+      {
+       "field": "use_ha_avatar",
+       "before": null,
+       "after": false
+      },
+      {
+       "field": "role",
+       "before": null,
+       "after": "member"
+      }
+     ],
+     "at": "2026-10-23T19:28:03.245267+00:00"
+    },
+    {
+     "id": "01M5N3R3N9D5XERYRD7K4ZG55G",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "entity_type": "member",
+     "entity_id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+     "entity_label": "Marcus",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "name",
+       "before": null,
+       "after": "Marcus"
+      },
+      {
+       "field": "color",
+       "before": null,
+       "after": "#c05746"
+      },
+      {
+       "field": "use_ha_avatar",
+       "before": null,
+       "after": false
+      },
+      {
+       "field": "role",
+       "before": null,
+       "after": "member"
+      }
+     ],
+     "at": "2026-10-23T19:28:03.241411+00:00"
+    },
+    {
+     "id": "01M5N3R3N5R8FE0EPSK19R63GP",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "entity_type": "member",
+     "entity_id": "01M5N3R3N5R8FE0EPSK19R63GM",
+     "entity_label": "Emma",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "name",
+       "before": null,
+       "after": "Emma"
+      },
+      {
+       "field": "color",
+       "before": null,
+       "after": "#8b5fbf"
+      },
+      {
+       "field": "use_ha_avatar",
+       "before": null,
+       "after": false
+      },
+      {
+       "field": "role",
+       "before": null,
+       "after": "member"
+      }
+     ],
+     "at": "2026-10-23T19:28:03.237651+00:00"
+    },
+    {
+     "id": "01M5N3R3N1YZ5Z107PCCFXTYVQ",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "entity_type": "member",
+     "entity_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "entity_label": "Alex",
+     "action": "updated",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "color",
+       "before": null,
+       "after": "#5c6b8a"
+      }
+     ],
+     "at": "2026-10-23T19:28:03.233828+00:00"
+    }
+   ]
+  },
+  {
+   "request": {
+    "type": "shared_expenses/get_statistics",
+    "group_id": "01M5N3R3MVC6W3NEM495DR4Y94"
+   },
+   "result": {
+    "total": 588503,
+    "count": 15,
+    "by_category": [
+     {
+      "category_id": "01M5N3R3NGV1QHX1TR3HZQWFXJ",
+      "total": 502411
+     },
+     {
+      "category_id": "01M5N3R3NM7D5FP3M4VWPPHFHP",
+      "total": 43252
+     },
+     {
+      "category_id": "01M5N3R3NSVFNE0QJZZP1VJ2ZK",
+      "total": 22440
+     },
+     {
+      "category_id": "01M5N3R3NX86J75ZJ9NJ62QG2V",
+      "total": 20400
+     }
+    ],
+    "by_month": [
+     {
+      "month": "2026-07",
+      "total": 126400
+     },
+     {
+      "month": "2026-08",
+      "total": 145252
+     },
+     {
+      "month": "2026-09",
+      "total": 158951
+     },
+     {
+      "month": "2026-10",
+      "total": 157900
+     }
+    ],
+    "by_member": [
+     {
+      "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+      "paid": 164399,
+      "share": 150321,
+      "shop_refunds": 0,
+      "given": 0,
+      "received": 12000,
+      "owed_to": 0,
+      "owed_by": 0
+     },
+     {
+      "member_id": "01M5N3R3N5R8FE0EPSK19R63GM",
+      "paid": 133692,
+      "share": 148661,
+      "shop_refunds": 0,
+      "given": 0,
+      "received": 0,
+      "owed_to": 0,
+      "owed_by": 0
+     },
+     {
+      "member_id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+      "paid": 142000,
+      "share": 148660,
+      "shop_refunds": 0,
+      "given": 12000,
+      "received": 0,
+      "owed_to": 0,
+      "owed_by": 0
+     },
+     {
+      "member_id": "01M5N3R3NCR99091EQC99FDF8T",
+      "paid": 148412,
+      "share": 140861,
+      "shop_refunds": 0,
+      "given": 0,
+      "received": 0,
+      "owed_to": 0,
+      "owed_by": 0
+     }
+    ],
+    "years": [
+     2026
+    ],
+    "months": [
+     {
+      "month": "2026-07",
+      "total": 126400
+     },
+     {
+      "month": "2026-08",
+      "total": 145252
+     },
+     {
+      "month": "2026-09",
+      "total": 158951
+     },
+     {
+      "month": "2026-10",
+      "total": 157900
+     }
+    ]
+   }
+  },
+  {
+   "request": {
+    "type": "shared_expenses/get_statistics",
+    "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+    "month": "2026-07"
+   },
+   "result": {
+    "total": 126400,
+    "count": 2,
+    "by_category": [
+     {
+      "category_id": "01M5N3R3NGV1QHX1TR3HZQWFXJ",
+      "total": 120000
+     },
+     {
+      "category_id": "01M5N3R3NSVFNE0QJZZP1VJ2ZK",
+      "total": 6400
+     }
+    ],
+    "by_month": [
+     {
+      "month": "2026-07",
+      "total": 126400
+     }
+    ],
+    "by_member": [
+     {
+      "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+      "paid": 120000,
+      "share": 31600,
+      "shop_refunds": 0,
+      "given": 0,
+      "received": 0,
+      "owed_to": 0,
+      "owed_by": 0
+     },
+     {
+      "member_id": "01M5N3R3N5R8FE0EPSK19R63GM",
+      "paid": 0,
+      "share": 31600,
+      "shop_refunds": 0,
+      "given": 0,
+      "received": 0,
+      "owed_to": 0,
+      "owed_by": 0
+     },
+     {
+      "member_id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+      "paid": 6400,
+      "share": 31600,
+      "shop_refunds": 0,
+      "given": 0,
+      "received": 0,
+      "owed_to": 0,
+      "owed_by": 0
+     },
+     {
+      "member_id": "01M5N3R3NCR99091EQC99FDF8T",
+      "paid": 0,
+      "share": 31600,
+      "shop_refunds": 0,
+      "given": 0,
+      "received": 0,
+      "owed_to": 0,
+      "owed_by": 0
+     }
+    ],
+    "years": [
+     2026
+    ],
+    "months": [
+     {
+      "month": "2026-07",
+      "total": 126400
+     },
+     {
+      "month": "2026-08",
+      "total": 145252
+     },
+     {
+      "month": "2026-09",
+      "total": 158951
+     },
+     {
+      "month": "2026-10",
+      "total": 157900
+     }
+    ]
+   }
+  },
+  {
+   "request": {
+    "type": "shared_expenses/get_statistics",
+    "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+    "month": "2026-08"
+   },
+   "result": {
+    "total": 145252,
+    "count": 4,
+    "by_category": [
+     {
+      "category_id": "01M5N3R3NGV1QHX1TR3HZQWFXJ",
+      "total": 120000
+     },
+     {
+      "category_id": "01M5N3R3NM7D5FP3M4VWPPHFHP",
+      "total": 20452
+     },
+     {
+      "category_id": "01M5N3R3NX86J75ZJ9NJ62QG2V",
+      "total": 4800
+     }
+    ],
+    "by_month": [
+     {
+      "month": "2026-08",
+      "total": 145252
+     }
+    ],
+    "by_member": [
+     {
+      "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+      "paid": 15600,
+      "share": 36313,
+      "shop_refunds": 0,
+      "given": 0,
+      "received": 0,
+      "owed_to": 0,
+      "owed_by": 0
+     },
+     {
+      "member_id": "01M5N3R3N5R8FE0EPSK19R63GM",
+      "paid": 124852,
+      "share": 36313,
+      "shop_refunds": 0,
+      "given": 0,
+      "received": 0,
+      "owed_to": 0,
+      "owed_by": 0
+     },
+     {
+      "member_id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+      "paid": 0,
+      "share": 36313,
+      "shop_refunds": 0,
+      "given": 0,
+      "received": 0,
+      "owed_to": 0,
+      "owed_by": 0
+     },
+     {
+      "member_id": "01M5N3R3NCR99091EQC99FDF8T",
+      "paid": 4800,
+      "share": 36313,
+      "shop_refunds": 0,
+      "given": 0,
+      "received": 0,
+      "owed_to": 0,
+      "owed_by": 0
+     }
+    ],
+    "years": [
+     2026
+    ],
+    "months": [
+     {
+      "month": "2026-07",
+      "total": 126400
+     },
+     {
+      "month": "2026-08",
+      "total": 145252
+     },
+     {
+      "month": "2026-09",
+      "total": 158951
+     },
+     {
+      "month": "2026-10",
+      "total": 157900
+     }
+    ]
+   }
+  },
+  {
+   "request": {
+    "type": "shared_expenses/get_statistics",
+    "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+    "month": "2026-09"
+   },
+   "result": {
+    "total": 158951,
+    "count": 5,
+    "by_category": [
+     {
+      "category_id": "01M5N3R3NGV1QHX1TR3HZQWFXJ",
+      "total": 142411
+     },
+     {
+      "category_id": "01M5N3R3NM7D5FP3M4VWPPHFHP",
+      "total": 9340
+     },
+     {
+      "category_id": "01M5N3R3NSVFNE0QJZZP1VJ2ZK",
+      "total": 7200
+     }
+    ],
+    "by_month": [
+     {
+      "month": "2026-09",
+      "total": 158951
+     }
+    ],
+    "by_member": [
+     {
+      "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+      "paid": 15339,
+      "share": 39738,
+      "shop_refunds": 0,
+      "given": 0,
+      "received": 0,
+      "owed_to": 0,
+      "owed_by": 0
+     },
+     {
+      "member_id": "01M5N3R3N5R8FE0EPSK19R63GM",
+      "paid": 0,
+      "share": 39738,
+      "shop_refunds": 0,
+      "given": 0,
+      "received": 0,
+      "owed_to": 0,
+      "owed_by": 0
+     },
+     {
+      "member_id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+      "paid": 120000,
+      "share": 39737,
+      "shop_refunds": 0,
+      "given": 0,
+      "received": 0,
+      "owed_to": 0,
+      "owed_by": 0
+     },
+     {
+      "member_id": "01M5N3R3NCR99091EQC99FDF8T",
+      "paid": 23612,
+      "share": 39738,
+      "shop_refunds": 0,
+      "given": 0,
+      "received": 0,
+      "owed_to": 0,
+      "owed_by": 0
+     }
+    ],
+    "years": [
+     2026
+    ],
+    "months": [
+     {
+      "month": "2026-07",
+      "total": 126400
+     },
+     {
+      "month": "2026-08",
+      "total": 145252
+     },
+     {
+      "month": "2026-09",
+      "total": 158951
+     },
+     {
+      "month": "2026-10",
+      "total": 157900
+     }
+    ]
+   }
+  },
+  {
+   "request": {
+    "type": "shared_expenses/get_statistics",
+    "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+    "month": "2026-10"
+   },
+   "result": {
+    "total": 157900,
+    "count": 4,
+    "by_category": [
+     {
+      "category_id": "01M5N3R3NGV1QHX1TR3HZQWFXJ",
+      "total": 120000
+     },
+     {
+      "category_id": "01M5N3R3NX86J75ZJ9NJ62QG2V",
+      "total": 15600
+     },
+     {
+      "category_id": "01M5N3R3NM7D5FP3M4VWPPHFHP",
+      "total": 13460
+     },
+     {
+      "category_id": "01M5N3R3NSVFNE0QJZZP1VJ2ZK",
+      "total": 8840
+     }
+    ],
+    "by_month": [
+     {
+      "month": "2026-10",
+      "total": 157900
+     }
+    ],
+    "by_member": [
+     {
+      "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+      "paid": 13460,
+      "share": 42670,
+      "shop_refunds": 0,
+      "given": 0,
+      "received": 12000,
+      "owed_to": 0,
+      "owed_by": 0
+     },
+     {
+      "member_id": "01M5N3R3N5R8FE0EPSK19R63GM",
+      "paid": 8840,
+      "share": 41010,
+      "shop_refunds": 0,
+      "given": 0,
+      "received": 0,
+      "owed_to": 0,
+      "owed_by": 0
+     },
+     {
+      "member_id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+      "paid": 15600,
+      "share": 41010,
+      "shop_refunds": 0,
+      "given": 12000,
+      "received": 0,
+      "owed_to": 0,
+      "owed_by": 0
+     },
+     {
+      "member_id": "01M5N3R3NCR99091EQC99FDF8T",
+      "paid": 120000,
+      "share": 33210,
+      "shop_refunds": 0,
+      "given": 0,
+      "received": 0,
+      "owed_to": 0,
+      "owed_by": 0
+     }
+    ],
+    "years": [
+     2026
+    ],
+    "months": [
+     {
+      "month": "2026-07",
+      "total": 126400
+     },
+     {
+      "month": "2026-08",
+      "total": 145252
+     },
+     {
+      "month": "2026-09",
+      "total": 158951
+     },
+     {
+      "month": "2026-10",
+      "total": 157900
+     }
+    ]
+   }
+  },
+  {
+   "request": {
+    "type": "shared_expenses/get_statistics",
+    "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+    "year": 2026
+   },
+   "result": {
+    "total": 588503,
+    "count": 15,
+    "by_category": [
+     {
+      "category_id": "01M5N3R3NGV1QHX1TR3HZQWFXJ",
+      "total": 502411
+     },
+     {
+      "category_id": "01M5N3R3NM7D5FP3M4VWPPHFHP",
+      "total": 43252
+     },
+     {
+      "category_id": "01M5N3R3NSVFNE0QJZZP1VJ2ZK",
+      "total": 22440
+     },
+     {
+      "category_id": "01M5N3R3NX86J75ZJ9NJ62QG2V",
+      "total": 20400
+     }
+    ],
+    "by_month": [
+     {
+      "month": "2026-07",
+      "total": 126400
+     },
+     {
+      "month": "2026-08",
+      "total": 145252
+     },
+     {
+      "month": "2026-09",
+      "total": 158951
+     },
+     {
+      "month": "2026-10",
+      "total": 157900
+     }
+    ],
+    "by_member": [
+     {
+      "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+      "paid": 164399,
+      "share": 150321,
+      "shop_refunds": 0,
+      "given": 0,
+      "received": 12000,
+      "owed_to": 0,
+      "owed_by": 0
+     },
+     {
+      "member_id": "01M5N3R3N5R8FE0EPSK19R63GM",
+      "paid": 133692,
+      "share": 148661,
+      "shop_refunds": 0,
+      "given": 0,
+      "received": 0,
+      "owed_to": 0,
+      "owed_by": 0
+     },
+     {
+      "member_id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+      "paid": 142000,
+      "share": 148660,
+      "shop_refunds": 0,
+      "given": 12000,
+      "received": 0,
+      "owed_to": 0,
+      "owed_by": 0
+     },
+     {
+      "member_id": "01M5N3R3NCR99091EQC99FDF8T",
+      "paid": 148412,
+      "share": 140861,
+      "shop_refunds": 0,
+      "given": 0,
+      "received": 0,
+      "owed_to": 0,
+      "owed_by": 0
+     }
+    ],
+    "years": [
+     2026
+    ],
+    "months": [
+     {
+      "month": "2026-07",
+      "total": 126400
+     },
+     {
+      "month": "2026-08",
+      "total": 145252
+     },
+     {
+      "month": "2026-09",
+      "total": 158951
+     },
+     {
+      "month": "2026-10",
+      "total": 157900
+     }
+    ]
+   }
+  },
+  {
+   "request": {
+    "type": "shared_expenses/get_group",
+    "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7"
+   },
+   "result": {
+    "id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+    "name": "Weekend in London",
+    "description": "Two of us, October 2026",
+    "currency": "USD",
+    "icon": null,
+    "color": "#c98b3e",
+    "archived": false,
+    "exposed": false,
+    "created_at": "2026-10-23T19:28:03.349202+00:00",
+    "split_rule": null,
+    "default_category_id": null,
+    "permissions": [
+     "edit_others",
+     "manage_categories",
+     "manage_group",
+     "manage_members"
+    ]
+   }
+  },
+  {
+   "request": {
+    "type": "shared_expenses/get_balances",
+    "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7"
+   },
+   "result": {
+    "balances": [
+     {
+      "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+      "amount": 13726
+     },
+     {
+      "member_id": "01M5N3R3RX7SAKG78WJBHAGFJK",
+      "amount": -13726
+     }
+    ],
+    "settlements": [
+     {
+      "from_member_id": "01M5N3R3RX7SAKG78WJBHAGFJK",
+      "to_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+      "amount": 13726
+     }
+    ]
+   }
+  },
+  {
+   "request": {
+    "type": "shared_expenses/list_members",
+    "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+    "include_left": false
+   },
+   "result": [
+    {
+     "id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "name": "Alex",
+     "color": "#5f7a3d",
+     "use_ha_avatar": true,
+     "created_at": "2026-10-23T19:28:03.227699+00:00"
+    },
+    {
+     "id": "01M5N3R3RX7SAKG78WJBHAGFJK",
+     "user_id": null,
+     "name": "Antonin",
+     "color": "#8b5fbf",
+     "use_ha_avatar": false,
+     "created_at": "2026-10-23T19:28:03.357298+00:00"
+    }
+   ]
+  },
+  {
+   "request": {
+    "type": "shared_expenses/list_members",
+    "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+    "include_left": true
+   },
+   "result": [
+    {
+     "id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "name": "Alex",
+     "color": "#5f7a3d",
+     "use_ha_avatar": true,
+     "created_at": "2026-10-23T19:28:03.227699+00:00"
+    },
+    {
+     "id": "01M5N3R3RX7SAKG78WJBHAGFJK",
+     "user_id": null,
+     "name": "Antonin",
+     "color": "#8b5fbf",
+     "use_ha_avatar": false,
+     "created_at": "2026-10-23T19:28:03.357298+00:00"
+    }
+   ]
+  },
+  {
+   "request": {
+    "type": "shared_expenses/list_memberships",
+    "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7"
+   },
+   "result": [
+    {
+     "id": "01M5N3R3RNEZK7YXQWNKESW2T8",
+     "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+     "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "role": "admin",
+     "joined_at": "2026-10-23T19:28:03.349202+00:00",
+     "left_at": null,
+     "created_at": "2026-10-23T19:28:03.349202+00:00"
+    },
+    {
+     "id": "01M5N3R3RX7SAKG78WJBHAGFJM",
+     "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+     "member_id": "01M5N3R3RX7SAKG78WJBHAGFJK",
+     "role": "member",
+     "joined_at": "2026-10-23T19:28:03.357298+00:00",
+     "left_at": null,
+     "created_at": "2026-10-23T19:28:03.357298+00:00"
+    }
+   ]
+  },
+  {
+   "request": {
+    "type": "shared_expenses/list_categories",
+    "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7"
+   },
+   "result": [
+    {
+     "id": "01M5N3R3S4NN37H8F9Q55BV30D",
+     "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+     "name": "Attractions",
+     "icon": "mdi:ticket",
+     "color": "#8b5fbf",
+     "created_at": "2026-10-23T19:28:03.364983+00:00",
+     "split_rule": null
+    },
+    {
+     "id": "01M5N3R3S8EBCMYRNFZV4M0V71",
+     "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+     "name": "Dining Out",
+     "icon": "mdi:silverware-fork-knife",
+     "color": "#c98b3e",
+     "created_at": "2026-10-23T19:28:03.368538+00:00",
+     "split_rule": null
+    },
+    {
+     "id": "01M5N3R3SC65VQFP7XPKP7G5TG",
+     "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+     "name": "Hotel",
+     "icon": "mdi:bed",
+     "color": "#5c6b8a",
+     "created_at": "2026-10-23T19:28:03.372130+00:00",
+     "split_rule": null
+    },
+    {
+     "id": "01M5N3R3S1RHHZMRAD6CGY7X6N",
+     "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+     "name": "Transport",
+     "icon": "mdi:taxi",
+     "color": "#3f7cac",
+     "created_at": "2026-10-23T19:28:03.361207+00:00",
+     "split_rule": null
+    }
+   ]
+  },
+  {
+   "request": {
+    "type": "shared_expenses/list_expenses",
+    "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+    "with_shares": true
+   },
+   "result": [
+    {
+     "id": "01M5N3R3T9ZAHFXQMRP0M4CY6J",
+     "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+     "category_id": "01M5N3R3S1RHHZMRAD6CGY7X6N",
+     "title": "Airport taxi",
+     "description": null,
+     "amount": 4600,
+     "currency": "GBP",
+     "paid_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "expense_date": "2026-10-12T10:00:00+00:00",
+     "created_at": "2026-10-23T19:28:03.401495+00:00",
+     "created_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "converted_amount": 5842,
+     "exchange_rate": 1270000,
+     "rate_as_of": "2026-10-12",
+     "refund_of": null,
+     "split_rule": {
+      "envelope": null,
+      "participants": [
+       "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "01M5N3R3RX7SAKG78WJBHAGFJK"
+      ],
+      "remainder": {
+       "members": [
+        "01M5N3R3MWTH1D4GNMNDJA1TN7"
+       ],
+       "fixed": {},
+       "percent": {}
+      }
+     },
+     "shares": [
+      {
+       "id": "01M5N3R3T9ZAHFXQMRP0M4CY6K",
+       "expense_id": "01M5N3R3T9ZAHFXQMRP0M4CY6J",
+       "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "amount": 2921,
+       "created_at": "2026-10-23T19:28:03.401495+00:00"
+      },
+      {
+       "id": "01M5N3R3T9ZAHFXQMRP0M4CY6M",
+       "expense_id": "01M5N3R3T9ZAHFXQMRP0M4CY6J",
+       "member_id": "01M5N3R3RX7SAKG78WJBHAGFJK",
+       "amount": 2921,
+       "created_at": "2026-10-23T19:28:03.401495+00:00"
+      }
+     ]
+    },
+    {
+     "id": "01M5N3R3T3JJNK8E9656EEX4B9",
+     "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+     "category_id": "01M5N3R3S4NN37H8F9Q55BV30D",
+     "title": "West End show",
+     "description": "Two tickets",
+     "amount": 18000,
+     "currency": "USD",
+     "paid_by_member_id": "01M5N3R3RX7SAKG78WJBHAGFJK",
+     "expense_date": "2026-10-11T10:00:00+00:00",
+     "created_at": "2026-10-23T19:28:03.395909+00:00",
+     "created_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "converted_amount": 18000,
+     "exchange_rate": 1000000,
+     "rate_as_of": null,
+     "refund_of": null,
+     "split_rule": {
+      "envelope": null,
+      "participants": [
+       "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "01M5N3R3RX7SAKG78WJBHAGFJK"
+      ],
+      "remainder": {
+       "members": [
+        "01M5N3R3RX7SAKG78WJBHAGFJK"
+       ],
+       "fixed": {},
+       "percent": {}
+      }
+     },
+     "shares": [
+      {
+       "id": "01M5N3R3T4BNA6GR1845RS77J5",
+       "expense_id": "01M5N3R3T3JJNK8E9656EEX4B9",
+       "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "amount": 9000,
+       "created_at": "2026-10-23T19:28:03.395909+00:00"
+      },
+      {
+       "id": "01M5N3R3T4BNA6GR1845RS77J6",
+       "expense_id": "01M5N3R3T3JJNK8E9656EEX4B9",
+       "member_id": "01M5N3R3RX7SAKG78WJBHAGFJK",
+       "amount": 9000,
+       "created_at": "2026-10-23T19:28:03.395909+00:00"
+      }
+     ]
+    },
+    {
+     "id": "01M5N3R3SY0ZTFZY3KVE2ZFM96",
+     "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+     "category_id": "01M5N3R3S8EBCMYRNFZV4M0V71",
+     "title": "Dinner in Soho",
+     "description": null,
+     "amount": 14500,
+     "currency": "USD",
+     "paid_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "expense_date": "2026-10-10T10:00:00+00:00",
+     "created_at": "2026-10-23T19:28:03.390670+00:00",
+     "created_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "converted_amount": 14500,
+     "exchange_rate": 1000000,
+     "rate_as_of": null,
+     "refund_of": null,
+     "split_rule": {
+      "envelope": null,
+      "participants": [
+       "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "01M5N3R3RX7SAKG78WJBHAGFJK"
+      ],
+      "remainder": {
+       "members": [
+        "01M5N3R3MWTH1D4GNMNDJA1TN7"
+       ],
+       "fixed": {},
+       "percent": {}
+      }
+     },
+     "shares": [
+      {
+       "id": "01M5N3R3SZVA0Y01DM3MCKX6HW",
+       "expense_id": "01M5N3R3SY0ZTFZY3KVE2ZFM96",
+       "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "amount": 7250,
+       "created_at": "2026-10-23T19:28:03.390670+00:00"
+      },
+      {
+       "id": "01M5N3R3SZVA0Y01DM3MCKX6HX",
+       "expense_id": "01M5N3R3SY0ZTFZY3KVE2ZFM96",
+       "member_id": "01M5N3R3RX7SAKG78WJBHAGFJK",
+       "amount": 7250,
+       "created_at": "2026-10-23T19:28:03.390670+00:00"
+      }
+     ]
+    },
+    {
+     "id": "01M5N3R3SSACYGM8FSV4NPCRCP",
+     "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+     "category_id": "01M5N3R3S4NN37H8F9Q55BV30D",
+     "title": "British Museum shop",
+     "description": null,
+     "amount": 3200,
+     "currency": "GBP",
+     "paid_by_member_id": "01M5N3R3RX7SAKG78WJBHAGFJK",
+     "expense_date": "2026-10-10T10:00:00+00:00",
+     "created_at": "2026-10-23T19:28:03.385550+00:00",
+     "created_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "converted_amount": 4064,
+     "exchange_rate": 1270000,
+     "rate_as_of": "2026-10-10",
+     "refund_of": null,
+     "split_rule": {
+      "envelope": null,
+      "participants": [
+       "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "01M5N3R3RX7SAKG78WJBHAGFJK"
+      ],
+      "remainder": {
+       "members": [
+        "01M5N3R3RX7SAKG78WJBHAGFJK"
+       ],
+       "fixed": {},
+       "percent": {}
+      }
+     },
+     "shares": [
+      {
+       "id": "01M5N3R3SSACYGM8FSV4NPCRCQ",
+       "expense_id": "01M5N3R3SSACYGM8FSV4NPCRCP",
+       "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "amount": 2032,
+       "created_at": "2026-10-23T19:28:03.385550+00:00"
+      },
+      {
+       "id": "01M5N3R3SSACYGM8FSV4NPCRCR",
+       "expense_id": "01M5N3R3SSACYGM8FSV4NPCRCP",
+       "member_id": "01M5N3R3RX7SAKG78WJBHAGFJK",
+       "amount": 2032,
+       "created_at": "2026-10-23T19:28:03.385550+00:00"
+      }
+     ]
+    },
+    {
+     "id": "01M5N3R3SMA9D45MSEFPXN7BRE",
+     "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+     "category_id": "01M5N3R3S8EBCMYRNFZV4M0V71",
+     "title": "Pub in Camden",
+     "description": "Pints + fish & chips",
+     "amount": 3800,
+     "currency": "GBP",
+     "paid_by_member_id": "01M5N3R3RX7SAKG78WJBHAGFJK",
+     "expense_date": "2026-10-10T10:00:00+00:00",
+     "created_at": "2026-10-23T19:28:03.380562+00:00",
+     "created_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "converted_amount": 4826,
+     "exchange_rate": 1270000,
+     "rate_as_of": "2026-10-10",
+     "refund_of": null,
+     "split_rule": {
+      "envelope": null,
+      "participants": [
+       "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "01M5N3R3RX7SAKG78WJBHAGFJK"
+      ],
+      "remainder": {
+       "members": [
+        "01M5N3R3RX7SAKG78WJBHAGFJK"
+       ],
+       "fixed": {},
+       "percent": {}
+      }
+     },
+     "shares": [
+      {
+       "id": "01M5N3R3SMA9D45MSEFPXN7BRF",
+       "expense_id": "01M5N3R3SMA9D45MSEFPXN7BRE",
+       "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "amount": 2413,
+       "created_at": "2026-10-23T19:28:03.380562+00:00"
+      },
+      {
+       "id": "01M5N3R3SMA9D45MSEFPXN7BRG",
+       "expense_id": "01M5N3R3SMA9D45MSEFPXN7BRE",
+       "member_id": "01M5N3R3RX7SAKG78WJBHAGFJK",
+       "amount": 2413,
+       "created_at": "2026-10-23T19:28:03.380562+00:00"
+      }
+     ]
+    },
+    {
+     "id": "01M5N3R3SFJZX15ZZ0CCM0D1QP",
+     "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+     "category_id": "01M5N3R3SC65VQFP7XPKP7G5TG",
+     "title": "Hotel, two nights",
+     "description": null,
+     "amount": 64000,
+     "currency": "USD",
+     "paid_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "expense_date": "2026-10-09T10:00:00+00:00",
+     "created_at": "2026-10-23T19:28:03.375580+00:00",
+     "created_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "converted_amount": 64000,
+     "exchange_rate": 1000000,
+     "rate_as_of": null,
+     "refund_of": null,
+     "split_rule": {
+      "envelope": null,
+      "participants": [
+       "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "01M5N3R3RX7SAKG78WJBHAGFJK"
+      ],
+      "remainder": {
+       "members": [
+        "01M5N3R3MWTH1D4GNMNDJA1TN7"
+       ],
+       "fixed": {},
+       "percent": {}
+      }
+     },
+     "shares": [
+      {
+       "id": "01M5N3R3SFJZX15ZZ0CCM0D1QQ",
+       "expense_id": "01M5N3R3SFJZX15ZZ0CCM0D1QP",
+       "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+       "amount": 32000,
+       "created_at": "2026-10-23T19:28:03.375580+00:00"
+      },
+      {
+       "id": "01M5N3R3SFJZX15ZZ0CCM0D1QR",
+       "expense_id": "01M5N3R3SFJZX15ZZ0CCM0D1QP",
+       "member_id": "01M5N3R3RX7SAKG78WJBHAGFJK",
+       "amount": 32000,
+       "created_at": "2026-10-23T19:28:03.375580+00:00"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "request": {
+    "type": "shared_expenses/list_payments",
+    "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7"
+   },
+   "result": [
+    {
+     "id": "01M5N3R3TEWA2B3G8QRQ49G1SB",
+     "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+     "description": "Settling the trip",
+     "from_member_id": "01M5N3R3RX7SAKG78WJBHAGFJK",
+     "to_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "amount": 15000,
+     "currency": "USD",
+     "payment_date": "2026-10-13T10:00:00+00:00",
+     "created_at": "2026-10-23T19:28:03.406899+00:00",
+     "kind": "reimbursement",
+     "expense_id": null,
+     "created_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "converted_amount": 15000,
+     "exchange_rate": 1000000,
+     "rate_as_of": null
+    }
+   ]
+  },
+  {
+   "request": {
+    "type": "shared_expenses/list_revisions",
+    "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7"
+   },
+   "result": [
+    {
+     "id": "01M5N3R3TFHT68NE8PF1M174E8",
+     "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+     "entity_type": "payment",
+     "entity_id": "01M5N3R3TEWA2B3G8QRQ49G1SB",
+     "entity_label": null,
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "description",
+       "before": null,
+       "after": "Settling the trip"
+      },
+      {
+       "field": "amount",
+       "before": null,
+       "after": 15000
+      },
+      {
+       "field": "currency",
+       "before": null,
+       "after": "USD"
+      },
+      {
+       "field": "from_member_id",
+       "before": null,
+       "after": "01M5N3R3RX7SAKG78WJBHAGFJK"
+      },
+      {
+       "field": "to_member_id",
+       "before": null,
+       "after": "01M5N3R3MWTH1D4GNMNDJA1TN7"
+      },
+      {
+       "field": "payment_date",
+       "before": null,
+       "after": "2026-10-13T10:00:00+00:00"
+      },
+      {
+       "field": "kind",
+       "before": null,
+       "after": "reimbursement"
+      },
+      {
+       "field": "converted_amount",
+       "before": null,
+       "after": 15000
+      },
+      {
+       "field": "expense_id",
+       "before": null,
+       "after": null
+      }
+     ],
+     "at": "2026-10-23T19:28:03.407619+00:00"
+    },
+    {
+     "id": "01M5N3R3TAXETHGXK68EZYH9EK",
+     "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+     "entity_type": "expense",
+     "entity_id": "01M5N3R3T9ZAHFXQMRP0M4CY6J",
+     "entity_label": "Airport taxi",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "title",
+       "before": null,
+       "after": "Airport taxi"
+      },
+      {
+       "field": "description",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "amount",
+       "before": null,
+       "after": 4600
+      },
+      {
+       "field": "currency",
+       "before": null,
+       "after": "GBP"
+      },
+      {
+       "field": "paid_by_member_id",
+       "before": null,
+       "after": "01M5N3R3MWTH1D4GNMNDJA1TN7"
+      },
+      {
+       "field": "expense_date",
+       "before": null,
+       "after": "2026-10-12T10:00:00+00:00"
+      },
+      {
+       "field": "category_id",
+       "before": null,
+       "after": "01M5N3R3S1RHHZMRAD6CGY7X6N"
+      },
+      {
+       "field": "refund_of",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "shares",
+       "before": null,
+       "after": {
+        "01M5N3R3MWTH1D4GNMNDJA1TN7": 2921,
+        "01M5N3R3RX7SAKG78WJBHAGFJK": 2921
+       }
+      }
+     ],
+     "at": "2026-10-23T19:28:03.402483+00:00"
+    },
+    {
+     "id": "01M5N3R3T5BF4ER48HD1X2VCMM",
+     "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+     "entity_type": "expense",
+     "entity_id": "01M5N3R3T3JJNK8E9656EEX4B9",
+     "entity_label": "West End show",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "title",
+       "before": null,
+       "after": "West End show"
+      },
+      {
+       "field": "description",
+       "before": null,
+       "after": "Two tickets"
+      },
+      {
+       "field": "amount",
+       "before": null,
+       "after": 18000
+      },
+      {
+       "field": "currency",
+       "before": null,
+       "after": "USD"
+      },
+      {
+       "field": "paid_by_member_id",
+       "before": null,
+       "after": "01M5N3R3RX7SAKG78WJBHAGFJK"
+      },
+      {
+       "field": "expense_date",
+       "before": null,
+       "after": "2026-10-11T10:00:00+00:00"
+      },
+      {
+       "field": "category_id",
+       "before": null,
+       "after": "01M5N3R3S4NN37H8F9Q55BV30D"
+      },
+      {
+       "field": "refund_of",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "shares",
+       "before": null,
+       "after": {
+        "01M5N3R3MWTH1D4GNMNDJA1TN7": 9000,
+        "01M5N3R3RX7SAKG78WJBHAGFJK": 9000
+       }
+      }
+     ],
+     "at": "2026-10-23T19:28:03.397021+00:00"
+    },
+    {
+     "id": "01M5N3R3SZVA0Y01DM3MCKX6HY",
+     "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+     "entity_type": "expense",
+     "entity_id": "01M5N3R3SY0ZTFZY3KVE2ZFM96",
+     "entity_label": "Dinner in Soho",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "title",
+       "before": null,
+       "after": "Dinner in Soho"
+      },
+      {
+       "field": "description",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "amount",
+       "before": null,
+       "after": 14500
+      },
+      {
+       "field": "currency",
+       "before": null,
+       "after": "USD"
+      },
+      {
+       "field": "paid_by_member_id",
+       "before": null,
+       "after": "01M5N3R3MWTH1D4GNMNDJA1TN7"
+      },
+      {
+       "field": "expense_date",
+       "before": null,
+       "after": "2026-10-10T10:00:00+00:00"
+      },
+      {
+       "field": "category_id",
+       "before": null,
+       "after": "01M5N3R3S8EBCMYRNFZV4M0V71"
+      },
+      {
+       "field": "refund_of",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "shares",
+       "before": null,
+       "after": {
+        "01M5N3R3MWTH1D4GNMNDJA1TN7": 7250,
+        "01M5N3R3RX7SAKG78WJBHAGFJK": 7250
+       }
+      }
+     ],
+     "at": "2026-10-23T19:28:03.391586+00:00"
+    },
+    {
+     "id": "01M5N3R3STW4GMHTBC10MV8ZXZ",
+     "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+     "entity_type": "expense",
+     "entity_id": "01M5N3R3SSACYGM8FSV4NPCRCP",
+     "entity_label": "British Museum shop",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "title",
+       "before": null,
+       "after": "British Museum shop"
+      },
+      {
+       "field": "description",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "amount",
+       "before": null,
+       "after": 3200
+      },
+      {
+       "field": "currency",
+       "before": null,
+       "after": "GBP"
+      },
+      {
+       "field": "paid_by_member_id",
+       "before": null,
+       "after": "01M5N3R3RX7SAKG78WJBHAGFJK"
+      },
+      {
+       "field": "expense_date",
+       "before": null,
+       "after": "2026-10-10T10:00:00+00:00"
+      },
+      {
+       "field": "category_id",
+       "before": null,
+       "after": "01M5N3R3S4NN37H8F9Q55BV30D"
+      },
+      {
+       "field": "refund_of",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "shares",
+       "before": null,
+       "after": {
+        "01M5N3R3MWTH1D4GNMNDJA1TN7": 2032,
+        "01M5N3R3RX7SAKG78WJBHAGFJK": 2032
+       }
+      }
+     ],
+     "at": "2026-10-23T19:28:03.386457+00:00"
+    },
+    {
+     "id": "01M5N3R3SNJ8KMKW875DJ1DD20",
+     "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+     "entity_type": "expense",
+     "entity_id": "01M5N3R3SMA9D45MSEFPXN7BRE",
+     "entity_label": "Pub in Camden",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "title",
+       "before": null,
+       "after": "Pub in Camden"
+      },
+      {
+       "field": "description",
+       "before": null,
+       "after": "Pints + fish & chips"
+      },
+      {
+       "field": "amount",
+       "before": null,
+       "after": 3800
+      },
+      {
+       "field": "currency",
+       "before": null,
+       "after": "GBP"
+      },
+      {
+       "field": "paid_by_member_id",
+       "before": null,
+       "after": "01M5N3R3RX7SAKG78WJBHAGFJK"
+      },
+      {
+       "field": "expense_date",
+       "before": null,
+       "after": "2026-10-10T10:00:00+00:00"
+      },
+      {
+       "field": "category_id",
+       "before": null,
+       "after": "01M5N3R3S8EBCMYRNFZV4M0V71"
+      },
+      {
+       "field": "refund_of",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "shares",
+       "before": null,
+       "after": {
+        "01M5N3R3MWTH1D4GNMNDJA1TN7": 2413,
+        "01M5N3R3RX7SAKG78WJBHAGFJK": 2413
+       }
+      }
+     ],
+     "at": "2026-10-23T19:28:03.381502+00:00"
+    },
+    {
+     "id": "01M5N3R3SGV4S3WRA4M4MZR0MP",
+     "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+     "entity_type": "expense",
+     "entity_id": "01M5N3R3SFJZX15ZZ0CCM0D1QP",
+     "entity_label": "Hotel, two nights",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "title",
+       "before": null,
+       "after": "Hotel, two nights"
+      },
+      {
+       "field": "description",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "amount",
+       "before": null,
+       "after": 64000
+      },
+      {
+       "field": "currency",
+       "before": null,
+       "after": "USD"
+      },
+      {
+       "field": "paid_by_member_id",
+       "before": null,
+       "after": "01M5N3R3MWTH1D4GNMNDJA1TN7"
+      },
+      {
+       "field": "expense_date",
+       "before": null,
+       "after": "2026-10-09T10:00:00+00:00"
+      },
+      {
+       "field": "category_id",
+       "before": null,
+       "after": "01M5N3R3SC65VQFP7XPKP7G5TG"
+      },
+      {
+       "field": "refund_of",
+       "before": null,
+       "after": null
+      },
+      {
+       "field": "shares",
+       "before": null,
+       "after": {
+        "01M5N3R3MWTH1D4GNMNDJA1TN7": 32000,
+        "01M5N3R3RX7SAKG78WJBHAGFJK": 32000
+       }
+      }
+     ],
+     "at": "2026-10-23T19:28:03.376498+00:00"
+    },
+    {
+     "id": "01M5N3R3SC65VQFP7XPKP7G5TH",
+     "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+     "entity_type": "category",
+     "entity_id": "01M5N3R3SC65VQFP7XPKP7G5TG",
+     "entity_label": "Hotel",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "name",
+       "before": null,
+       "after": "Hotel"
+      },
+      {
+       "field": "icon",
+       "before": null,
+       "after": "mdi:bed"
+      },
+      {
+       "field": "color",
+       "before": null,
+       "after": "#5c6b8a"
+      },
+      {
+       "field": "split_rule",
+       "before": null,
+       "after": null
+      }
+     ],
+     "at": "2026-10-23T19:28:03.372381+00:00"
+    },
+    {
+     "id": "01M5N3R3S8EBCMYRNFZV4M0V72",
+     "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+     "entity_type": "category",
+     "entity_id": "01M5N3R3S8EBCMYRNFZV4M0V71",
+     "entity_label": "Dining Out",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "name",
+       "before": null,
+       "after": "Dining Out"
+      },
+      {
+       "field": "icon",
+       "before": null,
+       "after": "mdi:silverware-fork-knife"
+      },
+      {
+       "field": "color",
+       "before": null,
+       "after": "#c98b3e"
+      },
+      {
+       "field": "split_rule",
+       "before": null,
+       "after": null
+      }
+     ],
+     "at": "2026-10-23T19:28:03.368793+00:00"
+    },
+    {
+     "id": "01M5N3R3S59R9MAW46JGWGDKY0",
+     "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+     "entity_type": "category",
+     "entity_id": "01M5N3R3S4NN37H8F9Q55BV30D",
+     "entity_label": "Attractions",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "name",
+       "before": null,
+       "after": "Attractions"
+      },
+      {
+       "field": "icon",
+       "before": null,
+       "after": "mdi:ticket"
+      },
+      {
+       "field": "color",
+       "before": null,
+       "after": "#8b5fbf"
+      },
+      {
+       "field": "split_rule",
+       "before": null,
+       "after": null
+      }
+     ],
+     "at": "2026-10-23T19:28:03.365288+00:00"
+    },
+    {
+     "id": "01M5N3R3S1RHHZMRAD6CGY7X6P",
+     "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+     "entity_type": "category",
+     "entity_id": "01M5N3R3S1RHHZMRAD6CGY7X6N",
+     "entity_label": "Transport",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "name",
+       "before": null,
+       "after": "Transport"
+      },
+      {
+       "field": "icon",
+       "before": null,
+       "after": "mdi:taxi"
+      },
+      {
+       "field": "color",
+       "before": null,
+       "after": "#3f7cac"
+      },
+      {
+       "field": "split_rule",
+       "before": null,
+       "after": null
+      }
+     ],
+     "at": "2026-10-23T19:28:03.361511+00:00"
+    },
+    {
+     "id": "01M5N3R3RX7SAKG78WJBHAGFJN",
+     "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+     "entity_type": "member",
+     "entity_id": "01M5N3R3RX7SAKG78WJBHAGFJK",
+     "entity_label": "Antonin",
+     "action": "created",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "name",
+       "before": null,
+       "after": "Antonin"
+      },
+      {
+       "field": "color",
+       "before": null,
+       "after": "#8b5fbf"
+      },
+      {
+       "field": "use_ha_avatar",
+       "before": null,
+       "after": false
+      },
+      {
+       "field": "role",
+       "before": null,
+       "after": "member"
+      }
+     ],
+     "at": "2026-10-23T19:28:03.357755+00:00"
+    },
+    {
+     "id": "01M5N3R3RTKM64YE929CWTC7FG",
+     "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+     "entity_type": "member",
+     "entity_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "entity_label": "Alex",
+     "action": "updated",
+     "actor_user_id": "417341e0a3e746fc8f07a5c053176a11",
+     "changes": [
+      {
+       "field": "color",
+       "before": "#5c6b8a",
+       "after": "#5f7a3d"
+      }
+     ],
+     "at": "2026-10-23T19:28:03.354336+00:00"
+    }
+   ]
+  },
+  {
+   "request": {
+    "type": "shared_expenses/get_statistics",
+    "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7"
+   },
+   "result": {
+    "total": 111232,
+    "count": 6,
+    "by_category": [
+     {
+      "category_id": "01M5N3R3SC65VQFP7XPKP7G5TG",
+      "total": 64000
+     },
+     {
+      "category_id": "01M5N3R3S4NN37H8F9Q55BV30D",
+      "total": 22064
+     },
+     {
+      "category_id": "01M5N3R3S8EBCMYRNFZV4M0V71",
+      "total": 19326
+     },
+     {
+      "category_id": "01M5N3R3S1RHHZMRAD6CGY7X6N",
+      "total": 5842
+     }
+    ],
+    "by_month": [
+     {
+      "month": "2026-10",
+      "total": 111232
+     }
+    ],
+    "by_member": [
+     {
+      "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+      "paid": 84342,
+      "share": 55616,
+      "shop_refunds": 0,
+      "given": 0,
+      "received": 15000,
+      "owed_to": 0,
+      "owed_by": 0
+     },
+     {
+      "member_id": "01M5N3R3RX7SAKG78WJBHAGFJK",
+      "paid": 26890,
+      "share": 55616,
+      "shop_refunds": 0,
+      "given": 15000,
+      "received": 0,
+      "owed_to": 0,
+      "owed_by": 0
+     }
+    ],
+    "years": [
+     2026
+    ],
+    "months": [
+     {
+      "month": "2026-10",
+      "total": 111232
+     }
+    ]
+   }
+  },
+  {
+   "request": {
+    "type": "shared_expenses/get_statistics",
+    "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+    "month": "2026-10"
+   },
+   "result": {
+    "total": 111232,
+    "count": 6,
+    "by_category": [
+     {
+      "category_id": "01M5N3R3SC65VQFP7XPKP7G5TG",
+      "total": 64000
+     },
+     {
+      "category_id": "01M5N3R3S4NN37H8F9Q55BV30D",
+      "total": 22064
+     },
+     {
+      "category_id": "01M5N3R3S8EBCMYRNFZV4M0V71",
+      "total": 19326
+     },
+     {
+      "category_id": "01M5N3R3S1RHHZMRAD6CGY7X6N",
+      "total": 5842
+     }
+    ],
+    "by_month": [
+     {
+      "month": "2026-10",
+      "total": 111232
+     }
+    ],
+    "by_member": [
+     {
+      "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+      "paid": 84342,
+      "share": 55616,
+      "shop_refunds": 0,
+      "given": 0,
+      "received": 15000,
+      "owed_to": 0,
+      "owed_by": 0
+     },
+     {
+      "member_id": "01M5N3R3RX7SAKG78WJBHAGFJK",
+      "paid": 26890,
+      "share": 55616,
+      "shop_refunds": 0,
+      "given": 15000,
+      "received": 0,
+      "owed_to": 0,
+      "owed_by": 0
+     }
+    ],
+    "years": [
+     2026
+    ],
+    "months": [
+     {
+      "month": "2026-10",
+      "total": 111232
+     }
+    ]
+   }
+  },
+  {
+   "request": {
+    "type": "shared_expenses/get_statistics",
+    "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7",
+    "year": 2026
+   },
+   "result": {
+    "total": 111232,
+    "count": 6,
+    "by_category": [
+     {
+      "category_id": "01M5N3R3SC65VQFP7XPKP7G5TG",
+      "total": 64000
+     },
+     {
+      "category_id": "01M5N3R3S4NN37H8F9Q55BV30D",
+      "total": 22064
+     },
+     {
+      "category_id": "01M5N3R3S8EBCMYRNFZV4M0V71",
+      "total": 19326
+     },
+     {
+      "category_id": "01M5N3R3S1RHHZMRAD6CGY7X6N",
+      "total": 5842
+     }
+    ],
+    "by_month": [
+     {
+      "month": "2026-10",
+      "total": 111232
+     }
+    ],
+    "by_member": [
+     {
+      "member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+      "paid": 84342,
+      "share": 55616,
+      "shop_refunds": 0,
+      "given": 0,
+      "received": 15000,
+      "owed_to": 0,
+      "owed_by": 0
+     },
+     {
+      "member_id": "01M5N3R3RX7SAKG78WJBHAGFJK",
+      "paid": 26890,
+      "share": 55616,
+      "shop_refunds": 0,
+      "given": 15000,
+      "received": 0,
+      "owed_to": 0,
+      "owed_by": 0
+     }
+    ],
+    "years": [
+     2026
+    ],
+    "months": [
+     {
+      "month": "2026-10",
+      "total": 111232
+     }
+    ]
+   }
+  }
+ ]
+}

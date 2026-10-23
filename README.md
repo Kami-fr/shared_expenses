@@ -192,7 +192,8 @@ ruff check .
 
 cd frontend
 npm ci
-npm test                      # the panel's pure helpers, with Vitest
+npx playwright install chromium
+npm test                      # the panel's helpers, and its layout on a phone
 npm run build                 # writes custom_components/shared_expenses/www
 ```
 
