@@ -51,7 +51,7 @@ directory, restart Home Assistant, then add the integration as in step 2.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/Kami-fr/shared_expenses/main/docs/screenshots/01-groups.jpg" width="176" alt="Your groups, one tap in" title="Your groups, one tap in">&nbsp;
-  <img src="https://raw.githubusercontent.com/Kami-fr/shared_expenses/main/docs/screenshots/02-balances.jpg" width="176" alt="Who owes what, from where you stand" title="Who owes what, from where you stand">&nbsp;
+  <img src="https://raw.githubusercontent.com/Kami-fr/shared_expenses/main/docs/screenshots/02-balances.jpg" width="176" alt="What is due to confirm, and who owes what from where you stand" title="What is due to confirm, and who owes what from where you stand">&nbsp;
   <img src="https://raw.githubusercontent.com/Kami-fr/shared_expenses/main/docs/screenshots/03-trip-currency.jpg" width="176" alt="Two of you, in a currency the group doesn't count in" title="Two of you, in a currency the group doesn't count in">&nbsp;
   <img src="https://raw.githubusercontent.com/Kami-fr/shared_expenses/main/docs/screenshots/04-split-part.jpg" width="176" alt="Share part of it, the rest to whoever paid" title="Share part of it, the rest to whoever paid">
 </p>
