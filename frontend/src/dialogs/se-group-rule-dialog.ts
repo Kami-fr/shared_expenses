@@ -64,12 +64,6 @@ export class SeGroupRuleDialog extends LitElement {
         font-size: 14px;
       }
 
-      .switch input {
-        width: 20px;
-        height: 20px;
-        accent-color: var(--primary-color, #03a9f4);
-      }
-
       .switch input[disabled] {
         cursor: default;
       }

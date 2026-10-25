@@ -12,7 +12,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .clients.frankfurter import fetch_rate
-from .const import EVENT_CHANGED, SIGNAL_GROUP_CHANGED
+from .const import EVENT_CHANGED, EVENT_RECURRING_DUE, SIGNAL_GROUP_CHANGED
 from .exceptions import (
     AdminNeedsAccountError,
     CannotRemoveAdminError,
@@ -25,11 +25,13 @@ from .exceptions import (
     InvalidExpenseError,
     InvalidExpenseSharesError,
     InvalidPaymentError,
+    InvalidRecurringError,
     InvalidSplitRuleError,
     MemberAlreadyInGroupError,
     MemberNotFoundError,
     NotAllowedError,
     PaymentNotFoundError,
+    RecurringNotFoundError,
     SharedExpensesError,
 )
 from .helpers import revisions
@@ -52,6 +54,8 @@ from .models import (
     PaymentKind,
     Permission,
     RateSource,
+    RecurrenceUnit,
+    RecurringExpense,
     Revision,
     RevisionAction,
     RevisionEntity,
@@ -1348,6 +1352,8 @@ class SharedExpensesManager:
         split_rule: SplitRule | None = None,
         exchange_rate: int | None = None,
         refund_of: str | None = None,
+        recurring_id: str | None = None,
+        occurrence: date | None = None,
         actor_user_id: str | None = None,
     ) -> Expense:
         """Create an expense and its shares.
@@ -1364,9 +1370,28 @@ class SharedExpensesManager:
         none is allowed: a shop handing money back is often about a basket rather
         than one line of it. It changes no figure — the shares are the money — so
         it is the one field here a mistake in cannot cost anybody anything.
+
+        `recurring_id` with `occurrence` confirms an occurrence of a recurring
+        expense: this is what it was, at whatever figure was confirmed. The
+        occurrence has to be the one waiting, checked once the lock is held, and
+        the recurring expense moves on to the next in the same transaction — so
+        the rent pressed on two phones at once is added once, and the second
+        press is told somebody was quicker.
         """
 
+        if (recurring_id is None) != (occurrence is None):
+            raise InvalidRecurringError(
+                "An occurrence is confirmed with its recurring expense and its day.",
+                code="occurrence_incomplete",
+            )
+
         group = await self._get_active_group(group_id)
+
+        if recurring_id is not None:
+            recurring = await self.get_recurring(recurring_id)
+
+            if recurring.group_id != group_id:
+                raise RecurringNotFoundError(recurring_id)
 
         if amount == 0:
             raise InvalidExpenseError(
@@ -1417,11 +1442,19 @@ class SharedExpensesManager:
             rate_as_of=rate_as_of,
             created_by_member_id=await self._member_of(actor_user_id),
             refund_of=await self._refunded_expense(refund_of, group_id, converted),
+            recurring_id=recurring_id,
         )
 
         built = _build_shares(expense.id, amounts, now)
 
         async with self._database.transaction():
+            if recurring_id is not None and occurrence is not None:
+                answered = await self._answer(recurring_id, occurrence)
+
+                await self._database.recurring_repository.update(
+                    replace(answered, next_index=answered.next_index + 1)
+                )
+
             await self._database.expense_repository.create(expense, built)
 
             await self._record(
@@ -1753,6 +1786,9 @@ class SharedExpensesManager:
             # be away, in which case the link waits for it exactly as it did
             # before this refund was deleted.
             refund_of=state.get("refund_of"),
+            # And the recurring expense it came from, which may have been stopped
+            # since: the id then points at nothing, as it would have anyway.
+            recurring_id=state.get("recurring_id"),
         )
 
         built = _build_shares(expense.id, state.get("shares") or {}, now)
@@ -1940,6 +1976,485 @@ class SharedExpensesManager:
             return None
 
         return category_id
+
+    #
+    # ------------------------------------------------------------------
+    # Recurring expenses
+    # ------------------------------------------------------------------
+    #
+
+    async def create_recurring(
+        self,
+        *,
+        group_id: str,
+        title: str,
+        amount: int,
+        paid_by_member_id: str,
+        expense_date: datetime,
+        every: int,
+        unit: RecurrenceUnit,
+        ends_on: date | None = None,
+        currency: str | None = None,
+        category_id: str | None = None,
+        description: str | None = None,
+        shares: Sequence[ExpenseShare] | None = None,
+        split_rule: SplitRule | None = None,
+        rule: SplitRule | None = None,
+        exchange_rate: int | None = None,
+        actor_user_id: str | None = None,
+    ) -> tuple[RecurringExpense, Expense]:
+        """Set up an expense that comes back, and add the first one.
+
+        Set up from the expense dialog, where somebody is entering this month's
+        rent and says it repeats: what they typed is the first occurrence, added
+        now and dated as typed, and the rhythm runs from its day. It goes in as a
+        confirmation of occurrence 0, the same door every later one comes
+        through, so there is one way an occurrence becomes money and not two.
+
+        `shares` and `split_rule` are this first expense's, as the dialog sends
+        them for any expense. `rule` is the one to propose each time — None when
+        nobody touched the split, so that the category's rule, then the group's,
+        are read afresh at every confirmation, a new flatmate included.
+
+        One transaction: a recurring expense whose first occurrence failed to be
+        added does not exist.
+        """
+
+        group = await self._get_active_group(group_id)
+
+        anchor = expense_date.date()
+
+        _check_rhythm(every, amount, anchor, ends_on)
+
+        await self.get_member(paid_by_member_id)
+        await self._get_group_category(group_id, category_id)
+        await self._ensure_proposable(group_id, paid_by_member_id, rule)
+
+        # The rate is had now, outside the transaction: inside it, the first
+        # occurrence would fetch it with every other writer waiting on the
+        # network. Handed over as the panel hands over the rate it showed.
+        paid_in = (currency or group.currency).upper()
+
+        if exchange_rate is None and paid_in != group.currency.upper():
+            found = await self.get_exchange_rate(
+                base=paid_in,
+                quote=group.currency,
+                on=anchor,
+            )
+            exchange_rate = found.rate
+
+        recurring = RecurringExpense(
+            id=new_id(),
+            group_id=group_id,
+            category_id=category_id,
+            title=title,
+            description=description,
+            amount=amount,
+            currency=paid_in,
+            paid_by_member_id=paid_by_member_id,
+            every=every,
+            unit=unit,
+            anchor=anchor,
+            next_index=0,
+            ends_on=ends_on,
+            created_at=datetime.now(UTC),
+            created_by_member_id=await self._member_of(actor_user_id),
+            split_rule=rule,
+        )
+
+        async with self._database.transaction():
+            await self._database.recurring_repository.create(recurring)
+
+            await self._record(
+                group_id=group_id,
+                entity_type=RevisionEntity.RECURRING,
+                entity_id=recurring.id,
+                label=recurring.title,
+                action=RevisionAction.CREATED,
+                actor_user_id=actor_user_id,
+                changes=revisions.creation(revisions.recurring_state(recurring)),
+            )
+
+            expense = await self.create_expense(
+                group_id=group_id,
+                title=title,
+                amount=amount,
+                paid_by_member_id=paid_by_member_id,
+                expense_date=expense_date,
+                currency=currency,
+                category_id=category_id,
+                description=description,
+                shares=shares,
+                split_rule=split_rule,
+                exchange_rate=exchange_rate,
+                recurring_id=recurring.id,
+                occurrence=anchor,
+                actor_user_id=actor_user_id,
+            )
+
+        return await self.get_recurring(recurring.id), expense
+
+    async def get_recurring(self, recurring_id: str) -> RecurringExpense:
+        """Return a recurring expense."""
+
+        recurring = await self._database.recurring_repository.get(recurring_id)
+
+        if recurring is None:
+            raise RecurringNotFoundError(recurring_id)
+
+        return recurring
+
+    async def list_recurring(self, group_id: str) -> list[RecurringExpense]:
+        """Return the recurring expenses of a group."""
+
+        return await self._database.recurring_repository.list_by_group(group_id)
+
+    async def latest_occurrences(self, group_id: str) -> dict[str, Expense]:
+        """Return the last confirmed occurrence of each recurring expense of a group.
+
+        Left out where what the recurring expense proposes — its amount or its
+        currency — was changed after that occurrence was added: the rent raised
+        to 850 is the figure to propose, and last time's 800 would contradict
+        the very edit that said so. Until the next one is confirmed, which then
+        speaks for itself again.
+        """
+
+        latest = await self._database.expense_repository.latest_by_recurring(group_id)
+        journal = self._database.revision_repository
+
+        for recurring_id, expense in list(latest.items()):
+            # Newest first: only what happened after the occurrence counts.
+            for revision in await journal.list_by_entity(recurring_id):
+                if revision.at <= expense.created_at:
+                    break
+
+                fields = {change.field for change in revision.changes}
+
+                if revision.action is RevisionAction.UPDATED and fields & {
+                    "amount",
+                    "currency",
+                }:
+                    del latest[recurring_id]
+                    break
+
+        return latest
+
+    async def ensure_may_edit_recurring(
+        self,
+        recurring: RecurringExpense,
+        user_id: str,
+    ) -> None:
+        """Refuse a member changing a recurring expense that is not theirs.
+
+        The expense's own rule, for the expense's own reason: theirs if they set
+        it up or they pay it. Confirming or skipping an occurrence is not this —
+        any member may, as any member may add an expense.
+        """
+
+        me = await self._member_of(user_id)
+
+        if me is not None and me in (
+            recurring.created_by_member_id,
+            recurring.paid_by_member_id,
+        ):
+            return
+
+        await self.ensure_permission(
+            recurring.group_id,
+            user_id,
+            Permission.EDIT_OTHERS,
+        )
+
+    async def update_recurring(
+        self,
+        recurring_id: str,
+        *,
+        today: date,
+        changes: dict[str, Any],
+        actor_user_id: str | None = None,
+    ) -> RecurringExpense:
+        """Change what a recurring expense proposes, or its rhythm.
+
+        `changes` holds only what was sent: title, description, amount,
+        currency, paid_by_member_id, category_id, split_rule, every, unit,
+        next_due, ends_on, paused. Nothing already added moves — those are
+        expenses of their own now.
+
+        A new rhythm, or a new next date, starts counting from the next date:
+        it becomes the anchor, so "every two months from now" means from the
+        occurrence waiting, not from a day long gone. Resuming after a pause
+        starts at the first occurrence from `today` on: the pause said those
+        weeks did not happen, and catching them up would undo it.
+        """
+
+        previous = await self.get_recurring(recurring_id)
+
+        await self._get_active_group(previous.group_id)
+
+        fields = {
+            key: changes[key]
+            for key in (
+                "title",
+                "description",
+                "amount",
+                "paid_by_member_id",
+                "category_id",
+                "split_rule",
+                "every",
+                "unit",
+                "ends_on",
+                "paused",
+            )
+            if key in changes
+        }
+
+        if "currency" in changes:
+            fields["currency"] = changes["currency"].upper()
+
+        updated = replace(previous, **fields)
+
+        next_due = changes.get("next_due", previous.next_due)
+
+        if next_due != previous.next_due or (updated.every, updated.unit) != (
+            previous.every,
+            previous.unit,
+        ):
+            updated = replace(updated, anchor=next_due, next_index=0)
+
+        if previous.paused and not updated.paused:
+            updated = _resumed(updated, today)
+
+        _check_rhythm(updated.every, updated.amount, updated.anchor, updated.ends_on)
+
+        await self.get_member(updated.paid_by_member_id)
+        await self._get_group_category(updated.group_id, updated.category_id)
+
+        # Only what is being written: a pause or a new title is not refused
+        # because a payer chosen months ago has since left.
+        if "paid_by_member_id" in fields or "split_rule" in fields:
+            await self._ensure_proposable(
+                updated.group_id,
+                updated.paid_by_member_id,
+                updated.split_rule,
+            )
+
+        before = revisions.recurring_state(previous)
+        after = revisions.recurring_state(updated)
+
+        async with self._database.transaction():
+            await self._database.recurring_repository.update(updated)
+
+            if before != after:
+                await self._record(
+                    group_id=updated.group_id,
+                    entity_type=RevisionEntity.RECURRING,
+                    entity_id=updated.id,
+                    label=updated.title,
+                    action=RevisionAction.UPDATED,
+                    actor_user_id=actor_user_id,
+                    changes=revisions.diff(before, after),
+                )
+
+        return updated
+
+    async def delete_recurring(
+        self,
+        recurring_id: str,
+        *,
+        actor_user_id: str | None = None,
+    ) -> None:
+        """Stop a recurring expense. What it already added stays, and says so.
+
+        The occurrences already confirmed are ordinary expenses and keep their
+        `recurring_id`, which now points at nothing: the panel reads that as
+        "no longer repeats". There is no restore; setting it up again is one
+        switch on the next expense.
+        """
+
+        recurring = await self.get_recurring(recurring_id)
+
+        async with self._database.transaction():
+            await self._database.recurring_repository.delete(recurring_id)
+
+            await self._record(
+                group_id=recurring.group_id,
+                entity_type=RevisionEntity.RECURRING,
+                entity_id=recurring_id,
+                label=recurring.title,
+                action=RevisionAction.DELETED,
+                actor_user_id=actor_user_id,
+                changes=revisions.deletion(revisions.recurring_state(recurring)),
+            )
+
+    async def skip_occurrence(
+        self,
+        recurring_id: str,
+        occurrence: date,
+        *,
+        actor_user_id: str | None = None,
+    ) -> RecurringExpense:
+        """Pass over one occurrence: nothing is added, and the next one waits.
+
+        `occurrence` is the day the caller was looking at, and it has to be the
+        one waiting: two phones answering the same rent must not pass over two.
+        """
+
+        recurring = await self.get_recurring(recurring_id)
+
+        await self._get_active_group(recurring.group_id)
+
+        async with self._database.transaction():
+            recurring = await self._answer(recurring_id, occurrence)
+
+            skipped = replace(recurring, next_index=recurring.next_index + 1)
+
+            await self._database.recurring_repository.update(skipped)
+
+            await self._record(
+                group_id=recurring.group_id,
+                entity_type=RevisionEntity.RECURRING,
+                entity_id=recurring_id,
+                label=recurring.title,
+                action=RevisionAction.SKIPPED,
+                actor_user_id=actor_user_id,
+                changes=(
+                    FieldChange(
+                        field="next_due",
+                        before=occurrence.isoformat(),
+                        after=skipped.next_due.isoformat(),
+                    ),
+                ),
+            )
+
+        return skipped
+
+    async def announce_due(self, today: date) -> list[RecurringExpense]:
+        """Fire the due event for every occurrence that has come and not been heard.
+
+        Once per occurrence: `announced` keeps the day the last event went out,
+        and an occurrence due on or before it has been told already. Measured
+        against the latest occurrence fallen due, not the oldest still waiting:
+        February's rent is news on the 1st even while January's is unanswered,
+        and the event says both are waiting. Caught-up
+        occurrences after a long absence go out as one event for their recurring
+        expense, carrying how many are waiting — a phone buzzing six times for
+        six missed weeks of cleaning tells nobody anything five did not.
+
+        An archived group is left alone: nothing can be added to it, so there is
+        nothing to be told.
+        """
+
+        announced: list[RecurringExpense] = []
+        archived: dict[str, bool] = {}
+
+        async with self._database.transaction():
+            for recurring in await self._database.recurring_repository.list_all():
+                latest = recurring.last_due(today)
+
+                if latest is None:
+                    continue
+
+                heard = recurring.announced
+
+                if heard is not None and heard >= latest:
+                    continue
+
+                group_id = recurring.group_id
+
+                if group_id not in archived:
+                    group = await self._database.group_repository.get(group_id)
+                    archived[group_id] = group is None or group.archived
+
+                if archived[group_id]:
+                    continue
+
+                await self._database.recurring_repository.update(
+                    replace(recurring, announced=today)
+                )
+
+                self._announce_due(recurring, recurring.waiting(today))
+
+                announced.append(recurring)
+
+        return announced
+
+    def _announce_due(self, recurring: RecurringExpense, waiting: int) -> None:
+        """Tell the bus an occurrence is waiting — once the note of it is written.
+
+        The event's name and shape are a promise to whoever wrote an automation
+        against them, like `shared_expenses_changed`'s.
+        """
+
+        hass = self._database.hass
+
+        def _speak() -> None:
+            """Say it, with the write behind it."""
+
+            hass.bus.async_fire(
+                EVENT_RECURRING_DUE,
+                {
+                    "group_id": recurring.group_id,
+                    "recurring_id": recurring.id,
+                    "title": recurring.title,
+                    "due": recurring.next_due.isoformat(),
+                    "waiting": waiting,
+                    "amount": recurring.amount,
+                    "currency": recurring.currency,
+                    "paid_by_member_id": recurring.paid_by_member_id,
+                },
+            )
+
+        self._database.after_commit(_speak)
+
+    async def _ensure_proposable(
+        self,
+        group_id: str,
+        payer_id: str,
+        rule: SplitRule | None,
+    ) -> None:
+        """Refuse a payer or a rule the next occurrence could not be added with.
+
+        Held to the pool, as a category's default rule is, and for its reason:
+        each occurrence is resolved against the active members, so a payer from
+        another group or one who has left would make every confirmation fail —
+        while the morning event went on announcing a bill nobody can add.
+        """
+
+        pool = await self._pool(group_id)
+
+        if payer_id not in pool:
+            raise InvalidSplitRuleError(
+                "The payer must be a member of the group.",
+                code="split_payer_not_member",
+            )
+
+        if rule is not None:
+            ensure_resolvable(rule, sorted(pool))
+
+    async def _answer(self, recurring_id: str, occurrence: date) -> RecurringExpense:
+        """Return the recurring expense, if `occurrence` is the one it is waiting on.
+
+        Read inside the caller's transaction, after the lock: two answers to the
+        same occurrence are taken one after the other, and the second finds it
+        already answered. Refused with a reason the panel can say, since the
+        person pressing has done nothing wrong — somebody was quicker.
+        """
+
+        recurring = await self.get_recurring(recurring_id)
+
+        if recurring.paused:
+            raise InvalidRecurringError(
+                "This recurring expense is paused.",
+                code="recurring_paused",
+            )
+
+        if recurring.ended or recurring.next_due != occurrence:
+            raise InvalidRecurringError(
+                "This occurrence has already been answered.",
+                code="occurrence_answered",
+            )
+
+        return recurring
 
     #
     # ------------------------------------------------------------------
@@ -2434,6 +2949,15 @@ class SharedExpensesManager:
         if converted != amount:
             amounts = apportion(amounts, converted)
 
+        # Shares worked out here were worked out by a rule: the equal split, when
+        # nothing above names one. Kept as that, or reopening the expense finds
+        # only the cents it came to, spelled back out as fixed amounts that stop
+        # adding up the moment the figure is corrected — an occurrence added in
+        # one tap, its electricity bill then fixed, was refused that way. Shares
+        # sent already worked out keep no rule: theirs is not known.
+        if rule is None and shares is None:
+            rule = SplitRule()
+
         return amounts, _pin_members(rule, payer_id, member_ids)
 
     async def _ensure_of_group(
@@ -2472,6 +2996,49 @@ class SharedExpensesManager:
                 f"Unknown share member: {', '.join(unknown)}",
                 code="split_unknown_member",
             )
+
+
+def _check_rhythm(every: int, amount: int, start: date, ends_on: date | None) -> None:
+    """Refuse a recurring expense that cannot be.
+
+    A rhythm of nothing would fall due on the same day for ever; a proposal of
+    nothing, or of money coming back, is not a bill anybody receives; and an end
+    before the start would be over before it began.
+    """
+
+    if every < 1:
+        raise InvalidRecurringError(
+            "A recurring expense repeats at least every one day, week or month.",
+            code="recurring_every",
+        )
+
+    if amount <= 0:
+        raise InvalidRecurringError(
+            "A recurring expense proposes an amount above zero.",
+            code="recurring_amount",
+        )
+
+    if ends_on is not None and ends_on < start:
+        raise InvalidRecurringError(
+            "A recurring expense cannot end before it starts.",
+            code="recurring_ends_before",
+        )
+
+
+def _resumed(recurring: RecurringExpense, today: date) -> RecurringExpense:
+    """Return a recurring expense taken out of pause, waiting on today or after.
+
+    What fell due during the pause is passed over: the pause said those weeks did
+    not happen. Walked by index rather than by date so that a monthly rent on the
+    31st keeps finding its 31st.
+    """
+
+    index = recurring.next_index
+
+    while recurring.occurrence(index) < today:
+        index += 1
+
+    return replace(recurring, next_index=index)
 
 
 def _pin_members(

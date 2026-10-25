@@ -110,6 +110,10 @@ async def websocket_get_expense(
         # In millionths. Sent when the panel has shown a rate and had it
         # accepted; left out, the manager finds one itself.
         vol.Optional("exchange_rate"): int,
+        # Together, they confirm an occurrence of a recurring expense: the one
+        # falling on `occurrence`, which must be the one still waiting.
+        vol.Optional("recurring_id"): cv.string,
+        vol.Optional("occurrence"): cv.date,
     }
 )
 @websocket_api.async_response
@@ -140,6 +144,8 @@ async def websocket_create_expense(
         split_rule=split_rule_from_msg(msg),
         exchange_rate=msg.get("exchange_rate"),
         refund_of=msg.get("refund_of"),
+        recurring_id=msg.get("recurring_id"),
+        occurrence=msg.get("occurrence"),
         actor_user_id=connection.user.id,
     )
 

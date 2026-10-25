@@ -78,12 +78,10 @@ export function renderExpenseRow(
       two visits to the same shop in one week are told apart by nothing else.
     -->
     <span class="info">
-      <span class="what">
-        ${expense.title}
-        ${expense.description
-          ? html`<span class="note">${expense.description}</span>`
-          : nothing}
-      </span>
+      <span class="what">${expense.title}</span>
+      ${expense.description
+        ? html`<span class="note">${expense.description}</span>`
+        : nothing}
       <span class="when">${formatDayDate(expense.expense_date, context.language, "UTC")}</span>
     </span>
     <!--
@@ -137,7 +135,7 @@ export const expenseRowStyles = css`
     border: 2px solid var(--card-background-color, #fff);
   }
 
-  /* Two lines, so the shop and the day never fight for the same one. */
+  /* A line each — the shop, what was written, the day — so none fights another for room. */
   .expense-row .info {
     flex: 1;
     min-width: 0;
@@ -161,16 +159,17 @@ export const expenseRowStyles = css`
   }
 
   /*
-   * What somebody wrote about it, in the group page's own note: smaller and
-   * quieter than the shop it follows, so the two are told apart without either
-   * being decorated. Copied down to the 6px, since a row that styled the same
-   * fact differently would read as a different fact.
+   * What somebody wrote about it, in the group page's own note: on its own line
+   * under the shop, smaller and quieter, so the two are told apart without
+   * either being decorated. One line here, where the row is a compact one.
    */
   .expense-row .note {
     font-size: 12px;
     font-weight: 400;
     color: var(--secondary-text-color);
-    margin-left: 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .expense-row .figure {

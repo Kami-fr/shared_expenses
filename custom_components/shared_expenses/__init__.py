@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from datetime import datetime
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.event import async_track_time_change
+from homeassistant.helpers.start import async_at_started
+from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, PLATFORMS
+from .const import DOMAIN, PLATFORMS, RECURRING_DUE_HOUR
 from .coordinator import SharedExpensesCoordinator
 from .manager import SharedExpensesManager
 from .panel import (
@@ -64,7 +69,54 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         raise
 
+    hass.data[DOMAIN][entry.entry_id]["stop_mornings"] = _watch_mornings(
+        hass, manager
+    )
+
     return True
+
+
+def _watch_mornings(
+    hass: HomeAssistant,
+    manager: SharedExpensesManager,
+) -> Callable[[], None]:
+    """Tell the bus about recurring expenses falling due, every morning.
+
+    At `RECURRING_DUE_HOUR`, local time, and once Home Assistant has started if
+    that hour is already past — so an occurrence that fell due while it was off
+    is told the day it comes back, not the day after. Not before the hour,
+    though: a restart at three in the morning is no reason to wake a phone, and
+    the morning check will say it in time. Started, not set up: an automation
+    listening for the event is not there to hear it any earlier.
+
+    Returns what stops it.
+    """
+
+    async def _check(now: datetime) -> None:
+        """Announce what is due today."""
+
+        await manager.announce_due(dt_util.as_local(now).date())
+
+    async def _on_start(_hass: HomeAssistant) -> None:
+        """Catch up on a morning spent switched off."""
+
+        now = dt_util.now()
+
+        if now.hour >= RECURRING_DUE_HOUR:
+            await _check(now)
+
+    stop_start = async_at_started(hass, _on_start)
+    stop_clock = async_track_time_change(
+        hass, _check, hour=RECURRING_DUE_HOUR, minute=0, second=0
+    )
+
+    def _stop() -> None:
+        """Stop both."""
+
+        stop_start()
+        stop_clock()
+
+    return _stop
 
 
 async def async_remove_config_entry_device(
@@ -108,6 +160,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         return False
 
     data = hass.data[DOMAIN].pop(entry.entry_id)
+
+    # Before the database closes, for the same reason as the coordinator below.
+    data["stop_mornings"]()
 
     # Before the connection goes, not after. Home Assistant runs what the entry
     # registered through `async_on_unload` only once this has returned, so a

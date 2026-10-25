@@ -151,6 +151,7 @@ There used to be an `owner` above the admin. v11 removed it — see ADR-013.
 | rate_as_of | TEXT | The day the rate is from, ISO-8601 date (nullable) |
 | created_by_member_id | TEXT | Who entered it, → members.id (nullable) |
 | refund_of | TEXT | The purchase a refund answers, **no FK** (nullable) |
+| recurring_id | TEXT | The recurring expense this is an occurrence of, **no FK** (nullable) |
 
 `refund_of` says which purchase a refund gives money back on. Only a refund may
 carry it — an expense with a negative `amount` — and even a refund need not: a
@@ -285,16 +286,79 @@ again the day it returns.
 
 ---
 
+### recurring_expenses
+
+| Column | Type | Description |
+|---------|------|-------------|
+| id | TEXT | ULID |
+| group_id | TEXT | FK → groups.id, `ON DELETE CASCADE` |
+| category_id | TEXT | FK → categories.id, `ON DELETE SET NULL` (nullable) |
+| title | TEXT | What each occurrence is called |
+| description | TEXT | Optional description |
+| amount | INTEGER | What to propose, in the cents of `currency`; above zero |
+| currency | TEXT | ISO 4217 code |
+| paid_by_member_id | TEXT | FK → members.id |
+| split_rule | TEXT | The rule to propose, as JSON, or NULL for the category's then the group's |
+| every | INTEGER | How many `unit`s apart two occurrences are; at least 1 |
+| unit | TEXT | `day`, `week` or `month` |
+| anchor | TEXT | The day of occurrence 0, ISO-8601 date |
+| next_index | INTEGER | The occurrence waiting to be confirmed or skipped |
+| ends_on | TEXT | The last day an occurrence may fall on, ISO-8601 date (nullable) |
+| paused | INTEGER | 1 while nothing is proposed |
+| announced | TEXT | The day the last due event went out, ISO-8601 date (nullable) |
+| created_at | TEXT | UTC ISO-8601 timestamp |
+| created_by_member_id | TEXT | Who set it up, → members.id (nullable) |
+
+The rent, a subscription, the electricity. **Not money**: what an expense will
+look like when it falls due, and a rhythm. An occurrence becomes money only once
+a member confirms it, and then it is an ordinary row in `expenses` carrying
+`recurring_id` — the only table the balances read. Proposed rather than added,
+at the user's choice: the electricity is never the same twice, and a figure
+nobody looked at should not move anybody's balance.
+
+**Due dates are computed from the anchor, never step by step.** Occurrence *k*
+falls on `anchor + k × every` days or weeks; for months, on the anchor's day of
+the month *k × every* months later, clamped to that month's end. Rent on the 31st
+falls on the 30th in November, the 28th in February and the 31st again in March;
+walked one month at a time it would have stayed on the 28th for good.
+
+**Nothing has to run on the day.** An occurrence whose day has come is waiting
+until somebody answers it, however long Home Assistant was off, so missed ones
+are caught up each at its own date. Confirming adds the expense and moves
+`next_index` on in the same transaction, after checking that the occurrence
+answered is still the one waiting — two phones pressing the same rent add it
+once. Skipping moves `next_index` on and adds nothing. A pause is a decision
+that those occurrences did not happen: resuming starts again from the first one
+after the day it resumes. Changing the rhythm re-anchors on the next due date,
+so nothing already answered moves.
+
+Setting one up adds its first occurrence at the same time, dated as typed: it is
+set up from the expense dialog, where somebody is entering this month's rent and
+says it repeats. One transaction — a recurring expense whose first occurrence
+failed does not exist.
+
+**Stopping one deletes the row, and its expenses stay.** `expenses.recurring_id`
+has no foreign key for the reason `refund_of` has none: `ON DELETE SET NULL`
+would have stopping the rent rewrite last month's rent. The id is held plainly
+and points at nothing afterwards, which the panel reads as "no longer repeats".
+`idx_expenses_recurring_id` answers the one question asked of it, the last
+amount confirmed, shown beside the next.
+
+`announced` is there so the due event goes out once per occurrence, not once per
+restart — see [events.md](events.md).
+
+---
+
 ### revisions
 
 | Column | Type | Description |
 |---------|------|-------------|
 | id | TEXT | ULID |
 | group_id | TEXT | FK → groups.id |
-| entity_type | TEXT | `expense`, `payment`, `group`, `category`, `member` |
+| entity_type | TEXT | `expense`, `payment`, `group`, `category`, `member`, `recurring` |
 | entity_id | TEXT | The expense or payment, **not** a foreign key |
 | entity_label | TEXT | What it was called, for the group journal (nullable) |
-| action | TEXT | `created`, `updated`, `deleted`, `restored` |
+| action | TEXT | `created`, `updated`, `deleted`, `restored`, `skipped` |
 | actor_user_id | TEXT | The Home Assistant account behind the change (nullable) |
 | changes | TEXT | The fields that moved, as JSON |
 | at | TEXT | UTC ISO-8601 timestamp |
@@ -510,7 +574,7 @@ would be gone by the first statement. A migration that dies halfway therefore
 leaves the database at the version it began at, and the next start runs the
 whole of it again instead of tripping over the half already applied.
 
-**Current version: 16.**
+**Current version: 17.**
 
 | Version | What it added |
 |---------|---------------|
@@ -530,6 +594,7 @@ whole of it again instead of tripping over the half already applied.
 | 14 | `payments.expense_id`, never read and taken back by v15 |
 | 15 | `expenses.refund_of` and its index: the purchase a refund answers |
 | 16 | `payments.expense_id` again: the expense a reimbursement is about |
+| 17 | `recurring_expenses`, and `expenses.recurring_id` with its index |
 
 **v14 is the exception to that, and v15 is why.** A column went onto `payments`
 on a reading of "reimbursement" that turned out to be the wrong one — what wanted

@@ -102,3 +102,11 @@ class Expense:
     table — its revision is the only place it still exists — and comes back under
     the same id, so the link waits for it rather than being thrown away.
     """
+
+    recurring_id: str | None = None
+    """The recurring expense this was an occurrence of, when it was one.
+
+    Set when an occurrence is confirmed and never changed afterwards. A plain id,
+    like `refund_of`: stopping the recurring expense deletes it, and what it
+    already added stays spent and still says where it came from.
+    """

@@ -23,6 +23,7 @@ from ..models import (
     GroupRole,
     Member,
     Payment,
+    RecurringExpense,
 )
 
 
@@ -137,6 +138,31 @@ def member_state(member: Member, role: GroupRole | None = None) -> dict[str, Any
     return state
 
 
+def recurring_state(recurring: RecurringExpense) -> dict[str, Any]:
+    """Return a recurring expense as plain values.
+
+    What somebody would want to read back: what it proposes and on what rhythm.
+    `next_due` rather than the anchor and index it is computed from — moving the
+    next date is the change, however it was stored — and not `announced`, which
+    is a note to itself.
+    """
+
+    return {
+        "title": recurring.title,
+        "description": recurring.description,
+        "amount": recurring.amount,
+        "currency": recurring.currency,
+        "paid_by_member_id": recurring.paid_by_member_id,
+        "category_id": recurring.category_id,
+        "split_rule": rule_to_dict(recurring.split_rule),
+        "every": recurring.every,
+        "unit": str(recurring.unit),
+        "next_due": recurring.next_due.isoformat(),
+        "ends_on": None if recurring.ends_on is None else recurring.ends_on.isoformat(),
+        "paused": recurring.paused,
+    }
+
+
 def diff(
     before: dict[str, Any],
     after: dict[str, Any],
@@ -191,6 +217,10 @@ def expense_snapshot(
         ),
         "split_rule": rule_to_dict(expense.split_rule),
         "created_by_member_id": expense.created_by_member_id,
+        # The recurring expense it was an occurrence of. Not in the state the
+        # journal reads — it never changes, so it is never news — but a restore
+        # that dropped it would bring back rent that no longer says it is rent.
+        "recurring_id": expense.recurring_id,
     }
 
 

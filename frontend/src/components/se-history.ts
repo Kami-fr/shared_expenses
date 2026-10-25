@@ -28,6 +28,7 @@ const SUBJECTS: Record<RevisionEntity, Key> = {
   group: "the_group",
   category: "the_category",
   member: "the_member",
+  recurring: "the_recurring",
 };
 
 /**
@@ -53,6 +54,13 @@ const ACTIONS: Record<
   updated: { icon: "mdi:pencil", color: "var(--primary-color, #03a9f4)", fallback: "~" },
   deleted: { icon: "mdi:trash-can-outline", color: "var(--se-negative)", fallback: "×" },
   restored: { icon: "mdi:restore", color: "var(--se-positive)", fallback: "↺" },
+  // An occurrence passed over: nothing was added and nothing was taken away,
+  // so it wears neither the green nor the red.
+  skipped: {
+    icon: "mdi:debug-step-over",
+    color: "var(--secondary-text-color)",
+    fallback: "»",
+  },
 };
 
 /**

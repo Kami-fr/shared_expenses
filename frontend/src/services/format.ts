@@ -91,6 +91,29 @@ export function formatDayDate(iso: string, language: string, timeZone?: string):
 }
 
 /**
+ * A picked day written out in figures: "24/10/2026", "24.10.2026", "10/24/2026".
+ *
+ * Numeric, as each language orders it. A value no calendar day matches — a
+ * five-digit year typed into the native input on a computer — is written back
+ * as it came rather than thrown on: Intl refuses an invalid date, and a field
+ * that throws takes its whole dialog down with it.
+ */
+export function formatNumericDay(day: string, language: string): string {
+  const date = new Date(`${day}T12:00:00Z`);
+
+  if (Number.isNaN(date.getTime())) {
+    return day;
+  }
+
+  return new Intl.DateTimeFormat(language, {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(date);
+}
+
+/**
  * Format a `YYYY-MM` as a month, e.g. "Juil. 2026".
  *
  * Parsed by hand rather than through `new Date("2026-07")`: that reads as UTC
@@ -162,9 +185,14 @@ export function isoToDateInput(iso: string): string {
   return `${date.getUTCFullYear()}-${month}-${day}`;
 }
 
-/** Turn an amount in cents into a value for a money input. */
-export function centsToInput(cents: number): string {
-  return (cents / 100).toFixed(2);
+/**
+ * Turn an amount in cents into a value for a money input, as it would be typed.
+ *
+ * In the reader's decimal separator: "134,60" in French, as its placeholder
+ * and every figure around it read. The parsers take either separator back.
+ */
+export function centsToInput(cents: number, language: string): string {
+  return typedExample(cents / 100, 2, language);
 }
 
 /**

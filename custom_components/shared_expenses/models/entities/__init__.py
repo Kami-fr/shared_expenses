@@ -8,6 +8,7 @@ from .group import Group
 from .group_member import GroupMember
 from .member import Member
 from .payment import Payment
+from .recurring_expense import RecurringExpense
 from .revision import FieldChange, Revision
 from .split_rule import Remainder, SplitRule
 
@@ -21,6 +22,7 @@ __all__ = [
     "GroupMember",
     "Member",
     "Payment",
+    "RecurringExpense",
     "Remainder",
     "Revision",
     "SplitRule",

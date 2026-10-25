@@ -420,7 +420,8 @@
        "amount": 1000,
        "created_at": "2026-10-23T19:28:03.345641+00:00"
       }
-     ]
+     ],
+     "recurring_id": null
     },
     {
      "id": "01M5N3R3RC5YA5ASBEAQ6PK098",
@@ -483,7 +484,8 @@
        "amount": 2210,
        "created_at": "2026-10-23T19:28:03.340378+00:00"
       }
-     ]
+     ],
+     "recurring_id": null
     },
     {
      "id": "01M5N3R3R3P6VTYZXGP4281G5A",
@@ -530,7 +532,8 @@
        "amount": 7800,
        "created_at": "2026-10-23T19:28:03.331414+00:00"
       }
-     ]
+     ],
+     "recurring_id": null
     },
     {
      "id": "01M5N3R3PJMQPE8W07AM7BFQD4",
@@ -593,7 +596,8 @@
        "amount": 30000,
        "created_at": "2026-10-23T19:28:03.282178+00:00"
       }
-     ]
+     ],
+     "recurring_id": "01M5RECUR0RENT00000000000A"
     },
     {
      "id": "01M5N3R3QXQQJC4QXXDJ71A3ZY",
@@ -656,7 +660,8 @@
        "amount": 2335,
        "created_at": "2026-10-23T19:28:03.325948+00:00"
       }
-     ]
+     ],
+     "recurring_id": null
     },
     {
      "id": "01M5N3R3QRFDXJXT0DG2BVCR0D",
@@ -719,7 +724,8 @@
        "amount": 4103,
        "created_at": "2026-10-23T19:28:03.320530+00:00"
       }
-     ]
+     ],
+     "recurring_id": "01M5RECUR0ELEC00000000000A"
     },
     {
      "id": "01M5N3R3QKZ7NQDHBCA4QTK04E",
@@ -782,7 +788,8 @@
        "amount": 1800,
        "created_at": "2026-10-23T19:28:03.315525+00:00"
       }
-     ]
+     ],
+     "recurring_id": null
     },
     {
      "id": "01M5N3R3QDE1ES8JQS5GKG9HMM",
@@ -845,7 +852,8 @@
        "amount": 1500,
        "created_at": "2026-10-23T19:28:03.309705+00:00"
       }
-     ]
+     ],
+     "recurring_id": "01M5RECUR0NETW00000000000A"
     },
     {
      "id": "01M5N3R3PCVEE6WTY2ZRFRMM9T",
@@ -908,7 +916,8 @@
        "amount": 30000,
        "created_at": "2026-10-23T19:28:03.276714+00:00"
       }
-     ]
+     ],
+     "recurring_id": "01M5RECUR0RENT00000000000A"
     },
     {
      "id": "01M5N3R3Q8NCBR25QN803APC6Z",
@@ -971,7 +980,8 @@
        "amount": 1213,
        "created_at": "2026-10-23T19:28:03.304313+00:00"
       }
-     ]
+     ],
+     "recurring_id": null
     },
     {
      "id": "01M5N3R3Q3M6VKAQ83TTW248MS",
@@ -1034,7 +1044,8 @@
        "amount": 1200,
        "created_at": "2026-10-23T19:28:03.299028+00:00"
       }
-     ]
+     ],
+     "recurring_id": null
     },
     {
      "id": "01M5N3R3PXMJY227FATB4BT7H8",
@@ -1097,7 +1108,8 @@
        "amount": 3900,
        "created_at": "2026-10-23T19:28:03.293656+00:00"
       }
-     ]
+     ],
+     "recurring_id": null
     },
     {
      "id": "01M5N3R3P73QYF7292V5AYQ67E",
@@ -1160,7 +1172,8 @@
        "amount": 30000,
        "created_at": "2026-10-23T19:28:03.271020+00:00"
       }
-     ]
+     ],
+     "recurring_id": "01M5RECUR0RENT00000000000A"
     },
     {
      "id": "01M5N3R3PRKZEBJKC9CAVGREH0",
@@ -1223,7 +1236,8 @@
        "amount": 1600,
        "created_at": "2026-10-23T19:28:03.288168+00:00"
       }
-     ]
+     ],
+     "recurring_id": null
     },
     {
      "id": "01M5N3R3P0J36NX09EXAVSSX3E",
@@ -1286,7 +1300,8 @@
        "amount": 30000,
        "created_at": "2026-10-23T19:28:03.264657+00:00"
       }
-     ]
+     ],
+     "recurring_id": "01M5RECUR0RENT00000000000A"
     }
    ]
   },
@@ -3366,7 +3381,8 @@
        "amount": 2921,
        "created_at": "2026-10-23T19:28:03.401495+00:00"
       }
-     ]
+     ],
+     "recurring_id": null
     },
     {
      "id": "01M5N3R3T3JJNK8E9656EEX4B9",
@@ -3413,7 +3429,8 @@
        "amount": 9000,
        "created_at": "2026-10-23T19:28:03.395909+00:00"
       }
-     ]
+     ],
+     "recurring_id": null
     },
     {
      "id": "01M5N3R3SY0ZTFZY3KVE2ZFM96",
@@ -3460,7 +3477,8 @@
        "amount": 7250,
        "created_at": "2026-10-23T19:28:03.390670+00:00"
       }
-     ]
+     ],
+     "recurring_id": null
     },
     {
      "id": "01M5N3R3SSACYGM8FSV4NPCRCP",
@@ -3507,7 +3525,8 @@
        "amount": 2032,
        "created_at": "2026-10-23T19:28:03.385550+00:00"
       }
-     ]
+     ],
+     "recurring_id": null
     },
     {
      "id": "01M5N3R3SMA9D45MSEFPXN7BRE",
@@ -3554,7 +3573,8 @@
        "amount": 2413,
        "created_at": "2026-10-23T19:28:03.380562+00:00"
       }
-     ]
+     ],
+     "recurring_id": null
     },
     {
      "id": "01M5N3R3SFJZX15ZZ0CCM0D1QP",
@@ -3601,7 +3621,8 @@
        "amount": 32000,
        "created_at": "2026-10-23T19:28:03.375580+00:00"
       }
-     ]
+     ],
+     "recurring_id": null
     }
    ]
   },
@@ -4428,6 +4449,113 @@
      }
     ]
    }
+  },
+  {
+   "request": {
+    "type": "shared_expenses/list_recurring",
+    "group_id": "01M5N3R3MVC6W3NEM495DR4Y94"
+   },
+   "result": [
+    {
+     "id": "01M5RECUR0RENT00000000000A",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "category_id": "01M5N3R3NGV1QHX1TR3HZQWFXJ",
+     "title": "Rent",
+     "description": null,
+     "amount": 120000,
+     "currency": "USD",
+     "paid_by_member_id": "01M5N3R3NCR99091EQC99FDF8T",
+     "split_rule": null,
+     "every": 1,
+     "unit": "month",
+     "anchor": "2026-07-01",
+     "ends_on": null,
+     "paused": false,
+     "ended": false,
+     "next_due": "2026-11-01",
+     "waiting": 0,
+     "created_at": "2026-07-01T09:00:00+00:00",
+     "created_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "latest_amount": 120000,
+     "latest_date": "2026-10-01T12:00:00+00:00"
+    },
+    {
+     "id": "01M5RECUR0ELEC00000000000A",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "category_id": "01M5N3R3NGV1QHX1TR3HZQWFXJ",
+     "title": "Electricity",
+     "description": null,
+     "amount": 15000,
+     "currency": "USD",
+     "paid_by_member_id": "01M5N3R3NCR99091EQC99FDF8T",
+     "split_rule": null,
+     "every": 1,
+     "unit": "month",
+     "anchor": "2026-07-20",
+     "ends_on": null,
+     "paused": false,
+     "ended": false,
+     "next_due": "2026-10-20",
+     "waiting": 1,
+     "created_at": "2026-07-20T09:00:00+00:00",
+     "created_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "latest_amount": 16412,
+     "latest_date": "2026-09-24T12:00:00+00:00"
+    },
+    {
+     "id": "01M5RECUR0NETW00000000000A",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "category_id": "01M5N3R3NGV1QHX1TR3HZQWFXJ",
+     "title": "Internet",
+     "description": null,
+     "amount": 5999,
+     "currency": "USD",
+     "paid_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "split_rule": null,
+     "every": 1,
+     "unit": "month",
+     "anchor": "2026-09-05",
+     "ends_on": null,
+     "paused": false,
+     "ended": false,
+     "next_due": "2026-10-05",
+     "waiting": 1,
+     "created_at": "2026-09-05T09:00:00+00:00",
+     "created_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "latest_amount": 5999,
+     "latest_date": "2026-09-05T12:00:00+00:00"
+    },
+    {
+     "id": "01M5RECUR0CLEN00000000000A",
+     "group_id": "01M5N3R3MVC6W3NEM495DR4Y94",
+     "category_id": null,
+     "title": "House cleaning",
+     "description": null,
+     "amount": 4000,
+     "currency": "USD",
+     "paid_by_member_id": "01M5N3R3N8H2M2NRMC0FPWJG36",
+     "split_rule": null,
+     "every": 2,
+     "unit": "week",
+     "anchor": "2026-09-04",
+     "ends_on": null,
+     "paused": true,
+     "ended": false,
+     "next_due": "2026-10-16",
+     "waiting": 0,
+     "created_at": "2026-09-04T09:00:00+00:00",
+     "created_by_member_id": "01M5N3R3MWTH1D4GNMNDJA1TN7",
+     "latest_amount": null,
+     "latest_date": null
+    }
+   ]
+  },
+  {
+   "request": {
+    "type": "shared_expenses/list_recurring",
+    "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7"
+   },
+   "result": []
   }
  ]
 }

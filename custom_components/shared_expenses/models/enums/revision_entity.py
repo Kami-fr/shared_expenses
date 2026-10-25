@@ -13,6 +13,13 @@ class RevisionEntity(StrEnum):
     """The group itself: its name, its default rule, what it allows."""
 
     CATEGORY = "category"
+
+    RECURRING = "recurring"
+    """An expense that comes back: set up, changed, an occurrence skipped, stopped.
+
+    A confirmed occurrence is journalled as the expense it became, not here.
+    """
+
     MEMBER = "member"
     """Somebody in the group: their name, their standing, their coming and going.
 

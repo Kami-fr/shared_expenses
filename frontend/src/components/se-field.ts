@@ -1,6 +1,8 @@
 import { LitElement, css, html, nothing } from "lit";
 import { customElement, property } from "lit/decorators.js";
 
+import { formatNumericDay } from "../services/format";
+
 /**
  * A labelled input.
  *
@@ -26,6 +28,9 @@ export class SeField extends LitElement {
 
   /** Show the decimal keypad on mobile. Named to avoid HTMLElement.inputMode. */
   @property({ type: Boolean }) public decimal = false;
+
+  /** The panel's language, which a date is written in. */
+  @property({ type: String }) public language = "en";
 
   public static styles = css`
     :host {
@@ -66,6 +71,25 @@ export class SeField extends LitElement {
       padding: 10px 0;
     }
 
+    .day {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+      font-size: 16px;
+      padding: 10px 0;
+      color: var(--primary-text-color);
+    }
+
+    /* The browser's own date input, unseen over the day it holds: a tap still
+       opens its calendar, but what is read is the panel's writing of it. */
+    .day input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      padding: 0;
+      cursor: pointer;
+    }
+
     .suffix {
       color: var(--secondary-text-color);
       font-size: 14px;
@@ -83,19 +107,65 @@ export class SeField extends LitElement {
     return html`
       ${this.label ? html`<label>${this.label}${this.required ? " *" : ""}</label>` : nothing}
       <div class="wrapper">
-        <input
-          .type=${this.type}
-          .value=${this.value}
-          .placeholder=${this.placeholder}
-          ?disabled=${this.disabled}
-          inputmode=${this.decimal ? "decimal" : nothing}
-          @input=${this.handleInput}
-        />
+        ${this.type === "date" ? this.renderDay() : this.renderInput()}
         ${this.suffix ? html`<span class="suffix">${this.suffix}</span>` : nothing}
         <!-- For a suffix that does something, where a word would sit. -->
         <slot name="suffix"></slot>
       </div>
       ${this.helper ? html`<div class="helper">${this.helper}</div>` : nothing}
+    `;
+  }
+
+  /**
+   * A day, written in the panel's language, over the browser's date input.
+   *
+   * The browser writes a date input in its own language, not the panel's: a
+   * phone set to American English showed 10/24/2026 in a French panel, month
+   * first, to somebody reading the day first everywhere else on the page.
+   */
+  private renderDay() {
+    return html`
+      <div class="day">
+        <span>${this.value ? formatNumericDay(this.value, this.language) : html`&nbsp;`}</span>
+        <input
+          type="date"
+          .value=${this.value}
+          aria-label=${this.label}
+          ?disabled=${this.disabled}
+          @click=${this.openCalendar}
+          @input=${this.handleInput}
+        />
+      </div>
+    `;
+  }
+
+  /**
+   * The calendar, wherever the field is touched.
+   *
+   * Unseen, the input's own little segments would take a click on a computer
+   * and change a figure nobody can see being changed.
+   */
+  private openCalendar(event: Event) {
+    const input = event.target as HTMLInputElement;
+
+    try {
+      input.showPicker?.();
+    } catch {
+      // Refused without a fresh tap, or by an older browser: the input keeps
+      // its own behaviour, which still opens the calendar on a phone.
+    }
+  }
+
+  private renderInput() {
+    return html`
+      <input
+        .type=${this.type}
+        .value=${this.value}
+        .placeholder=${this.placeholder}
+        ?disabled=${this.disabled}
+        inputmode=${this.decimal ? "decimal" : nothing}
+        @input=${this.handleInput}
+      />
     `;
   }
 

@@ -876,6 +876,30 @@ something false about people.
 - [x] The README's pictures and tour retaken on the new bar, list and plus;
       the tour now stops on the plus's four choices for a moment.
 
+## Sprint 32 — What comes back
+
+- [x] **Recurring expenses**: the rent, a subscription, the electricity. A new
+      expense may be ticked "Repeat", every N days, weeks or months, until a
+      date or for ever; it becomes the first occurrence. Chosen over a CSV
+      export.
+- [x] **Proposed, not added.** An occurrence that falls due waits at the top
+      of the group page, above the balance, for a member to answer: add it,
+      or pass over it this time. A figure that never moves is added in one
+      tap; one that moves (the electricity) opens on last time's figure to be
+      checked. Any member answers, as any member adds an expense; two phones
+      answering the same one add it once.
+- [x] Nothing has to run on the day: an occurrence waits however long Home
+      Assistant was off, and each one caught up keeps its own date. Dates are
+      counted from the first one, never step by step, so rent on the 31st
+      falls on the 30th in November and on the 31st again in March.
+- [x] The menu lists them, with what each waits on, comes next or is paused.
+      Opening one changes what it proposes and its rhythm, pauses it or stops
+      it; what it already added never moves. Its own entity in the journal,
+      with "skipped" as its own action. Added occurrences wear ↻.
+- [x] `shared_expenses_recurring_due` on the bus, once per occurrence, at 9:00
+      local time and on start once that hour has passed — a restart in the
+      night wakes no phone. See `docs/events.md`.
+
 ## Later
 
 - [ ] Weighted splits (by shares, rather than by amount or percentage)

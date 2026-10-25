@@ -8,6 +8,7 @@ import "../components/se-dialog";
 import "../components/se-expense-picker";
 import "../components/se-entity-history";
 import "../components/se-field";
+import "../components/se-icon";
 import "../components/se-segmented";
 import "../components/se-select";
 import "../components/se-split-rule-editor";
@@ -24,9 +25,23 @@ import {
 } from "../services/format";
 import { errorMessage, type Localizer } from "../services/localize";
 import { apportion, CURRENCIES, RATE_ONE } from "../services/currency";
+import {
+  occurrence as occurrenceOf,
+  recurringChanges,
+  rhythm,
+  shortDay,
+} from "../services/recurrence";
 import { resolveShares } from "../services/splits";
 import { sharedStyles } from "../styles/shared";
-import type { Category, Expense, Group, Member, SplitRule } from "../types";
+import type {
+  Category,
+  Expense,
+  Group,
+  Member,
+  RecurrenceUnit,
+  Recurring,
+  SplitRule,
+} from "../types";
 
 /**
  * Whether two sets of shares put the same figures on the same people.
@@ -61,6 +76,21 @@ function sameShares(
  *
  * Fires `expense-saved` on success and `expense-deleted` after a deletion, and
  * `open-expense` when the reader asks for the purchase a refund answers.
+ *
+ * Three more errands, all about an expense that comes back, because each of
+ * them is an expense being filled in and the fields, the currency and the split
+ * are this dialog's already:
+ *
+ * - a new expense may be said to repeat, which sets the recurring expense up
+ *   with this one as its first occurrence;
+ * - `occurrence` opens on the occurrence a recurring expense is waiting on, to
+ *   check its figure before adding it, or to pass over it;
+ * - `template` edits the recurring expense itself: what it proposes, its
+ *   rhythm, a pause, or stopping it. Those fire `expense-saved` and
+ *   `expense-deleted` too — to the page it is all the same: something moved.
+ *
+ * An occurrence opened from the list says how its recurring expense comes
+ * back, and fires `open-recurring` when the reader asks to change that.
  */
 @customElement("se-expense-dialog")
 export class SeExpenseDialog extends LitElement {
@@ -117,7 +147,45 @@ export class SeExpenseDialog extends LitElement {
    */
   @property({ type: Boolean }) public startRefund = false;
 
+  /** A recurring expense whose waiting occurrence is being checked and added. */
+  @property({ attribute: false }) public occurrence?: Recurring;
+
+  /** A recurring expense being changed, paused or stopped. */
+  @property({ attribute: false }) public template?: Recurring;
+
+  /**
+   * The recurring expense this one is an occurrence of, while it exists.
+   *
+   * Handed in by the page, which holds them all. Left out on an expense that
+   * comes from nothing that repeats, and on one whose recurring expense has
+   * since been stopped.
+   */
+  @property({ attribute: false }) public recurring?: Recurring;
+
+  /** Whether the reader may change `recurring`: the page's rule, as `openable` is. */
+  @property({ type: Boolean }) public recurringEditable = false;
+
   @property({ type: String }) public language = "en";
+
+  /** A new expense comes back: it is set up as the first of a recurring one. */
+  @state() private repeating = false;
+
+  /** Whether "Repeat" is unfolded. Folded, its line still says how it repeats. */
+  @state() private repeatOpen = false;
+
+  @state() private every = 1;
+
+  @state() private unit: RecurrenceUnit = "month";
+
+  /** The last day one may fall on, or "" to go on for ever. */
+  @state() private endsOn = "";
+
+  /** "Until" is set to a date, even before one is picked. */
+  @state() private endsOnADate = false;
+
+  @state() private paused = false;
+
+  @state() private confirmingStop = false;
 
   /** Named `expenseTitle` because `title` is taken by HTMLElement. */
   @state() private expenseTitle = "";
@@ -323,11 +391,124 @@ export class SeExpenseDialog extends LitElement {
       .jump {
         margin-top: 6px;
       }
+
+      /* A box ticked and what it says, on one line, the way the category
+         dialog asks whether it is the default. */
+      .switch {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 15px;
+        cursor: pointer;
+      }
+
+      /* "Repeat" folds like a section: one line saying whether and how
+         often, the controls under it on request. A line above only: the
+         rule before the split closes it, and a second one would double it. */
+      .fold {
+        border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+      }
+
+      .fold-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        padding: 12px 0;
+        border: none;
+        background: none;
+        color: var(--primary-text-color);
+        font-family: inherit;
+        font-size: 15px;
+        text-align: start;
+      }
+
+      button.fold-row {
+        cursor: pointer;
+      }
+
+      .fold-icon,
+      .fold-chevron {
+        color: var(--secondary-text-color);
+      }
+
+      .fold-icon.on,
+      .fold-value.on {
+        color: var(--primary-color, #03a9f4);
+      }
+
+      .fold-title {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .fold-value {
+        color: var(--secondary-text-color);
+        text-align: end;
+      }
+
+      .fold-body {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding-bottom: 14px;
+      }
+
+      /* "Every ‹ 2 › weeks", read as the sentence it is. */
+      .every {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      /* "Every", then how many and of what: the count is a stepper rather than
+         a field, since nobody repeats anything every 37 weeks and a keyboard
+         coming up for one digit hides the rest of the dialog. */
+      .stepper {
+        display: flex;
+        align-items: center;
+        flex: none;
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        border-radius: 8px;
+      }
+
+      .stepper button {
+        width: 32px;
+        height: 36px;
+        border: none;
+        background: none;
+        color: var(--primary-text-color);
+        font-size: 18px;
+        cursor: pointer;
+      }
+
+      .stepper button:disabled {
+        color: var(--disabled-text-color, #bdbdbd);
+        cursor: default;
+      }
+
+      .stepper span {
+        min-width: 22px;
+        text-align: center;
+        font-variant-numeric: tabular-nums;
+        font-weight: 500;
+      }
+
+      .hint {
+        font-size: 13px;
+      }
     `,
   ];
 
   public connectedCallback(): void {
     super.connectedCallback();
+
+    const recurring = this.template ?? this.occurrence;
+
+    if (recurring) {
+      this.fillFrom(recurring);
+      return;
+    }
 
     if (!this.expense) {
       // You, when the panel knows who you are: an expense is nearly always
@@ -357,7 +538,7 @@ export class SeExpenseDialog extends LitElement {
     // The stored sign is read once, here, and turned back into the two things
     // it stands for: a size in the field and a direction in the selector.
     this.refunding = this.expense.amount < 0;
-    this.amountInput = centsToInput(Math.abs(this.expense.amount));
+    this.amountInput = centsToInput(Math.abs(this.expense.amount), this.language);
 
     this.refundOf = this.expense.refund_of ?? "";
     this.paidBy = this.expense.paid_by_member_id;
@@ -378,6 +559,48 @@ export class SeExpenseDialog extends LitElement {
 
     this.currency = this.expense.currency;
     this.rate = this.expense.exchange_rate;
+  }
+
+  /**
+   * Open on what a recurring expense proposes.
+   *
+   * Checking an occurrence opens on the figure confirmed last time rather than
+   * the one first typed: the electricity is the reason anybody checks, and last
+   * time's bill is a better guess at this one than the bill of the day it was
+   * set up. The date is the day it falls due, and stays the reader's to move.
+   *
+   * Its split is its own when it has one. When it has none the editor opens on
+   * the category's rule then the group's, as a new expense does — and that is
+   * what is meant: it is read afresh at each occurrence, a new flatmate
+   * included, so it is not this dialog's to freeze until somebody touches it.
+   */
+  private fillFrom(recurring: Recurring): void {
+    const checking = this.template === undefined;
+
+    this.expenseTitle = recurring.title;
+    this.description = recurring.description ?? "";
+    this.showDescription = this.description !== "";
+
+    this.amountInput = centsToInput(
+      checking ? (recurring.latest_amount ?? recurring.amount) : recurring.amount,
+      this.language,
+    );
+
+    this.paidBy = recurring.paid_by_member_id;
+    this.categoryId = recurring.category_id ?? "";
+    this.date = recurring.next_due ?? recurring.anchor;
+
+    this.rule = recurring.split_rule;
+    this.ownSplit = recurring.split_rule !== null;
+
+    this.currency = recurring.currency;
+    this.rate = recurring.currency === this.group.currency ? RATE_ONE : null;
+
+    this.every = recurring.every;
+    this.unit = recurring.unit;
+    this.endsOn = recurring.ends_on ?? "";
+    this.endsOnADate = recurring.ends_on !== null;
+    this.paused = recurring.paused;
   }
 
   /**
@@ -475,9 +698,19 @@ export class SeExpenseDialog extends LitElement {
     const amount = this.signedAmount();
     const refund = this.refunding;
 
-    const heading = this.expense
-      ? translate(refund ? "edit_refund" : "edit_expense")
-      : translate(refund ? "new_refund" : "new_expense");
+    // An occurrence is checked under its own name: the reader pressed "check"
+    // on the rent, and the rent is what they should find.
+    const heading = this.template
+      ? translate("edit_recurring")
+      : this.occurrence
+        ? this.occurrence.title
+        : this.expense
+          ? translate(refund ? "edit_refund" : "edit_expense")
+          : translate(refund ? "new_refund" : "new_expense");
+
+    // What comes back is never a refund: a shop does not give money back every
+    // month, and the backend refuses a recurring amount below zero.
+    const recurringMode = this.template !== undefined || this.occurrence !== undefined;
 
     return html`
       <se-dialog
@@ -489,6 +722,8 @@ export class SeExpenseDialog extends LitElement {
         <div class="stack">
           ${this.error ? html`<div class="error">${this.error}</div>` : nothing}
 
+          ${this.occurrence ? this.renderDue(this.occurrence) : nothing}
+
           <!--
             Which way the money went, asked outright and first, the way the
             payment dialog asks what it is looking at. It was the minus sign on
@@ -497,7 +732,7 @@ export class SeExpenseDialog extends LitElement {
             nothing on screen said so. Typing one still does it; it now moves
             this instead of hiding in the figure.
           -->
-          <se-segmented
+          ${recurringMode ? nothing : html`<se-segmented
             .label=${translate("kind_label")}
             .value=${this.refunding ? "refund" : "expense"}
             .options=${[
@@ -505,7 +740,7 @@ export class SeExpenseDialog extends LitElement {
               { value: "refund", label: translate("kind_shop_refund") },
             ]}
             @value-changed=${this.pickWay}
-          ></se-segmented>
+          ></se-segmented>`}
 
           <se-field
             .label=${translate("expense_title")}
@@ -550,13 +785,31 @@ export class SeExpenseDialog extends LitElement {
               </select>
             </se-field>
 
+            <!--
+              On a recurring expense, the day the next one falls on. Moving it
+              moves every one after it: it becomes the day the rhythm counts from.
+            -->
             <se-field
-              .label=${translate("date")}
+              .label=${translate(this.template ? "next_due" : "date")}
               type="date"
+              .language=${this.language}
               .value=${this.date}
               @value-changed=${(e: CustomEvent) => this.typed("date", e.detail.value)}
             ></se-field>
           </div>
+
+          ${this.occurrence?.latest_amount != null
+            ? html`<div class="muted hint">
+                ${translate("occurrence_hint").replace(
+                  "{amount}",
+                  formatMoney(
+                    this.occurrence.latest_amount,
+                    this.occurrence.currency,
+                    this.language,
+                  ),
+                )}
+              </div>`
+            : nothing}
 
           <div class="pair">
             <!-- Whoever is out of pocket for it, or whoever got the money. -->
@@ -576,19 +829,25 @@ export class SeExpenseDialog extends LitElement {
             ></se-select>
           </div>
 
-          <!-- Shows itself only when there is a rate to settle. -->
-          <se-currency-field
-            .api=${this.api}
-            .localize=${this.localize}
-            .groupId=${this.group.id}
-            .groupCurrency=${this.group.currency}
-            .currency=${this.currency}
-            .on=${this.date}
-            .amount=${amount === null ? null : Math.abs(amount)}
-            .initialRate=${this.expense?.exchange_rate ?? null}
-            .language=${this.language}
-            @rate-changed=${this.handleRate}
-          ></se-currency-field>
+          <!--
+            Shows itself only when there is a rate to settle. Never on a
+            recurring expense itself, which converts nothing: each occurrence is
+            converted on its own day, when it is confirmed.
+          -->
+          ${this.template
+            ? nothing
+            : html`<se-currency-field
+                .api=${this.api}
+                .localize=${this.localize}
+                .groupId=${this.group.id}
+                .groupCurrency=${this.group.currency}
+                .currency=${this.currency}
+                .on=${this.date}
+                .amount=${amount === null ? null : Math.abs(amount)}
+                .initialRate=${this.expense?.exchange_rate ?? null}
+                .language=${this.language}
+                @rate-changed=${this.handleRate}
+              ></se-currency-field>`}
 
           ${this.showDescription
             ? html`
@@ -605,6 +864,8 @@ export class SeExpenseDialog extends LitElement {
                   + ${translate("add_description")}
                 </button>
               `}
+
+          ${this.renderRepeat()}
 
           <!-- Between filling the expense in and how it is split: always. -->
           <div class="rule"></div>
@@ -700,18 +961,18 @@ export class SeExpenseDialog extends LitElement {
             whatever the select above is showing: the past does not move with a
             choice nobody has taken yet.
           -->
-          ${this.expense
+          ${this.expense ?? this.template
             ? html`
                 <div class="rule"></div>
                 <se-entity-history
                   .api=${this.api}
                   .localize=${this.localize}
                   .groupId=${this.group.id}
-                  .entityId=${this.expense.id}
+                  .entityId=${(this.expense ?? this.template)!.id}
                   .members=${this.members}
                   .categories=${this.categories}
                   .currency=${this.group.currency}
-                  .paidIn=${this.expense.currency}
+                  .paidIn=${(this.expense ?? this.template)!.currency}
                   .language=${this.language}
                 ></se-entity-history>
               `
@@ -724,6 +985,12 @@ export class SeExpenseDialog extends LitElement {
             </div>`
           : nothing}
 
+        ${this.confirmingStop
+          ? html`<div slot="banner" class="warning">
+              ${translate("confirm_stop_recurring")}
+            </div>`
+          : nothing}
+
         <!-- Only while what was armed is still somewhere on screen. -->
         ${this.leavingTo !== undefined &&
         this.visibleTargets(refund).includes(this.leavingTo)
@@ -732,33 +999,369 @@ export class SeExpenseDialog extends LitElement {
             </div>`
           : nothing}
 
-        ${this.expense
-          ? html`
-              <se-button
-                slot="actions"
-                variant="danger"
-                ?disabled=${this.busy}
-                @click=${this.deleteExpense}
-              >
-                ${this.confirmingDelete
-                  ? translate("confirm_delete")
-                  : translate("delete")}
-              </se-button>
-              <span slot="actions" class="spacer"></span>
-            `
-          : nothing}
-        <se-button slot="actions" variant="text" @click=${this.cancel}>
-          ${translate("cancel")}
+        ${this.renderActions(amount)}
+      </se-dialog>
+    `;
+  }
+
+  /**
+   * The buttons, by errand.
+   *
+   * Checking an occurrence has two answers and no third: add it, or pass over
+   * it this time. Leaving it for later is the cross at the top, as it is for
+   * any dialog, and a Cancel beside the two would make three buttons on a
+   * phone for what is a yes or a no.
+   */
+  private renderActions(amount: number | null) {
+    const translate = this.localize;
+
+    if (this.occurrence) {
+      return html`
+        <se-button
+          slot="actions"
+          variant="text"
+          ?disabled=${this.busy}
+          @click=${this.skip}
+        >
+          ${translate("skip_this_time")}
         </se-button>
+        <span slot="actions" class="spacer"></span>
         <se-button
           slot="actions"
           ?disabled=${this.busy || !this.canSave(amount)}
           @click=${this.submit}
         >
-          ${this.expense ? translate("save") : translate("create")}
+          ${translate("add")}
         </se-button>
-      </se-dialog>
+      `;
+    }
+
+    // Stopping is the deletion of a recurring expense, and is asked twice the
+    // same way: the past stays, but nothing will be proposed again.
+    const removal = this.expense
+      ? html`
+          <se-button
+            slot="actions"
+            variant="danger"
+            ?disabled=${this.busy}
+            @click=${this.deleteExpense}
+          >
+            ${this.confirmingDelete ? translate("confirm_delete") : translate("delete")}
+          </se-button>
+          <span slot="actions" class="spacer"></span>
+        `
+      : this.template
+        ? html`
+            <se-button
+              slot="actions"
+              variant="danger"
+              ?disabled=${this.busy}
+              @click=${this.stop}
+            >
+              ${this.confirmingStop ? translate("confirm_delete") : translate("stop")}
+            </se-button>
+            <span slot="actions" class="spacer"></span>
+          `
+        : nothing;
+
+    return html`
+      ${removal}
+      <se-button slot="actions" variant="text" @click=${this.cancel}>
+        ${translate("cancel")}
+      </se-button>
+      <se-button
+        slot="actions"
+        ?disabled=${this.busy || !this.canSave(amount)}
+        @click=${this.submit}
+      >
+        ${this.expense || this.template ? translate("save") : translate("create")}
+      </se-button>
     `;
+  }
+
+  /** "Due Fri, Oct 24 · every 2 months", over the occurrence being checked. */
+  private renderDue(recurring: Recurring) {
+    const every = rhythm(recurring.every, recurring.unit, this.localize);
+
+    return html`
+      <div class="muted">
+        ${this.localize("occurrence_heading")
+          .replace("{date}", shortDay(recurring.next_due ?? recurring.anchor, this.language))
+          .replace("{rhythm}", every.charAt(0).toLocaleLowerCase(this.language) + every.slice(1))}
+      </div>
+    `;
+  }
+
+  /**
+   * Whether this comes back, and how often.
+   *
+   * Offered on a new expense, never a refund, and never on one being edited:
+   * making an expense already in the list the first of something is setting up
+   * a new one, which is a new expense. On a recurring expense being changed it
+   * is the point, so it is open and there is no box to tick. On an occurrence
+   * being edited, it is said rather than offered: see renderOrigin.
+   */
+  private renderRepeat() {
+    if (this.expense?.recurring_id) {
+      return this.renderOrigin();
+    }
+
+    const translate = this.localize;
+    const offered = !this.expense && !this.refunding && !this.occurrence;
+
+    if (!offered) {
+      return nothing;
+    }
+
+    const on = this.template !== undefined || this.repeating;
+
+    const line = html`
+      <se-icon
+        class="fold-icon ${on ? "on" : ""}"
+        plain
+        .icon=${"mdi:repeat"}
+        fallback="↻"
+        .size=${20}
+      ></se-icon>
+      <span class="fold-title">${translate("repeat")}</span>
+      <span class="fold-value ${on ? "on" : ""}">
+        ${on ? rhythm(this.every, this.unit, translate) : translate("repeat_never")}
+      </span>
+    `;
+
+    // A recurring expense being changed repeats by definition: open, and
+    // nothing to fold — a line that looks tappable and does nothing is worse
+    // than a plain one.
+    if (this.template) {
+      return html`
+        <div class="fold">
+          <div class="fold-row">${line}</div>
+          <div class="fold-body">${this.renderRhythm()}</div>
+        </div>
+      `;
+    }
+
+    return html`
+      <div class="fold">
+        <button
+          class="fold-row"
+          aria-expanded=${this.repeatOpen ? "true" : "false"}
+          @click=${() => (this.repeatOpen = !this.repeatOpen)}
+        >
+          ${line}
+          <se-icon
+            class="fold-chevron"
+            plain
+            .icon=${this.repeatOpen ? "mdi:chevron-down" : "mdi:chevron-right"}
+            fallback=${this.repeatOpen ? "⌄" : "›"}
+            .size=${22}
+          ></se-icon>
+        </button>
+        ${this.repeatOpen
+          ? html`<div class="fold-body">${this.renderRhythm()}</div>`
+          : nothing}
+      </div>
+    `;
+  }
+
+  /**
+   * Whether it repeats and how often, then until when.
+   *
+   * One choice says both: "Never" is the first of the units, so there is no box
+   * to tick and then a unit to pick. A recurring expense being changed has no
+   * "Never": stopping it is the Stop button's, with its own confirmation.
+   */
+  private renderRhythm() {
+    const translate = this.localize;
+    const on = this.template !== undefined || this.repeating;
+
+    const units = [
+      { value: "day", label: translate("unit_days") },
+      { value: "week", label: translate("unit_weeks") },
+      { value: "month", label: translate("unit_months") },
+    ];
+
+    const choice = html`
+      <se-segmented
+        class="units"
+        .value=${on ? this.unit : "never"}
+        .options=${this.template
+          ? units
+          : [{ value: "never", label: translate("repeat_never") }, ...units]}
+        @value-changed=${(e: CustomEvent) => {
+          const value = e.detail.value as RecurrenceUnit | "never";
+
+          this.repeating = value !== "never";
+
+          if (value !== "never") {
+            this.unit = value;
+          }
+
+          this.touched = true;
+        }}
+      ></se-segmented>
+    `;
+
+    if (!on) {
+      return choice;
+    }
+
+    const next =
+      this.date === "" ? null : occurrenceOf(this.date, this.every, this.unit, 1);
+
+    return html`
+      ${choice}
+
+      <div class="every">
+        <span class="muted">${translate("every")}</span>
+        <div class="stepper">
+          <button
+            aria-label=${translate("more_often")}
+            ?disabled=${this.every <= 1}
+            @click=${() => this.step(-1)}
+          >
+            ‹
+          </button>
+          <span>${this.every}</span>
+          <button aria-label=${translate("fewer")} @click=${() => this.step(1)}>›</button>
+        </div>
+        <span class="muted">${translate(`unit_${this.unit}s` as const)}</span>
+      </div>
+
+      <div class="pair">
+        <se-select
+          .label=${translate("until")}
+          .value=${this.endsOnADate ? "date" : "none"}
+          .options=${[
+            { value: "none", label: translate("no_end") },
+            { value: "date", label: translate("on_a_date") },
+          ]}
+          @value-changed=${(e: CustomEvent) => {
+            this.endsOnADate = e.detail.value === "date";
+            this.touched = true;
+          }}
+        ></se-select>
+        ${this.endsOnADate
+          ? html`<se-field
+              .label=${translate("date")}
+              type="date"
+              .language=${this.language}
+              .value=${this.endsOn}
+              @value-changed=${(e: CustomEvent) => {
+                this.endsOn = e.detail.value;
+                this.touched = true;
+              }}
+            ></se-field>`
+          : nothing}
+      </div>
+
+      ${this.template
+        ? html`
+            <label class="switch">
+              <input
+                type="checkbox"
+                .checked=${this.paused}
+                @change=${(e: Event) => {
+                  this.paused = (e.target as HTMLInputElement).checked;
+                  this.touched = true;
+                }}
+              />
+              <span>${translate("pause_it")}</span>
+            </label>
+            <div class="muted hint">${translate("template_hint")}</div>
+          `
+        : next === null
+          ? nothing
+          : html`<div class="muted hint">
+              ${translate("repeat_hint").replace("{date}", shortDay(next, this.language))}
+            </div>`}
+    `;
+  }
+
+  /**
+   * How the recurring expense this one came from comes back, and the way to it.
+   *
+   * Opened from the list, an occurrence looked like any other expense: the ↻ on
+   * its row was the only sign it repeated, and nothing in here said how often or
+   * let anybody change it. The rhythm belongs to the recurring expense, not to
+   * this one, so it is said here and changed there — a stepper on this expense
+   * would read as changing this expense.
+   *
+   * The way through only for whoever may change it: a link that does nothing is
+   * worse than a line of plain text.
+   */
+  private renderOrigin() {
+    const translate = this.localize;
+    const item = this.recurring;
+
+    const armed = item !== undefined && this.leavingTo === item.id;
+    const reachable = this.mayReachRecurring();
+
+    // The line "Repeat" folds into on a new expense, said rather than offered:
+    // no chevron, since there is nothing here to unfold.
+    return html`
+      <div class="fold">
+        <div class="fold-row">
+          <se-icon
+            class="fold-icon ${item ? "on" : ""}"
+            plain
+            .icon=${"mdi:repeat"}
+            fallback="↻"
+            .size=${20}
+          ></se-icon>
+          <span class="fold-title">${translate("repeats")}</span>
+          <span class="fold-value ${item ? "on" : ""}">
+            ${item
+              ? rhythm(item.every, item.unit, translate)
+              : translate("recurring_stopped")}
+          </span>
+        </div>
+        ${item
+          ? html`<div class="fold-body">
+              <div class="muted">${this.stateOf(item)}</div>
+              ${reachable
+                ? html`<button class="link jump" @click=${() => this.jumpTo(item.id, true)}>
+                    ${translate(armed ? "confirm_leave" : "open_recurring")}
+                  </button>`
+                : nothing}
+            </div>`
+          : nothing}
+      </div>
+    `;
+  }
+
+  /** "Next on Mon, Nov 24", "To confirm since…", "Paused": as the list says it. */
+  private stateOf(item: Recurring): string {
+    const translate = this.localize;
+
+    if (item.paused) {
+      return translate("status_paused");
+    }
+
+    if (item.next_due === null) {
+      return translate("recurring_stopped");
+    }
+
+    const day = shortDay(item.next_due, this.language);
+
+    return translate(item.waiting > 0 ? "recurring_waiting_since" : "recurring_next").replace(
+      "{date}",
+      day,
+    );
+  }
+
+  /** Whether there is a recurring expense behind this one for the reader to change. */
+  private mayReachRecurring(): boolean {
+    return (
+      this.recurring !== undefined &&
+      this.recurringEditable &&
+      this.expense?.recurring_id === this.recurring.id
+    );
+  }
+
+  private step(by: number) {
+    this.every = Math.max(1, this.every + by);
+    this.touched = true;
   }
 
   /**
@@ -935,7 +1538,40 @@ export class SeExpenseDialog extends LitElement {
    * button that sends something doomed is worse than one that waits.
    */
   private canSave(amount: number | null): boolean {
-    return this.isValid(amount) && this.rate !== null;
+    if (!this.isValid(amount)) {
+      return false;
+    }
+
+    // A recurring expense converts nothing itself, so it waits on no rate.
+    if (this.template === undefined && this.rate === null) {
+      return false;
+    }
+
+    return this.rhythmIsValid();
+  }
+
+  /**
+   * Whether the rhythm on screen makes one, when there is one on screen.
+   *
+   * "Until" set to a date needs the date, and one on or after the first: the
+   * backend refuses a recurring expense ending before it starts, and a button
+   * that sends that is a button that fails.
+   */
+  private rhythmIsValid(): boolean {
+    if (this.template === undefined && (!this.repeating || this.refunding)) {
+      return true;
+    }
+
+    if (this.endsOnADate) {
+      return this.endsOn !== "" && this.endsOn >= this.date;
+    }
+
+    return true;
+  }
+
+  /** The last day, as the backend takes it: null for no end. */
+  private endsOnValue(): string | null {
+    return this.endsOnADate && this.endsOn !== "" ? this.endsOn : null;
   }
 
   /**
@@ -993,7 +1629,12 @@ export class SeExpenseDialog extends LitElement {
     // it stays a way of entering one: whoever has the habit keeps it, and the
     // gesture now shows up in the selector rather than living in the figure.
     // The sign is taken out of the field, so the two never say different things.
-    this.refunding = this.refunding || typed.includes("-");
+    //
+    // Not on a recurring expense, which only ever takes money: there the minus
+    // is dropped and nothing else happens.
+    const recurring = this.template !== undefined || this.occurrence !== undefined;
+
+    this.refunding = !recurring && (this.refunding || typed.includes("-"));
     this.amountInput = typed.replace(/-/g, "");
 
     this.touched = true;
@@ -1102,7 +1743,7 @@ export class SeExpenseDialog extends LitElement {
       if (typed === null || Math.abs(typed) > purchase.amount) {
         // The size of it. The selector already says which way it goes, and it
         // says "refund" or this picker would not be on screen.
-        this.amountInput = centsToInput(purchase.amount);
+        this.amountInput = centsToInput(purchase.amount, this.language);
         this.currency = purchase.currency;
         this.rate =
           purchase.currency === this.group.currency ? RATE_ONE : null;
@@ -1347,7 +1988,13 @@ export class SeExpenseDialog extends LitElement {
       targets.push(...this.refunds.map((refund) => refund.id));
     }
 
-    return targets.filter((id) => this.mayOpen(id));
+    const reachable = targets.filter((id) => this.mayOpen(id));
+
+    if (this.mayReachRecurring()) {
+      reachable.push(this.recurring!.id);
+    }
+
+    return reachable;
   }
 
   /**
@@ -1362,10 +2009,13 @@ export class SeExpenseDialog extends LitElement {
    * "leave" and this says "open that one", and somebody who has just corrected
    * an amount is not asking for it to be thrown away. Armed once, in place, the
    * way a deletion is.
+   *
+   * `recurring` when it is the recurring expense this one came from that is
+   * asked for, which the page opens in its own errand of this dialog.
    */
-  private jumpTo(expenseId: string) {
-    if (this.leavingTo !== expenseId && this.touched) {
-      this.leavingTo = expenseId;
+  private jumpTo(id: string, recurring = false) {
+    if (this.leavingTo !== id && this.touched) {
+      this.leavingTo = id;
 
       // One question at a time. Both are armed in place and both speak in the
       // banner, so a delete waiting to be confirmed and a jump waiting to be
@@ -1376,8 +2026,8 @@ export class SeExpenseDialog extends LitElement {
     }
 
     this.dispatchEvent(
-      new CustomEvent("open-expense", {
-        detail: { expenseId },
+      new CustomEvent(recurring ? "open-recurring" : "open-expense", {
+        detail: recurring ? { recurringId: id } : { expenseId: id },
         bubbles: true,
         composed: true,
       }),
@@ -1423,6 +2073,11 @@ export class SeExpenseDialog extends LitElement {
   };
 
   private submit = async () => {
+    if (this.template) {
+      await this.saveTemplate(this.template);
+      return;
+    }
+
     const amount = this.signedAmount();
 
     // Send the shares shown rather than the rule behind them: what you see is
@@ -1478,7 +2133,7 @@ export class SeExpenseDialog extends LitElement {
     try {
       const expense = this.expense
         ? await this.api.updateExpense(this.expense.id, changes)
-        : await this.api.createExpense(input);
+        : await this.create(input);
 
       this.dispatchEvent(
         new CustomEvent("expense-saved", {
@@ -1493,6 +2148,132 @@ export class SeExpenseDialog extends LitElement {
       this.busy = false;
     }
   };
+
+  /**
+   * Add the expense: on its own, as an occurrence answered, or as the first of
+   * a recurring expense set up with it.
+   */
+  private async create(input: CreateExpenseInput): Promise<Expense> {
+    if (this.occurrence) {
+      return this.api.createExpense({
+        ...input,
+        recurring_id: this.occurrence.id,
+        // The day it fell due, which is not the date typed when somebody moved
+        // it: that one is the expense's, this one says which occurrence it was.
+        occurrence: this.occurrence.next_due!,
+      });
+    }
+
+    // Ticked, and then turned into a refund: the box went with the purchase.
+    if (!this.repeating || this.refunding) {
+      return this.api.createExpense(input);
+    }
+
+    // `refund_of` is a refund's, and the command setting one up does not know
+    // the word: a refund never repeats.
+    const { refund_of: _refund, ...first } = input;
+
+    const { expense } = await this.api.createRecurring({
+      ...first,
+      every: this.every,
+      unit: this.unit,
+      ends_on: this.endsOnValue(),
+      // The split to propose each time: the reader's own when they set one,
+      // otherwise nothing, so the category's and then the group's are read
+      // afresh at every occurrence rather than frozen as they stand today.
+      rule: this.ownSplit ? this.rule : null,
+    });
+
+    return expense;
+  }
+
+  /** Save a recurring expense, sending only what changed (`recurringChanges`). */
+  private async saveTemplate(template: Recurring) {
+    const size = parseMoney(this.amountInput);
+
+    if (size === null || size <= 0) {
+      return;
+    }
+
+    const changes = recurringChanges(
+      template,
+      {
+        title: this.expenseTitle.trim(),
+        description: this.description.trim() || null,
+        amount: Math.abs(size),
+        currency: this.currency || this.group.currency,
+        paid_by_member_id: this.paidBy,
+        category_id: this.categoryId || null,
+        every: this.every,
+        unit: this.unit,
+        ends_on: this.endsOnValue(),
+        paused: this.paused,
+        next_due: this.date,
+      },
+      { own: this.ownSplit, rule: this.rule },
+    );
+
+    await this.run(async () => {
+      if (Object.keys(changes).length > 0) {
+        await this.api.updateRecurring(template.id, changes);
+      }
+
+      this.announce("expense-saved");
+    });
+  }
+
+  /** Pass over the occurrence waiting: nothing is added, the next one comes. */
+  private skip = async () => {
+    const waiting = this.occurrence;
+
+    if (!waiting?.next_due) {
+      return;
+    }
+
+    await this.run(async () => {
+      await this.api.skipOccurrence(waiting.id, waiting.next_due!);
+      this.announce("expense-saved");
+    });
+  };
+
+  /** Stop a recurring expense, asked once in place. What it added stays. */
+  private stop = async () => {
+    if (!this.template) {
+      return;
+    }
+
+    if (!this.confirmingStop) {
+      this.confirmingStop = true;
+      return;
+    }
+
+    const template = this.template;
+
+    await this.run(async () => {
+      await this.api.deleteRecurring(template.id);
+      this.announce("expense-deleted");
+    });
+
+    this.confirmingStop = false;
+  };
+
+  /** Run a call with the buttons held, and say what went wrong if it did. */
+  private async run(call: () => Promise<void>) {
+    this.busy = true;
+    this.error = undefined;
+
+    try {
+      await call();
+    } catch (error) {
+      this.error = errorMessage(error, this.localize);
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  private announce(name: "expense-saved" | "expense-deleted") {
+    this.dispatchEvent(new CustomEvent(name, { bubbles: true, composed: true }));
+  }
 
   /** Named `deleteExpense` because `remove` is taken by HTMLElement. */
   private deleteExpense = async () => {

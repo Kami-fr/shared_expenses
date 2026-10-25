@@ -15,6 +15,7 @@ from . import (
     members,
     payments,
     rates,
+    recurring,
     revisions,
     statistics,
 )
@@ -26,6 +27,7 @@ COMMANDS = (
     *expenses.COMMANDS,
     *payments.COMMANDS,
     *rates.COMMANDS,
+    *recurring.COMMANDS,
     *revisions.COMMANDS,
     *statistics.COMMANDS,
 )

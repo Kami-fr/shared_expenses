@@ -9,6 +9,7 @@
 
 import { formatDayDate, formatMoney } from "./format";
 import type { Key, Localizer } from "./localize";
+import { shortDay } from "./recurrence";
 import { describeRule } from "./split-summary";
 import type { Category, FieldChange, Member, SplitRule } from "../types";
 
@@ -70,6 +71,13 @@ const LABELS: Record<string, Key> = {
   split_rule: "default_split",
   permissions: "permissions",
   role: "field_role",
+
+  // A recurring expense's rhythm.
+  every: "every",
+  unit: "repeat",
+  next_due: "next_due",
+  ends_on: "until",
+  paused: "status_paused",
 };
 
 /**
@@ -143,6 +151,20 @@ function readValue(
     return context.localize(
       value === "debt" ? "kind_debt" : "kind_reimbursement",
     );
+  }
+
+  if (field === "unit") {
+    return context.localize(
+      value === "day" ? "unit_days" : value === "week" ? "unit_weeks" : "unit_months",
+    );
+  }
+
+  if (field === "next_due" || field === "ends_on") {
+    return shortDay(String(value), context.language);
+  }
+
+  if (field === "paused") {
+    return context.localize(value ? "yes" : "no");
   }
 
   if (field === "role") {

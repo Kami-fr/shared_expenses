@@ -17,3 +17,11 @@ class RevisionAction(StrEnum):
     the rate it was frozen at. The line between the deletion and this one is the
     whole of what happened, and it reads as such.
     """
+
+    SKIPPED = "skipped"
+    """An occurrence of a recurring expense, passed over rather than confirmed.
+
+    Its own word, not an update: nothing about the recurring expense changed,
+    somebody decided that this month's did not happen. The one change it carries
+    is `next_due`, from the day passed over to the next.
+    """

@@ -22,6 +22,7 @@ from .repositories.group_member_repository import GroupMemberRepository
 from .repositories.group_repository import GroupRepository
 from .repositories.member_repository import MemberRepository
 from .repositories.payment_repository import PaymentRepository
+from .repositories.recurring_repository import RecurringRepository
 from .repositories.revision_repository import RevisionRepository
 
 LOGGER = getLogger(__package__)
@@ -54,6 +55,7 @@ class Database:
         self._category_repository: CategoryRepository | None = None
         self._expense_repository: ExpenseRepository | None = None
         self._payment_repository: PaymentRepository | None = None
+        self._recurring_repository: RecurringRepository | None = None
         self._revision_repository: RevisionRepository | None = None
         self._exchange_rate_repository: ExchangeRateRepository | None = None
 
@@ -125,6 +127,13 @@ class Database:
         return self._payment_repository
 
     @property
+    def recurring_repository(self) -> RecurringRepository:
+        """Return the recurring expense repository."""
+
+        assert self._recurring_repository is not None
+        return self._recurring_repository
+
+    @property
     def revision_repository(self) -> RevisionRepository:
         """Return the revision repository."""
 
@@ -166,6 +175,7 @@ class Database:
         self._category_repository = CategoryRepository(self)
         self._expense_repository = ExpenseRepository(self)
         self._payment_repository = PaymentRepository(self)
+        self._recurring_repository = RecurringRepository(self)
         self._revision_repository = RevisionRepository(self)
         self._exchange_rate_repository = ExchangeRateRepository(self)
 

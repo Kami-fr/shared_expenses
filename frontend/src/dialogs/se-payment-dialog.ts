@@ -17,6 +17,7 @@ import {
   isoToDateInput,
   parseMoney,
   today,
+  typedExample,
 } from "../services/format";
 import { errorMessage, type Localizer } from "../services/localize";
 import { sharedStyles } from "../styles/shared";
@@ -138,7 +139,7 @@ export class SePaymentDialog extends LitElement {
     if (this.payment) {
       this.fromMember = this.payment.from_member_id;
       this.toMember = this.payment.to_member_id;
-      this.amountInput = centsToInput(this.payment.amount);
+      this.amountInput = centsToInput(this.payment.amount, this.language);
       this.date = isoToDateInput(this.payment.payment_date);
       this.kind = this.payment.kind;
       this.currency = this.payment.currency;
@@ -160,7 +161,7 @@ export class SePaymentDialog extends LitElement {
     if (this.settlement) {
       this.fromMember = this.settlement.from_member_id;
       this.toMember = this.settlement.to_member_id;
-      this.amountInput = centsToInput(this.settlement.amount);
+      this.amountInput = centsToInput(this.settlement.amount, this.language);
       return;
     }
 
@@ -178,7 +179,7 @@ export class SePaymentDialog extends LitElement {
 
     const heading = this.payment
       ? translate(debt ? "edit_debt" : "edit_payment")
-      : translate(debt ? "new_debt" : "new_payment");
+      : translate(debt ? "new_debt" : "fab_reimburse");
 
     return html`
       <se-dialog
@@ -228,6 +229,7 @@ export class SePaymentDialog extends LitElement {
               .value=${this.amountInput}
               decimal
               required
+              placeholder=${typedExample(20, 2, this.language)}
               @value-changed=${(e: CustomEvent) =>
                 this.typed("amountInput", e.detail.value)}
             >
@@ -252,6 +254,7 @@ export class SePaymentDialog extends LitElement {
             <se-field
               .label=${translate("date")}
               type="date"
+              .language=${this.language}
               .value=${this.date}
               @value-changed=${(e: CustomEvent) => this.typed("date", e.detail.value)}
             ></se-field>

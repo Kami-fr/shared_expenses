@@ -40,9 +40,10 @@ class ExpenseRepository(BaseRepository):
                 exchange_rate,
                 rate_as_of,
                 created_by_member_id,
-                refund_of
+                refund_of,
+                recurring_id
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 expense.id,
@@ -61,6 +62,7 @@ class ExpenseRepository(BaseRepository):
                 None if expense.rate_as_of is None else expense.rate_as_of.isoformat(),
                 expense.created_by_member_id,
                 expense.refund_of,
+                expense.recurring_id,
             ),
         )
 
@@ -106,7 +108,8 @@ class ExpenseRepository(BaseRepository):
                 exchange_rate,
                 rate_as_of,
                 created_by_member_id,
-                refund_of
+                refund_of,
+                recurring_id
             FROM expenses
             WHERE id = ?
             """,
@@ -142,7 +145,8 @@ class ExpenseRepository(BaseRepository):
                 exchange_rate,
                 rate_as_of,
                 created_by_member_id,
-                refund_of
+                refund_of,
+                recurring_id
             FROM expenses
             WHERE group_id = ?
             -- A date input carries no time, so everything entered on the same
@@ -156,6 +160,56 @@ class ExpenseRepository(BaseRepository):
         await cursor.close()
 
         return [self._from_row(row) for row in rows]
+
+    async def latest_by_recurring(self, group_id: str) -> dict[str, Expense]:
+        """Return the last confirmed occurrence of each recurring expense of a group.
+
+        What the panel puts beside the next one — "164,12 last time" — and the
+        figure worth proposing where the amount moves from one bill to the next.
+        Last by the day it was due, which is the day it is dated.
+        """
+
+        cursor = await self._connection.execute(
+            """
+            SELECT
+                id,
+                group_id,
+                category_id,
+                title,
+                description,
+                amount,
+                currency,
+                paid_by_member_id,
+                expense_date,
+                created_at,
+                split_rule,
+                converted_amount,
+                exchange_rate,
+                rate_as_of,
+                created_by_member_id,
+                refund_of,
+                recurring_id
+            FROM (
+                SELECT
+                    *,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY recurring_id
+                        ORDER BY expense_date DESC, created_at DESC
+                    ) AS recency
+                FROM expenses
+                WHERE group_id = ? AND recurring_id IS NOT NULL
+            )
+            WHERE recency = 1
+            """,
+            (group_id,),
+        )
+
+        rows = await cursor.fetchall()
+        await cursor.close()
+
+        # One row per recurring expense: a household's years of rent are not
+        # read back to keep the last of them.
+        return {row["recurring_id"]: self._from_row(row) for row in rows}
 
     async def get_shares(
         self,
@@ -342,4 +396,5 @@ class ExpenseRepository(BaseRepository):
             ),
             created_by_member_id=row["created_by_member_id"],
             refund_of=row["refund_of"],
+            recurring_id=row["recurring_id"],
         )

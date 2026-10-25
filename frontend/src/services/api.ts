@@ -20,6 +20,8 @@ import type {
   Payment,
   PaymentKind,
   Permission,
+  RecurrenceUnit,
+  Recurring,
   Revision,
   SplitRule,
 } from "../types";
@@ -83,6 +85,47 @@ export interface CreateExpenseInput {
    * agreed to on screen is what gets stored. Left out, the manager finds one.
    */
   exchange_rate?: number;
+  /**
+   * With `occurrence`, confirms that occurrence of a recurring expense: the one
+   * falling on that day, which has to be the one still waiting.
+   */
+  recurring_id?: string;
+  occurrence?: string;
+}
+
+/** How often a recurring expense comes back, and until when. */
+export interface Rhythm {
+  every: number;
+  unit: RecurrenceUnit;
+  /** The last day an occurrence may fall on, `YYYY-MM-DD`, or null for ever. */
+  ends_on?: string | null;
+}
+
+/**
+ * A recurring expense, set up with its first occurrence.
+ *
+ * Everything an expense takes, for that first one, and the rhythm. `rule` is
+ * the split to propose each time — null when nobody touched it, so that the
+ * category's rule and then the group's are read afresh at every confirmation.
+ */
+export interface CreateRecurringInput
+  extends Omit<CreateExpenseInput, "refund_of" | "recurring_id" | "occurrence">,
+    Rhythm {
+  rule?: SplitRule | null;
+}
+
+/** What may change about a recurring expense. Only what is sent changes. */
+export interface UpdateRecurringInput extends Partial<Rhythm> {
+  title?: string;
+  description?: string | null;
+  amount?: number;
+  currency?: string;
+  paid_by_member_id?: string;
+  category_id?: string | null;
+  split_rule?: SplitRule | null;
+  /** Moves every later occurrence with it. */
+  next_due?: string;
+  paused?: boolean;
 }
 
 export interface CreatePaymentInput {
@@ -317,6 +360,38 @@ export class SharedExpensesApi {
     return this.call("restore_expense", {
       group_id: groupId,
       expense_id: expenseId,
+    });
+  }
+
+  // Recurring expenses
+
+  public listRecurring(groupId: string): Promise<Recurring[]> {
+    return this.call("list_recurring", { group_id: groupId });
+  }
+
+  public createRecurring(
+    input: CreateRecurringInput,
+  ): Promise<{ recurring: Recurring; expense: Expense }> {
+    return this.call("create_recurring", input);
+  }
+
+  public updateRecurring(
+    recurringId: string,
+    changes: UpdateRecurringInput,
+  ): Promise<Recurring> {
+    return this.call("update_recurring", { recurring_id: recurringId, ...changes });
+  }
+
+  /** Stop it. What it already added stays. */
+  public deleteRecurring(recurringId: string): Promise<null> {
+    return this.call("delete_recurring", { recurring_id: recurringId });
+  }
+
+  /** Pass over the occurrence falling on `occurrence`, which must be the one waiting. */
+  public skipOccurrence(recurringId: string, occurrence: string): Promise<Recurring> {
+    return this.call("skip_occurrence", {
+      recurring_id: recurringId,
+      occurrence,
     });
   }
 

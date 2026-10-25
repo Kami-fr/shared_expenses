@@ -28,11 +28,13 @@ from ..exceptions import (
     InvalidExpenseError,
     InvalidExpenseSharesError,
     InvalidPaymentError,
+    InvalidRecurringError,
     InvalidSplitRuleError,
     MemberAlreadyInGroupError,
     MemberNotFoundError,
     NotAllowedError,
     PaymentNotFoundError,
+    RecurringNotFoundError,
     SharedExpensesError,
 )
 from ..helpers.ids import new_id
@@ -69,6 +71,7 @@ class Scope(Enum):
     EXPENSE = "expense_id"
     CATEGORY = "category_id"
     PAYMENT = "payment_id"
+    RECURRING = "recurring_id"
 
 
 class Requires(Enum):
@@ -85,8 +88,9 @@ class Requires(Enum):
     MINE = "mine"
     """Theirs, or the group's leave to touch what is not.
 
-    Only meaningful on an EXPENSE or a PAYMENT scope: what counts as theirs is
-    the thing's own business, and the manager is where it is decided.
+    Only meaningful on an EXPENSE, a PAYMENT or a RECURRING scope: what counts
+    as theirs is the thing's own business, and the manager is where it is
+    decided.
     """
 
 # Error codes are part of the contract with the frontend: they are declared
@@ -105,6 +109,8 @@ ERROR_CODES: dict[type[SharedExpensesError], str] = {
     InvalidExpenseSharesError: "invalid_expense_shares",
     InvalidSplitRuleError: "invalid_split_rule",
     PaymentNotFoundError: "payment_not_found",
+    RecurringNotFoundError: "recurring_not_found",
+    InvalidRecurringError: "invalid_recurring",
     InvalidPaymentError: "invalid_payment",
     InvalidExchangeRateError: "invalid_exchange_rate",
     ExchangeRateUnavailableError: "exchange_rate_unavailable",
@@ -268,6 +274,21 @@ async def _authorize(
 
         return
 
+    if scope is Scope.RECURRING:
+        recurring = await manager.get_recurring(msg["recurring_id"])
+
+        try:
+            await manager.ensure_group_member(recurring.group_id, user_id)
+        except GroupNotFoundError as err:
+            raise RecurringNotFoundError(msg["recurring_id"]) from err
+
+        if requires is Requires.MINE:
+            await manager.ensure_may_edit_recurring(recurring, user_id)
+        else:
+            await _require(manager, recurring.group_id, user_id, requires)
+
+        return
+
     raise RuntimeError(f"Unhandled authorization scope: {scope}")
 
 
@@ -288,7 +309,8 @@ async def _require(
 
     if requires is Requires.MINE:
         raise RuntimeError(
-            "Requires.MINE only means something on an expense or a payment: "
+            "Requires.MINE only means something on an expense, a payment or a "
+            "recurring expense: "
             "nothing else here is anybody's."
         )
 

@@ -200,13 +200,6 @@ export class SeSplitRuleEditor extends LitElement {
         font-variant-numeric: tabular-nums;
       }
 
-      input[type="checkbox"] {
-        width: 20px;
-        height: 20px;
-        accent-color: var(--primary-color, #03a9f4);
-        flex: 0 0 auto;
-      }
-
       .rest {
         display: flex;
         align-items: center;

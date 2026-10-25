@@ -12,7 +12,7 @@ CONFIG_VERSION: Final = 1
 
 DATABASE_NAME: Final = "shared_expenses.db"
 DATABASE_SCHEMA: Final = "schema_v1.sql"
-DATABASE_VERSION: Final = 16
+DATABASE_VERSION: Final = 17
 STORAGE_KEY: Final = DOMAIN
 
 DEFAULT_CURRENCY: Final = "EUR"
@@ -49,6 +49,15 @@ REFRESH_COOLDOWN: Final = 1.0
 #: the journal carries — group, kind of thing, what happened, who did it — and
 #: nothing an automation could not already read for itself once told to look.
 EVENT_CHANGED: Final = f"{DOMAIN}_changed"
+
+#: Fired once when an occurrence of a recurring expense falls due, so that an
+#: automation can say so on a phone: an occurrence is proposed, not added, and a
+#: proposal nobody hears about waits in a panel nobody opened. Checked when the
+#: integration starts and every morning at `RECURRING_DUE_HOUR`, local time.
+EVENT_RECURRING_DUE: Final = f"{DOMAIN}_recurring_due"
+
+#: When the morning check runs: late enough to be read rather than slept through.
+RECURRING_DUE_HOUR: Final = 9
 
 PANEL_URL: Final = DOMAIN
 PANEL_TITLE: Final = NAME

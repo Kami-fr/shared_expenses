@@ -14,11 +14,13 @@ import "../dialogs/se-group-dialog";
 import "../dialogs/se-history-dialog";
 import "../dialogs/se-member-dialog";
 import "../dialogs/se-payment-dialog";
+import "../dialogs/se-recurring-dialog";
 import "../dialogs/se-statistics-dialog";
 import type { SharedExpensesApi } from "../services/api";
 import {
   colorFor,
   colorOf,
+  dateToIso,
   formatDayDate,
   formatMoney,
   formatMonthLong,
@@ -26,6 +28,7 @@ import {
   sortByName,
 } from "../services/format";
 import { errorMessage, type Localizer } from "../services/localize";
+import { shortDay, varies, whoPays } from "../services/recurrence";
 import { monthOf } from "../services/statistics-period";
 import { sharedStyles } from "../styles/shared";
 import type {
@@ -40,6 +43,7 @@ import type {
   Payment,
   PaymentKind,
   Permission,
+  Recurring,
   Settlement,
 } from "../types";
 
@@ -50,7 +54,8 @@ type Dialog =
   | "group"
   | "categories"
   | "history"
-  | "statistics";
+  | "statistics"
+  | "recurring";
 
 /**
  * One thing that happened in the group, expense or payment alike.
@@ -121,6 +126,18 @@ export class SeGroupPage extends LitElement {
   @state() private expenses: Expense[] = [];
 
   @state() private payments: Payment[] = [];
+
+  /** What comes back: the rent, the subscriptions. */
+  @state() private recurring: Recurring[] = [];
+
+  /** A recurring expense opened to be changed, in the expense dialog. */
+  @state() private editedRecurring?: Recurring;
+
+  /** A recurring expense whose waiting occurrence is being checked. */
+  @state() private checking?: Recurring;
+
+  /** The occurrence being answered from the list, so it is not answered twice. */
+  @state() private answering?: string;
 
   @state() private result?: GroupBalances;
 
@@ -643,7 +660,7 @@ export class SeGroupPage extends LitElement {
         font-size: 12px;
         font-weight: 400;
         color: var(--secondary-text-color);
-        margin-left: 6px;
+        overflow-wrap: anywhere;
       }
 
       .tail {
@@ -708,6 +725,38 @@ export class SeGroupPage extends LitElement {
         letter-spacing: 0.5px;
         text-transform: uppercase;
         color: var(--secondary-text-color);
+      }
+
+      /*
+        An occurrence waiting: what it is and its figure, then the two answers
+        under them, right-aligned where a thumb finds them.
+      */
+      .due-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+      }
+
+      .due-top {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .due-actions {
+        display: flex;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      /* Inline-flex, not inline: se-icon is a block, and a block inside an
+         inline span breaks the line — the mark fell under the title. */
+      .repeat {
+        display: inline-flex;
+        color: var(--secondary-text-color);
+        margin-left: 4px;
+        vertical-align: middle;
       }
 
       .month-head b {
@@ -776,6 +825,7 @@ export class SeGroupPage extends LitElement {
     this.categories = [];
     this.expenses = [];
     this.payments = [];
+    this.recurring = [];
     this.result = undefined;
   }
 
@@ -946,6 +996,8 @@ export class SeGroupPage extends LitElement {
     this.choosing = false;
     this.newRefund = refund;
     this.editedExpense = undefined;
+    this.editedRecurring = undefined;
+    this.checking = undefined;
     this.show("expense", true);
   }
 
@@ -1089,6 +1141,9 @@ export class SeGroupPage extends LitElement {
       <button role="menuitem" @click=${() => this.openDialog("history")}>
         ${translate("group_history")}
       </button>
+      <button role="menuitem" @click=${() => this.openDialog("recurring")}>
+        ${translate("recurring_expenses")}
+      </button>
       <button role="menuitem" class="separated" @click=${() => this.openDialog("member")}>
         ${translate("members")}
       </button>
@@ -1188,6 +1243,8 @@ export class SeGroupPage extends LitElement {
    */
   private renderHome() {
     return html`
+      ${this.renderDue()}
+
       <se-balance-card
         .localize=${this.localize}
         .balances=${this.result?.balances ?? []}
@@ -1201,6 +1258,179 @@ export class SeGroupPage extends LitElement {
 
       ${this.searching ? this.renderSearch() : nothing} ${this.renderActivityCard()}
     `;
+  }
+
+  /**
+   * What has come back and waits for somebody to say so: the rent, the
+   * electricity.
+   *
+   * At the top, above the balance, because it is the one thing on this page
+   * asking for an answer — and an answer changes the balance underneath. Not
+   * there at all when nothing waits, nor on an archived group, which nothing
+   * can be added to.
+   *
+   * One tap for what never changes, a check for what does: a rent is added as
+   * it is, the electricity opens on last time's figure to be corrected. Any
+   * member answers, as any member may add an expense.
+   */
+  private renderDue() {
+    // The longest waiting first: it is the one somebody has been meaning to do.
+    const due = this.recurring
+      .filter((item) => item.waiting > 0)
+      .sort((a, b) => a.next_due!.localeCompare(b.next_due!));
+
+    if (due.length === 0 || this.group!.archived) {
+      return nothing;
+    }
+
+    const translate = this.localize;
+
+    return html`
+      <section class="month">
+        <div class="month-head">
+          <span>${translate("to_confirm")} · ${due.length}</span>
+        </div>
+        <div class="card">${due.map((item) => this.renderDueItem(item))}</div>
+      </section>
+    `;
+  }
+
+  private renderDueItem(item: Recurring) {
+    const translate = this.localize;
+    const payer = this.memberById(item.paid_by_member_id);
+    const checked = varies(item);
+    const busy = this.answering === item.id;
+
+    const facts = [
+      translate("recurring_due").replace("{date}", shortDay(item.next_due!, this.language)),
+      whoPays(item, payer?.name ?? "?", this.meId(), translate),
+      ...(item.waiting > 1
+        ? [translate("recurring_waiting").replace("{n}", String(item.waiting))]
+        : []),
+    ];
+
+    return html`
+      <div
+        class="item due-item"
+        style=${`border-left-color:${payer?.color ?? colorFor(item.paid_by_member_id)}`}
+      >
+        <div class="due-top">
+          <div class="info">
+            <div class="title">${item.title}</div>
+            <div class="muted">${facts.join(" · ")}</div>
+          </div>
+          <div class="tail">
+            <span class="amount">
+              ${formatMoney(
+                checked ? item.latest_amount! : item.amount,
+                item.currency,
+                this.language,
+              )}
+            </span>
+            ${checked
+              ? html`<span class="converted">${translate("recurring_last")}</span>`
+              : nothing}
+          </div>
+        </div>
+        <div class="due-actions">
+          <se-button
+            variant="text"
+            ?disabled=${busy}
+            @click=${() => this.skipOccurrence(item)}
+          >
+            ${translate("skip")}
+          </se-button>
+          <se-button
+            class=${checked ? "check" : "add"}
+            ?disabled=${busy}
+            @click=${() => (checked ? this.checkOccurrence(item) : this.addOccurrence(item))}
+          >
+            ${translate(checked ? "check_amount" : "add")}
+          </se-button>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Add the occurrence waiting, as it is proposed.
+   *
+   * The split is left to the backend when the recurring expense has none of its
+   * own, which is the point of having none: the category's rule then the
+   * group's, as they stand today. The rate too, for one in another currency.
+   */
+  private async addOccurrence(item: Recurring) {
+    await this.answer(item, () =>
+      this.api.createExpense({
+        group_id: item.group_id,
+        title: item.title,
+        amount: item.amount,
+        paid_by_member_id: item.paid_by_member_id,
+        expense_date: dateToIso(item.next_due!),
+        currency: item.currency,
+        category_id: item.category_id,
+        description: item.description,
+        ...(item.split_rule ? { split_rule: item.split_rule } : {}),
+        recurring_id: item.id,
+        occurrence: item.next_due!,
+      }),
+    );
+  }
+
+  private async skipOccurrence(item: Recurring) {
+    await this.answer(item, () => this.api.skipOccurrence(item.id, item.next_due!));
+  }
+
+  /**
+   * Answer an occurrence from the list, then read the group again.
+   *
+   * Read again on a refusal as well: the usual one is somebody having answered
+   * it on another phone a moment ago, and the list should stop asking.
+   */
+  private async answer(item: Recurring, call: () => Promise<unknown>) {
+    this.answering = item.id;
+    this.error = undefined;
+
+    try {
+      await call();
+    } catch (error) {
+      this.error = errorMessage(error, this.localize);
+    } finally {
+      this.answering = undefined;
+    }
+
+    await this.load({ keepError: true });
+  }
+
+  private checkOccurrence(item: Recurring) {
+    this.checking = item;
+    this.editedExpense = undefined;
+    this.editedRecurring = undefined;
+    this.show("expense");
+  }
+
+  /** Open a recurring expense from the list, to change it. */
+  private openRecurring = (event: CustomEvent) => {
+    const item = this.recurring.find((entry) => entry.id === event.detail.recurringId);
+
+    if (item && this.mayEditRecurring(item)) {
+      this.editedRecurring = item;
+      this.checking = undefined;
+      this.editedExpense = undefined;
+      this.show("expense");
+    }
+  };
+
+  /**
+   * Whether a recurring expense is yours to change: you set it up, you pay it,
+   * or the group lets you change what is not yours — an expense's own rule.
+   */
+  private mayEditRecurring(item: Recurring): boolean {
+    const me = this.meId();
+    const mine =
+      me !== null && (item.created_by_member_id === me || item.paid_by_member_id === me);
+
+    return mine || this.may("edit_others");
   }
 
   /**
@@ -1569,10 +1799,30 @@ export class SeGroupPage extends LitElement {
         <div class="info">
           <div class="title">
             ${expense.title}
-            ${expense.description
-              ? html`<span class="note">${expense.description}</span>`
+            <!--
+              An occurrence of something that comes back: the rent, the
+              subscription. Said by a mark rather than a word, the way the corner
+              of the avatar says the category, and kept when the recurring
+              expense has since been stopped — this one did come back.
+            -->
+            ${expense.recurring_id
+              ? html`<span
+                  class="repeat"
+                  role="img"
+                  aria-label=${this.localize("repeats")}
+                  title=${this.localize("repeats")}
+                  ><se-icon plain .icon=${"mdi:repeat"} fallback="↻" .size=${15}></se-icon
+                ></span>`
               : nothing}
           </div>
+          <!--
+            On its own line, under the shop. Beside the title it wrapped
+            wherever the width ran out — "Two / tickets" — and moved under the
+            title whole when the title was long, so one fact sat in two places.
+          -->
+          ${expense.description
+            ? html`<div class="note">${expense.description}</div>`
+            : nothing}
           <!--
             Nothing where there is no category. "No category" is a fact about
             the form, not about the shop: it named an absence, on every row that
@@ -1671,14 +1921,25 @@ export class SeGroupPage extends LitElement {
       // without the dialog ever closing: one element left standing would keep
       // the expense it first loaded, having read it in connectedCallback and
       // never again. The same reuse that made the group switcher do nothing.
+      const recurring = this.editedRecurring ?? this.checking;
+      const origin = this.recurring.find(
+        (item) => item.id === this.editedExpense?.recurring_id,
+      );
+
       return keyed(
-        this.editedExpense?.id ?? "new",
+        this.editedExpense?.id ?? recurring?.id ?? "new",
         html`
           <se-expense-dialog
             .api=${this.api}
             .localize=${this.localize}
             .group=${this.group}
-            .members=${this.membersFor(this.editedExpense)}
+            .members=${recurring
+              ? this.plusGone([recurring.paid_by_member_id])
+              : this.membersFor(this.editedExpense)}
+            .template=${this.editedRecurring}
+            .occurrence=${this.checking}
+            .recurring=${origin}
+            .recurringEditable=${origin !== undefined && this.mayEditRecurring(origin)}
             .categories=${this.categories}
             .expense=${this.editedExpense}
             .expenses=${this.expenses}
@@ -1691,6 +1952,7 @@ export class SeGroupPage extends LitElement {
             @expense-saved=${this.handleChanged}
             @expense-deleted=${this.handleChanged}
             @open-expense=${this.openRelated}
+            @open-recurring=${this.openRecurring}
           ></se-expense-dialog>
         `,
       );
@@ -1715,6 +1977,24 @@ export class SeGroupPage extends LitElement {
           @payment-deleted=${this.handleChanged}
           @open-expense=${this.openRelated}
         ></se-payment-dialog>
+      `;
+    }
+
+    if (this.dialog === "recurring") {
+      return html`
+        <se-recurring-dialog
+          .localize=${this.localize}
+          .group=${this.group}
+          .recurring=${this.recurring}
+          .members=${this.pastMembers}
+          .editable=${this.recurring
+            .filter((item) => this.mayEditRecurring(item))
+            .map((item) => item.id)}
+          .meId=${this.meId()}
+          .language=${this.language}
+          @dialog-cancelled=${this.closeDialog}
+          @recurring-picked=${this.openRecurring}
+        ></se-recurring-dialog>
       `;
     }
 
@@ -1974,8 +2254,16 @@ export class SeGroupPage extends LitElement {
     return [...this.members, ...gone];
   }
 
-  private async load() {
-    this.error = undefined;
+  /**
+   * Read the whole group again.
+   *
+   * `keepError` keeps a message just shown, for a reload that follows a refusal:
+   * clearing it would take the reason away the moment it appeared.
+   */
+  private async load(options: { keepError?: boolean } = {}) {
+    if (!options.keepError) {
+      this.error = undefined;
+    }
 
     try {
       const [
@@ -1988,6 +2276,7 @@ export class SeGroupPage extends LitElement {
         expenses,
         payments,
         result,
+        recurring,
       ] = await Promise.all([
         this.api.getGroup(this.groupId),
         this.api.listGroups(),
@@ -1998,6 +2287,7 @@ export class SeGroupPage extends LitElement {
         this.api.listExpenses(this.groupId),
         this.api.listPayments(this.groupId),
         this.api.getBalances(this.groupId),
+        this.api.listRecurring(this.groupId),
       ]);
 
       this.group = group;
@@ -2009,6 +2299,7 @@ export class SeGroupPage extends LitElement {
       this.expenses = expenses;
       this.payments = payments;
       this.result = result;
+      this.recurring = recurring;
     } catch (error) {
       this.error = errorMessage(error, this.localize);
 
@@ -2252,6 +2543,8 @@ export class SeGroupPage extends LitElement {
 
   private openExpense(expense?: Expense) {
     this.editedExpense = expense;
+    this.editedRecurring = undefined;
+    this.checking = undefined;
     this.show("expense");
   }
 
@@ -2307,6 +2600,8 @@ export class SeGroupPage extends LitElement {
     this.prefill = undefined;
     this.editedExpense = undefined;
     this.editedPayment = undefined;
+    this.editedRecurring = undefined;
+    this.checking = undefined;
     this.newRefund = false;
     this.paymentKind = "reimbursement";
   }

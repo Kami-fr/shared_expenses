@@ -27,6 +27,22 @@ type Translate = (key: Key) => string;
 
 const page = (...selectors: string[]) => find("se-group-page", ...selectors);
 
+/**
+ * Click it when this group has it. The recurring expenses are the Apartment's:
+ * London has none, and its scene is the screen without them.
+ */
+const ifThere = async (...selectors: string[]) => {
+  let target: HTMLElement;
+
+  try {
+    target = page(...selectors);
+  } catch {
+    return;
+  }
+
+  await click(target);
+};
+
 const plus = () => click(page(".fab"));
 const more = () => click(page(".actions button:nth-child(3)"));
 const statistics = () => click(page(".actions button:nth-child(2)"));
@@ -77,6 +93,24 @@ const SCENES: Record<string, (translate: Translate) => Promise<void>> = {
     await more();
     await click(button(translate("edit_group")));
   },
+  "the recurring expenses": async (translate) => {
+    await more();
+    await click(button(translate("recurring_expenses")));
+  },
+  "a recurring expense's settings": async (translate) => {
+    await more();
+    await click(button(translate("recurring_expenses")));
+    await ifThere("se-recurring-dialog", "button.entry");
+  },
+  "checking an occurrence": () => ifThere(".due-item se-button.check"),
+  "a new expense that repeats": async () => {
+    await plus();
+    await click(page(".choice.main"));
+    await click(page("se-expense-dialog", "button.fold-row"));
+    // Unfolded on "Never": the month is what sets it repeating.
+    await click(page("se-expense-dialog", "se-segmented.units", "button:nth-child(4)"));
+  },
+  "an occurrence opened": () => ifThere(".item-button .repeat"),
 };
 
 /**
@@ -121,5 +155,44 @@ describe.each(GROUPS)("%s", (group) => {
 
       expect(unmeant(cuts())).toEqual([]);
     });
+  });
+});
+
+/**
+ * Where things sit, which a cut does not see: a mark that drops to a line of
+ * its own holds everything it shows.
+ */
+describe("placement", () => {
+  it("the ↻ of an occurrence sits on its title's line", async () => {
+    await mount("apartment", "en");
+
+    const marks = [...page().shadowRoot!.querySelectorAll<HTMLElement>(".title .repeat")];
+
+    expect(marks.length).toBeGreaterThan(0);
+
+    for (const mark of marks) {
+      const words = document.createRange();
+      // Lit's markers come first: the title is the first text with words in it.
+      words.selectNodeContents(
+        [...mark.parentElement!.childNodes].find(
+          (node) => node.nodeType === Node.TEXT_NODE && node.textContent!.trim() !== "",
+        )!,
+      );
+      const line = [...words.getClientRects()].at(-1)!;
+      const middle = (mark.getBoundingClientRect().top + mark.getBoundingClientRect().bottom) / 2;
+
+      expect(middle).toBeGreaterThan(line.top);
+      expect(middle).toBeLessThan(line.bottom);
+    }
+  });
+
+  it("a day is written as the panel's language writes it", async () => {
+    await mount("apartment", "fr");
+    await plus();
+    await click(page(".choice.main"));
+
+    const day = page("se-expense-dialog", "se-field[type=date]", ".day span");
+
+    expect(day.textContent).toBe("23/10/2026");
   });
 });

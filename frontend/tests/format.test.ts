@@ -24,6 +24,7 @@ import {
   formatMoney,
   formatMonth,
   formatMonthLong,
+  formatNumericDay,
   formatSignedMoney,
   initials,
   isoToDateInput,
@@ -63,16 +64,20 @@ describe("parseMoney", () => {
 
   it("gives back every cent a money input can hold", () => {
     for (let cents = 0; cents <= 100_000; cents += 7) {
-      expect(parseMoney(centsToInput(cents))).toBe(cents);
+      expect(parseMoney(centsToInput(cents, "en"))).toBe(cents);
+      expect(parseMoney(centsToInput(cents, "fr"))).toBe(cents);
     }
   });
 });
 
 describe("centsToInput", () => {
-  it("writes two decimals, with a point", () => {
-    expect(centsToInput(8542)).toBe("85.42");
-    expect(centsToInput(5)).toBe("0.05");
-    expect(centsToInput(0)).toBe("0.00");
+  it("writes two decimals, in the reader's separator and no grouping", () => {
+    expect(centsToInput(8542, "en")).toBe("85.42");
+    expect(centsToInput(5, "en")).toBe("0.05");
+    expect(centsToInput(0, "en")).toBe("0.00");
+    expect(centsToInput(13460, "fr")).toBe("134,60");
+    expect(centsToInput(120000, "fr")).toBe("1200,00");
+    expect(centsToInput(120000, "de")).toBe("1200,00");
   });
 });
 
@@ -143,6 +148,15 @@ describe("dates", () => {
     expect(formatMonthLong("2026-10", "fr")).toBe("octobre 2026");
     expect(formatMonthLong("2026-09", "fr", false)).toBe("septembre");
     expect(formatMonthLong("2026-01", "de", false)).toBe("Januar");
+  });
+
+  it("writes a picked day in figures, in each language's order", () => {
+    expect(formatNumericDay("2026-10-24", "fr")).toBe("24/10/2026");
+    expect(formatNumericDay("2026-10-24", "en")).toBe("10/24/2026");
+  });
+
+  it("writes back a day no calendar holds rather than throw", () => {
+    expect(formatNumericDay("20261-10-24", "fr")).toBe("20261-10-24");
   });
 
   it("labels a month as itself, wherever the reader is", () => {

@@ -194,4 +194,34 @@ export const sharedStyles = css`
   button {
     font-family: inherit;
   }
+
+  /*
+   * One box, the same in every dialog. Each drew its own — 20px here, 18px
+   * there, the browser's 13px in the group's settings — and side by side they
+   * read as three different kinds of choice.
+   */
+  input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    flex: 0 0 auto;
+    accent-color: var(--primary-color, #03a9f4);
+  }
+
+  /*
+   * A word about a row rather than part of its name: "Administrator" beside a
+   * member, "Default" beside a category. Framed, so "No category Default" is
+   * never read as one name.
+   */
+  .tag {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--secondary-text-color);
+    border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+    border-radius: 4px;
+    padding: 1px 5px;
+    margin-left: 6px;
+    vertical-align: 1px;
+    white-space: nowrap;
+  }
 `;

@@ -17,6 +17,7 @@ from ..models import (
     GroupMember,
     Member,
     Payment,
+    RecurringExpense,
     Revision,
 )
 
@@ -117,6 +118,9 @@ def expense_to_dict(
         # the refunds of one purchase: the panel already holds every expense of
         # the group, so that is a filter rather than another round trip.
         "refund_of": expense.refund_of,
+        # The recurring expense this is an occurrence of, or null. It may point at
+        # nothing: stopping a recurring expense leaves what it added alone.
+        "recurring_id": expense.recurring_id,
         "split_rule": rule_to_dict(expense.split_rule),
     }
 
@@ -124,6 +128,52 @@ def expense_to_dict(
         data["shares"] = [share_to_dict(share) for share in shares]
 
     return data
+
+
+def recurring_to_dict(
+    recurring: RecurringExpense,
+    today: date,
+    latest: Expense | None = None,
+) -> dict[str, Any]:
+    """Return the serialized form of a recurring expense, as it stands on `today`.
+
+    `latest` is the last occurrence confirmed, if any: its amount is what the
+    panel proposes when the figure changes from one time to the next, and when
+    it differs from `amount` the panel asks for a check rather than one tap.
+    """
+
+    # Last time's figure in another currency is no figure to propose in this
+    # one: 100,00 paid in dollars is not 100,00 in euros.
+    if latest is not None and latest.currency != recurring.currency:
+        latest = None
+
+    return {
+        "id": recurring.id,
+        "group_id": recurring.group_id,
+        "category_id": recurring.category_id,
+        "title": recurring.title,
+        "description": recurring.description,
+        "amount": recurring.amount,
+        "currency": recurring.currency,
+        "paid_by_member_id": recurring.paid_by_member_id,
+        "split_rule": rule_to_dict(recurring.split_rule),
+        "every": recurring.every,
+        "unit": str(recurring.unit),
+        "anchor": recurring.anchor.isoformat(),
+        "ends_on": None if recurring.ends_on is None else recurring.ends_on.isoformat(),
+        "paused": recurring.paused,
+        "ended": recurring.ended,
+        # The occurrence waiting for an answer, which is the one to send back with
+        # a confirmation or a skip. Past `ends_on` there is none.
+        "next_due": None if recurring.ended else recurring.next_due.isoformat(),
+        # How many have fallen due and are unanswered, capped: 0 means nothing to
+        # confirm today.
+        "waiting": recurring.waiting(today),
+        "created_at": recurring.created_at.isoformat(),
+        "created_by_member_id": recurring.created_by_member_id,
+        "latest_amount": None if latest is None else latest.amount,
+        "latest_date": None if latest is None else latest.expense_date.isoformat(),
+    }
 
 
 def share_to_dict(share: ExpenseShare) -> dict[str, Any]:

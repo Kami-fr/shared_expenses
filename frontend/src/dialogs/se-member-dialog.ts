@@ -110,20 +110,6 @@ export class SeMemberDialog extends LitElement {
         white-space: nowrap;
       }
 
-      .tag {
-        font-size: 11px;
-        color: var(--secondary-text-color);
-        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
-        border-radius: 4px;
-        padding: 1px 5px;
-      }
-
-      input[type="checkbox"] {
-        width: 20px;
-        height: 20px;
-        accent-color: var(--primary-color, #03a9f4);
-      }
-
       .add {
         display: flex;
         align-items: flex-end;
@@ -230,7 +216,7 @@ export class SeMemberDialog extends LitElement {
               </div>
             `}
 
-        <se-button slot="actions" @click=${this.close}>
+        <se-button slot="actions" variant="text" @click=${this.close}>
           ${translate("close")}
         </se-button>
       </se-dialog>

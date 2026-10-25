@@ -124,6 +124,23 @@ class InvalidSplitRuleError(SharedExpensesError):
 
 
 #
+# Recurring expenses
+#
+
+class RecurringNotFoundError(SharedExpensesError):
+    """Recurring expense not found."""
+
+
+class InvalidRecurringError(SharedExpensesError):
+    """A recurring expense, or an answer to one of its occurrences, that cannot be.
+
+    Its `code` says which: a rhythm of nothing, an end before the start, or an
+    occurrence somebody else has already confirmed or skipped — two phones
+    answering the same rent at once, the second of which must not add it twice.
+    """
+
+
+#
 # Payments
 #
 

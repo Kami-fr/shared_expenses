@@ -184,6 +184,54 @@ export interface Expense {
    * Only to reopen the dialog as it was filled in. The shares stay the truth.
    */
   split_rule: SplitRule | null;
+  /**
+   * The recurring expense this is an occurrence of, or null.
+   *
+   * May point at nothing: stopping a recurring expense leaves what it already
+   * added alone, and that reads as "no longer repeats".
+   */
+  recurring_id: string | null;
+}
+
+/** What a recurring expense counts its rhythm in. */
+export type RecurrenceUnit = "day" | "week" | "month";
+
+/**
+ * An expense that comes back: the rent, a subscription, the electricity.
+ *
+ * Not money. What an occurrence will look like when it falls due, and when that
+ * is; an occurrence becomes money only once a member confirms it, as an
+ * ordinary expense carrying `recurring_id`. Until then it waits, however long.
+ */
+export interface Recurring {
+  id: string;
+  group_id: string;
+  category_id: string | null;
+  title: string;
+  description: string | null;
+  /** What to propose, in the cents of `currency`. Only a proposal. */
+  amount: number;
+  currency: string;
+  paid_by_member_id: string;
+  /** The rule to propose, or null for the category's then the group's. */
+  split_rule: SplitRule | null;
+  every: number;
+  unit: RecurrenceUnit;
+  /** The day of the first occurrence, `YYYY-MM-DD`. */
+  anchor: string;
+  ends_on: string | null;
+  paused: boolean;
+  /** Every occurrence there will ever be has been answered. */
+  ended: boolean;
+  /** The occurrence waiting for an answer, `YYYY-MM-DD`; null once ended. */
+  next_due: string | null;
+  /** How many have fallen due today and are unanswered, capped. */
+  waiting: number;
+  created_at: string;
+  created_by_member_id: string | null;
+  /** The last occurrence confirmed, in its own currency, or null. */
+  latest_amount: number | null;
+  latest_date: string | null;
 }
 
 /**
@@ -324,7 +372,13 @@ export interface FieldChange {
  * so a rename is felt everywhere while the revision belongs to the project that
  * asked for it.
  */
-export type RevisionEntity = "expense" | "payment" | "group" | "category" | "member";
+export type RevisionEntity =
+  | "expense"
+  | "payment"
+  | "group"
+  | "category"
+  | "member"
+  | "recurring";
 
 /**
  * Something that happened in a project: to an expense, a payment, a category,
@@ -340,7 +394,7 @@ export interface Revision {
   entity_id: string;
   /** What it was called at the time, so a deleted one can still be named. */
   entity_label: string | null;
-  action: "created" | "updated" | "deleted" | "restored";
+  action: "created" | "updated" | "deleted" | "restored" | "skipped";
   actor_user_id: string | null;
   changes: FieldChange[];
   at: string;

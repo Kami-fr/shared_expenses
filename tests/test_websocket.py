@@ -15,13 +15,17 @@ have nothing to do with.
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
 import pytest
 
 from custom_components.shared_expenses.manager import SharedExpensesManager
-from custom_components.shared_expenses.models import PaymentKind
+from custom_components.shared_expenses.models import (
+    PaymentKind,
+    Permission,
+    RecurrenceUnit,
+)
 from custom_components.shared_expenses.websocket import (
     COMMANDS,
     categories,
@@ -29,6 +33,7 @@ from custom_components.shared_expenses.websocket import (
     groups,
     members,
     payments,
+    recurring,
     revisions,
     statistics,
 )
@@ -1296,3 +1301,278 @@ async def test_hanging_up_stops_the_listening(
     )
 
     assert connection.messages == []
+
+
+#
+# Recurring expenses
+#
+
+
+@pytest.fixture
+async def their_rent(manager: SharedExpensesManager, household: dict[str, Any]):
+    """Return a monthly rent in the other household, its first month added."""
+
+    rent, _ = await manager.create_recurring(
+        group_id=household["theirs"].id,
+        title="Loyer",
+        amount=90_000,
+        paid_by_member_id=household["their_admin"].id,
+        expense_date=NOW,
+        every=1,
+        unit=RecurrenceUnit.MONTH,
+        actor_user_id=THEIRS,
+    )
+
+    return rent
+
+
+@pytest.mark.parametrize(
+    ("name", "handler_of", "payload_of", "code"),
+    [
+        (
+            "list_recurring",
+            lambda: recurring.websocket_list_recurring,
+            lambda h, r: {"group_id": h["theirs"].id},
+            "group_not_found",
+        ),
+        (
+            "create_recurring",
+            lambda: recurring.websocket_create_recurring,
+            lambda h, r: {
+                "group_id": h["theirs"].id,
+                "title": "Intrusion",
+                "amount": 100,
+                "paid_by_member_id": h["their_admin"].id,
+                "expense_date": NOW.isoformat(),
+                "every": 1,
+                "unit": "week",
+            },
+            "group_not_found",
+        ),
+        (
+            "update_recurring",
+            lambda: recurring.websocket_update_recurring,
+            lambda h, r: {"recurring_id": r.id, "amount": 1},
+            "recurring_not_found",
+        ),
+        (
+            "delete_recurring",
+            lambda: recurring.websocket_delete_recurring,
+            lambda h, r: {"recurring_id": r.id},
+            "recurring_not_found",
+        ),
+        (
+            "skip_occurrence",
+            lambda: recurring.websocket_skip_occurrence,
+            lambda h, r: {"recurring_id": r.id, "occurrence": "2026-08-14"},
+            "recurring_not_found",
+        ),
+        (
+            # Into my own group, which I may: it is the rent named that is not mine.
+            "create_expense",
+            lambda: expenses.websocket_create_expense,
+            lambda h, r: {
+                "group_id": h["mine"].id,
+                "title": "Loyer",
+                "amount": 90_000,
+                "paid_by_member_id": h["my_admin"].id,
+                "expense_date": NOW.isoformat(),
+                "recurring_id": r.id,
+                "occurrence": "2026-08-14",
+            },
+            "recurring_not_found",
+        ),
+    ],
+)
+async def test_no_recurring_command_reaches_into_another_household(
+    loaded: FakeHass,
+    household: dict[str, Any],
+    their_rent: Any,
+    manager: SharedExpensesManager,
+    name: str,
+    handler_of: Any,
+    payload_of: Any,
+    code: str,
+):
+    """Their rent is theirs: not listed, not changed, not answered from outside."""
+
+    connection = FakeConnection(MINE)
+
+    await call(
+        loaded,
+        connection,
+        handler_of(),
+        {"type": f"shared_expenses/{name}", **payload_of(household, their_rent)},
+    )
+
+    assert connection.errors.get(1, (None,))[0] == code, (
+        f"{name} answered {connection.errors.get(1)} / {connection.results.get(1)}"
+    )
+    assert connection.results == {}
+
+    assert await manager.get_recurring(their_rent.id) == their_rent
+    assert len(await manager.list_recurring(household["theirs"].id)) == 1
+    assert await manager.list_recurring(household["mine"].id) == []
+    assert len(await manager.list_expenses(household["mine"].id)) == 1
+
+
+async def test_a_rent_goes_round_through_the_real_commands(
+    loaded: FakeHass,
+    household: dict[str, Any],
+    manager: SharedExpensesManager,
+):
+    """Set up, listed, a month passed over, the next confirmed — and only once."""
+
+    connection = FakeConnection(MINE)
+    payer = household["my_admin"].id
+
+    await call(
+        loaded,
+        connection,
+        recurring.websocket_create_recurring,
+        {
+            "type": "shared_expenses/create_recurring",
+            "group_id": household["mine"].id,
+            "title": "Loyer",
+            "amount": 120_000,
+            "paid_by_member_id": payer,
+            "expense_date": NOW.isoformat(),
+            "every": 1,
+            "unit": "month",
+        },
+    )
+
+    created = connection.results[1]
+    rent_id = created["recurring"]["id"]
+
+    assert created["expense"]["recurring_id"] == rent_id
+    assert created["expense"]["amount"] == 120_000
+    assert created["recurring"]["next_due"] == "2026-08-14"
+    assert created["recurring"]["latest_amount"] == 120_000
+
+    await call(
+        loaded,
+        connection,
+        recurring.websocket_list_recurring,
+        {"type": "shared_expenses/list_recurring", "group_id": household["mine"].id},
+        msg_id=2,
+    )
+
+    [listed] = connection.results[2]
+
+    assert listed["id"] == rent_id
+    assert listed["unit"] == "month"
+    # Today is past the 14th of August, whenever these tests run.
+    assert listed["waiting"] >= 1
+
+    await call(
+        loaded,
+        connection,
+        recurring.websocket_skip_occurrence,
+        {
+            "type": "shared_expenses/skip_occurrence",
+            "recurring_id": rent_id,
+            "occurrence": "2026-08-14",
+        },
+        msg_id=3,
+    )
+
+    assert connection.results[3]["next_due"] == "2026-09-14"
+
+    september = {
+        "type": "shared_expenses/create_expense",
+        "group_id": household["mine"].id,
+        "title": "Loyer",
+        "amount": 125_000,
+        "paid_by_member_id": payer,
+        "expense_date": "2026-09-14T12:00:00+00:00",
+        "recurring_id": rent_id,
+        "occurrence": "2026-09-14",
+    }
+
+    await call(loaded, connection, expenses.websocket_create_expense, september, 4)
+    await call(loaded, connection, expenses.websocket_create_expense, september, 5)
+
+    assert connection.results[4]["recurring_id"] == rent_id
+    assert connection.errors[5][0] == "occurrence_answered"
+    assert 5 not in connection.results
+
+    rent = await manager.get_recurring(rent_id)
+
+    assert rent.next_due == date(2026, 10, 14)
+    # Courses, July's rent and September's: August passed over, the second
+    # press refused.
+    assert len(await manager.list_expenses(household["mine"].id)) == 3
+
+
+async def test_only_its_owners_change_a_recurring_expense(
+    loaded: FakeHass,
+    household: dict[str, Any],
+    manager: SharedExpensesManager,
+):
+    """Answering an occurrence is anyone's; changing the rhythm is not."""
+
+    group = household["mine"]
+    flatmate = await manager.create_group_member(
+        group_id=group.id,
+        name="Antonin",
+        user_id="ha-flatmate",
+    )
+
+    rent, _ = await manager.create_recurring(
+        group_id=group.id,
+        title="Loyer",
+        amount=120_000,
+        paid_by_member_id=household["my_admin"].id,
+        expense_date=NOW,
+        every=1,
+        unit=RecurrenceUnit.MONTH,
+        actor_user_id=MINE,
+    )
+
+    await manager.update_group(
+        replace(
+            await manager.get_group(group.id),
+            permissions=frozenset(Permission) - {Permission.EDIT_OTHERS},
+        )
+    )
+
+    connection = FakeConnection("ha-flatmate", name="Antonin")
+
+    await call(
+        loaded,
+        connection,
+        recurring.websocket_update_recurring,
+        {
+            "type": "shared_expenses/update_recurring",
+            "recurring_id": rent.id,
+            "amount": 1,
+        },
+    )
+    await call(
+        loaded,
+        connection,
+        recurring.websocket_delete_recurring,
+        {"type": "shared_expenses/delete_recurring", "recurring_id": rent.id},
+        msg_id=2,
+    )
+    await call(
+        loaded,
+        connection,
+        recurring.websocket_skip_occurrence,
+        {
+            "type": "shared_expenses/skip_occurrence",
+            "recurring_id": rent.id,
+            "occurrence": "2026-08-14",
+        },
+        msg_id=3,
+    )
+
+    assert connection.errors[1][0] == "not_allowed"
+    assert connection.errors[2][0] == "not_allowed"
+    assert connection.results[3]["next_due"] == "2026-09-14"
+
+    kept = await manager.get_recurring(rent.id)
+
+    assert kept.amount == 120_000
+    assert flatmate.id not in (kept.created_by_member_id, kept.paid_by_member_id)
