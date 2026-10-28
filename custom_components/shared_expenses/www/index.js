@@ -10665,20 +10665,18 @@ let U = class extends w {
     return typeof n == "number" ? `${s} · ${z(n, String(r.get("currency") ?? this.currency), this.language)}` : s;
   }
   /**
-   * A run's things in the order they read best: a recurring expense set up
-   * with its first occurrence comes right before it, the plan before the
-   * month it produced, rather than after it as the clock had them.
+   * A run without the recurring expenses it holds alongside their own first
+   * occurrence. That occurrence is in the run as well, wearing the repeat mark
+   * on its tile: the plan beside it, a frame holding the same name, only said
+   * the same thing twice.
    */
-  planFirst(e) {
-    const t = [...e];
-    for (const r of e.filter((a) => a.entity_type === "recurring")) {
-      const a = t.indexOf(r), i = t.findIndex((n) => {
-        const s = n.entity_type === "expense" ? this.stillThere(n) : void 0;
-        return s !== void 0 && s.recurring_id === r.entity_id;
-      });
-      i !== -1 && i < a && (t.splice(a, 1), t.splice(i, 0, r));
-    }
-    return t;
+  withoutPlans(e) {
+    const t = new Set(
+      e.filter((r) => r.entity_type === "expense").map((r) => this.stillThere(r)?.recurring_id)
+    );
+    return e.filter(
+      (r) => r.entity_type !== "recurring" || !t.has(r.entity_id)
+    );
   }
   /**
    * The same action done several times in a row by one person on one day:
@@ -10690,13 +10688,16 @@ let U = class extends w {
    * does not stand between the reader and yesterday.
    */
   renderRun(e) {
-    const t = e[0].id, r = this.unfolded.has(t), a = `${this.localize(`history_${e[0].action}`)} ${this.countOf(e)}`, i = si(e.at(-1).at, e[0].at, this.language), n = this.planFirst(e), s = r ? n : n.slice(0, Qr);
+    const t = this.withoutPlans(e);
+    if (t.length === 1)
+      return this.renderEvent(t[0]);
+    const r = t[0].id, a = this.unfolded.has(r), i = `${this.localize(`history_${t[0].action}`)} ${this.countOf(t)}`, n = si(t.at(-1).at, t[0].at, this.language), s = a ? t : t.slice(0, Qr);
     return o`
       <div class="event">
-        ${this.renderWho(e[0], a, i)}
+        ${this.renderWho(t[0], i, n)}
         ${s.map((c) => this.renderWhat(c))}
-        ${e.length > Qr ? o`<button class="chip plain" @click=${() => this.toggleRun(t)}>
-              ${r ? this.localize("done") : `${this.localize("see_all")} (${e.length})`}
+        ${t.length > Qr ? o`<button class="chip plain" @click=${() => this.toggleRun(r)}>
+              ${a ? this.localize("done") : `${this.localize("see_all")} (${t.length})`}
             </button>` : d}
       </div>
     `;

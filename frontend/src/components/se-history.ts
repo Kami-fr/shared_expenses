@@ -768,28 +768,21 @@ export class SeHistory extends LitElement {
   }
 
   /**
-   * A run's things in the order they read best: a recurring expense set up
-   * with its first occurrence comes right before it, the plan before the
-   * month it produced, rather than after it as the clock had them.
+   * A run without the recurring expenses it holds alongside their own first
+   * occurrence. That occurrence is in the run as well, wearing the repeat mark
+   * on its tile: the plan beside it, a frame holding the same name, only said
+   * the same thing twice.
    */
-  private planFirst(revisions: Revision[]): Revision[] {
-    const ordered = [...revisions];
+  private withoutPlans(revisions: Revision[]): Revision[] {
+    const produced = new Set(
+      revisions
+        .filter((revision) => revision.entity_type === "expense")
+        .map((revision) => (this.stillThere(revision) as Expense | undefined)?.recurring_id),
+    );
 
-    for (const plan of revisions.filter((revision) => revision.entity_type === "recurring")) {
-      const from = ordered.indexOf(plan);
-      const to = ordered.findIndex((revision) => {
-        const live = revision.entity_type === "expense" ? this.stillThere(revision) : undefined;
-
-        return live !== undefined && (live as Expense).recurring_id === plan.entity_id;
-      });
-
-      if (to !== -1 && to < from) {
-        ordered.splice(from, 1);
-        ordered.splice(to, 0, plan);
-      }
-    }
-
-    return ordered;
+    return revisions.filter(
+      (revision) => revision.entity_type !== "recurring" || !produced.has(revision.entity_id),
+    );
   }
 
   /**
@@ -801,13 +794,18 @@ export class SeHistory extends LitElement {
    * newest few and keeps the rest behind a press, so a screen of setting up
    * does not stand between the reader and yesterday.
    */
-  private renderRun(revisions: Revision[]) {
+  private renderRun(all: Revision[]) {
+    const revisions = this.withoutPlans(all);
+
+    if (revisions.length === 1) {
+      return this.renderEvent(revisions[0]);
+    }
+
     const key = revisions[0].id;
     const open = this.unfolded.has(key);
     const said = `${this.localize(`history_${revisions[0].action}`)} ${this.countOf(revisions)}`;
     const when = formatClockRange(revisions.at(-1)!.at, revisions[0].at, this.language);
-    const ordered = this.planFirst(revisions);
-    const shown = open ? ordered : ordered.slice(0, RUN_SHOWN);
+    const shown = open ? revisions : revisions.slice(0, RUN_SHOWN);
 
     return html`
       <div class="event">

@@ -483,7 +483,7 @@ describe("placement", () => {
     expect(run.querySelector(".chip.plain")).toBeTruthy();
   });
 
-  it("a recurring expense set up with its first month reads as the plan, then the month", async () => {
+  it("a recurring expense set up with its first month is told by that month alone", async () => {
     await mount("apartment", "fr");
     await more();
     await click(button(localizer("fr")("group_history")));
@@ -498,14 +498,15 @@ describe("placement", () => {
       action: "created",
       actor_user_id: "417341e0a3e746fc8f07a5c053176a11",
       changes: [],
-      at: "2026-10-23T20:00:00+00:00",
+      // A day of its own, out of the run the demo was set up in.
+      at: "2026-10-24T12:00:00+00:00",
       ...extra,
     });
 
     // Newest first, as the backend sends them: the month was written a moment
     // after the plan that produced it.
     dialog.revisions = [
-      added({ entity_id: "01M5N3R3QDE1ES8JQS5GKG9HMM", at: "2026-10-23T20:01:00+00:00" }),
+      added({ entity_id: "01M5N3R3QDE1ES8JQS5GKG9HMM", at: "2026-10-24T12:01:00+00:00" }),
       added({
         entity_type: "recurring",
         entity_id: "01M5RECUR0NETW00000000000A",
@@ -520,15 +521,13 @@ describe("placement", () => {
     ];
     await settle();
 
-    const run = page("se-history-dialog", "se-history").shadowRoot!.querySelector(".event")!;
-    const [plan, month] = [...run.querySelectorAll(".frame, .thing")];
+    const line = page("se-history-dialog", "se-history").shadowRoot!.querySelector(".event")!;
 
-    expect(plan.classList.contains("frame")).toBe(true);
-    expect(plan.querySelector(".repeat")).toBeTruthy();
-    expect(plan.querySelector(".muted")!.textContent!.replace(/\s/gu, " ").trim()).toBe(
-      "Tous les mois · 59,99 $US",
-    );
-    expect(month.classList.contains("thing")).toBe(true);
+    // One addition, the month, wearing the repeat mark; no frame repeating its name.
+    expect(line.querySelector(".author .done")!.textContent!.trim()).toBe("Alex a ajouté la dépense");
+    expect(line.querySelectorAll(".thing")).toHaveLength(1);
+    expect(line.querySelector(".thing .repeat")).toBeTruthy();
+    expect(line.querySelector(".frame")).toBeNull();
   });
 
   it("a day is written as the panel's language writes it", async () => {
