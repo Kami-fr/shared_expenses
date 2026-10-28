@@ -18,6 +18,7 @@ import {
   cuts,
   find,
   mount,
+  settle,
   unanswered,
   type Cut,
   type GroupKey,
@@ -49,6 +50,16 @@ const statistics = () => click(page(".actions button:nth-child(2)"));
 const period = async (nth: number) => {
   await statistics();
   await click(page("se-statistics-dialog", "se-statistics", "se-segmented", `button:nth-child(${nth})`));
+};
+
+/** Type into a new expense's title as a finger would: the caret in it first. */
+const typeTitle = async (text: string) => {
+  const input = page("se-expense-dialog", "se-field", "input") as HTMLInputElement;
+
+  input.focus();
+  input.value = text;
+  input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+  await settle();
 };
 
 /** Each screen, reached from a freshly opened group page. */
@@ -111,6 +122,11 @@ const SCENES: Record<string, (translate: Translate) => Promise<void>> = {
     await click(page("se-expense-dialog", "se-segmented.units", "button:nth-child(4)"));
   },
   "an occurrence opened": () => ifThere(".item-button .repeat"),
+  "a new expense, its title half typed": async () => {
+    await plus();
+    await click(page(".choice.main"));
+    await typeTitle("gr");
+  },
   "the calendar": () => click(page("se-segmented", "button:nth-child(2)")),
   "the calendar, a month back": async () => {
     await click(page("se-segmented", "button:nth-child(2)"));
@@ -214,6 +230,36 @@ describe("placement", () => {
     for (const row of rows) {
       expect(row.textContent).not.toContain("18 oct. 2026");
     }
+  });
+
+  it("a name taken fills the title and its category, never the amount", async () => {
+    await mount("apartment", "en");
+    await plus();
+    await click(page(".choice.main"));
+    await typeTitle("gr");
+
+    const names = [...page("se-expense-dialog").shadowRoot!.querySelectorAll("button.name")];
+
+    // "Groceries + BBQ" starts with it, "Weekly groceries" holds it.
+    expect(names).toHaveLength(2);
+
+    const dialog = page("se-expense-dialog") as unknown as {
+      expenseTitle: string;
+      categoryId: string;
+      amountInput: string;
+      categories: { id: string; name: string }[];
+    };
+
+    expect(dialog.categoryId).toBe("");
+
+    await click(names[0] as HTMLElement);
+
+    expect(dialog.expenseTitle).toBe("Groceries + BBQ");
+    expect(dialog.categoryId).toBe(
+      dialog.categories.find((category) => category.name === "Groceries")!.id,
+    );
+    expect(dialog.amountInput).toBe("");
+    expect(page("se-expense-dialog").shadowRoot!.querySelector(".names")).toBeNull();
   });
 
   it("a day is written as the panel's language writes it", async () => {

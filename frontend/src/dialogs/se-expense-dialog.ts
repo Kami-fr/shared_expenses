@@ -32,6 +32,11 @@ import {
   shortDay,
 } from "../services/recurrence";
 import { resolveShares } from "../services/splits";
+import {
+  splitOnMatch,
+  suggestTitles,
+  type TitleSuggestion,
+} from "../services/title-suggestions";
 import { sharedStyles } from "../styles/shared";
 import type {
   Category,
@@ -291,10 +296,73 @@ export class SeExpenseDialog extends LitElement {
   /** The rate to convert at, in millionths. Null: not settled, cannot save. */
   @state() private rate: number | null = null;
 
+  /** The title has the caret: names already in use may be offered under it. */
+  @state() private naming = false;
+
   public static styles = [
     sharedStyles,
     expenseRowStyles,
     css`
+      /*
+       * Names already in use, hung under the title over the fields below it,
+       * as a select's list hangs: it is there while the title is typed and
+       * gone the moment a name is taken or the title is left.
+       */
+      .titled {
+        position: relative;
+      }
+
+      .names {
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 0;
+        right: 0;
+        z-index: 3;
+        display: flex;
+        flex-direction: column;
+        border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        border-radius: 12px;
+        overflow: hidden;
+        background: color-mix(
+          in srgb,
+          var(--primary-text-color) 7%,
+          var(--card-background-color, #fff)
+        );
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+      }
+
+      .name {
+        min-height: 48px;
+        padding: 6px 14px;
+        border: none;
+        background: none;
+        color: var(--primary-text-color);
+        font-family: inherit;
+        font-size: 15px;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .name + .name {
+        border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+      }
+
+      /* The first is what Enter takes. */
+      .name:first-child,
+      .name:hover {
+        background: rgba(127, 127, 127, 0.1);
+      }
+
+      .name b {
+        font-weight: 700;
+      }
+
+      .name .muted {
+        display: block;
+        margin-top: 2px;
+        font-size: 12px;
+      }
+
       .split-head {
         display: flex;
         align-items: center;
@@ -742,16 +810,27 @@ export class SeExpenseDialog extends LitElement {
             @value-changed=${this.pickWay}
           ></se-segmented>`}
 
-          <se-field
-            .label=${translate("expense_title")}
-            .value=${this.expenseTitle}
-            required
-            placeholder=${translate(
-              refund ? "refund_title_example" : "expense_title_example",
-            )}
-            @value-changed=${(e: CustomEvent) =>
-              this.typed("expenseTitle", e.detail.value)}
-          ></se-field>
+          <div
+            class="titled"
+            @focusin=${() => (this.naming = true)}
+            @focusout=${() => (this.naming = false)}
+            @keydown=${this.takeFirstName}
+          >
+            <se-field
+              .label=${translate("expense_title")}
+              .value=${this.expenseTitle}
+              required
+              placeholder=${translate(
+                refund ? "refund_title_example" : "expense_title_example",
+              )}
+              @value-changed=${(e: CustomEvent) => {
+                this.typed("expenseTitle", e.detail.value);
+                // Typing again after taking a name offers names again.
+                this.naming = true;
+              }}
+            ></se-field>
+            ${this.renderNames()}
+          </div>
 
           <div class="pair">
             <se-field
@@ -1490,6 +1569,84 @@ export class SeExpenseDialog extends LitElement {
       `,
     );
   }
+
+  /**
+   * The names worth offering while a new expense's title is typed.
+   *
+   * Only on a new purchase: an expense being changed already has its name, an
+   * occurrence its recurring one, and a refund names the purchase it answers.
+   */
+  private names(): TitleSuggestion[] {
+    if (
+      !this.naming ||
+      this.expense ||
+      this.template ||
+      this.occurrence ||
+      this.refunding
+    ) {
+      return [];
+    }
+
+    return suggestTitles(this.expenses, this.expenseTitle);
+  }
+
+  private renderNames() {
+    const names = this.names();
+
+    if (names.length === 0) {
+      return nothing;
+    }
+
+    const translate = this.localize;
+
+    // Held on pointerdown, or the title would lose the caret first and the
+    // list go before the tap on it lands.
+    return html`
+      <div class="names" @pointerdown=${(event: Event) => event.preventDefault()}>
+        ${names.map((name) => {
+          const [before, typed, after] = splitOnMatch(name.title, this.expenseTitle);
+          const category = this.categories.find((c) => c.id === name.categoryId);
+          const used =
+            name.count === 1
+              ? translate("used_once")
+              : translate("used_times").replace("{n}", String(name.count));
+
+          return html`
+            <button type="button" class="name" @click=${() => this.takeName(name)}>
+              ${before}<b>${typed}</b>${after}
+              <span class="muted">${category ? `${category.name} · ${used}` : used}</span>
+            </button>
+          `;
+        })}
+      </div>
+    `;
+  }
+
+  /**
+   * Take a name already in use, and the category it was last filed under:
+   * never the amount, which is the one thing that is new every time.
+   */
+  private takeName(name: TitleSuggestion) {
+    this.typed("expenseTitle", name.title);
+    this.naming = false;
+
+    if (
+      name.categoryId &&
+      name.categoryId !== this.categoryId &&
+      this.categories.some((category) => category.id === name.categoryId)
+    ) {
+      this.pickCategory(new CustomEvent("value-changed", { detail: { value: name.categoryId } }));
+    }
+  }
+
+  private takeFirstName = (event: KeyboardEvent) => {
+    const first = this.names()[0];
+
+    if (event.key === "Enter" && first) {
+      event.preventDefault();
+      this.takeName(first);
+    }
+  };
 
   /** Take what somebody typed into a field, and remember that they typed it. */
   private typed(

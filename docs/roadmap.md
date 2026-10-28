@@ -914,6 +914,13 @@ something false about people.
 - [x] A week opens on the day Home Assistant is told it does, else on the
       language's habit: Sunday in American English and Brazilian Portuguese,
       Monday elsewhere.
+- [x] **One shop, one spelling.** A new expense's title offers, from two
+      letters on, the three names already in use that start with or hold
+      what is typed, ignoring case, accents and spaces, each written the way
+      it is written most often and saying how many times and under which
+      category it was used. Taking one fills the title and that category,
+      never the amount. Enter takes the first. Not on a refund, an occurrence
+      or an expense being changed.
 
 ## Later
 

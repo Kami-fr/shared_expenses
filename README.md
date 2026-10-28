@@ -68,7 +68,7 @@ directory, restart Home Assistant, then add the integration as in step 2.
 |---|---|
 | 👥 **Groups** | A flat, a holiday, a couple. Home Assistant accounts or people without one; one currency chosen once, a name you can change anytime. Everyone with an account wears their Home Assistant photo from the start, the others their coloured initials, and each can switch. |
 | 🛡️ **Who may do what** | Four switches (members, categories, the group, others' expenses), the same for everyone, with one admin above them who can hand it on. |
-| 🧾 **Expenses** | A title, an amount, who paid, a date, a category, and a split. |
+| 🧾 **Expenses** | A title, an amount, who paid, a date, a category, and a split. The names already in use are offered while a title is typed, with the category they had last time, so one shop keeps one spelling. |
 | 🔁 **Recurring expenses** | The rent, a subscription, the electricity: every N days, weeks or months. Each one is proposed on its day, to add in one tap or check first when the figure moves, and an event on the bus can buzz a phone. |
 | ↩️ **Refunds** | A shop giving money back is the same expense the other way: it comes off the total and off each share, split exactly as the purchase was. |
 | 🧮 **Split rules** | Equally, by fixed amounts or percentages, or an envelope shared between some with the rest to whoever paid; categories carry their own. |

@@ -425,6 +425,8 @@ const EN = {
   calendar_nothing: "Nothing on this day.",
   calendar_previous: "Previous month",
   calendar_next: "Next month",
+  used_once: "once",
+  used_times: "{n} times",
 };
 
 export type Key = keyof typeof EN;
@@ -856,6 +858,8 @@ const FR: Record<Key, string> = {
   calendar_nothing: "Rien ce jour-là.",
   calendar_previous: "Mois précédent",
   calendar_next: "Mois suivant",
+  used_once: "une fois",
+  used_times: "{n} fois",
 };
 
 const DE: Record<Key, string> = {
@@ -1270,6 +1274,8 @@ const DE: Record<Key, string> = {
   calendar_nothing: "An diesem Tag nichts.",
   calendar_previous: "Vorheriger Monat",
   calendar_next: "Nächster Monat",
+  used_once: "einmal",
+  used_times: "{n}-mal",
 };
 
 const NL: Record<Key, string> = {
@@ -1671,6 +1677,8 @@ const NL: Record<Key, string> = {
   calendar_nothing: "Niets op deze dag.",
   calendar_previous: "Vorige maand",
   calendar_next: "Volgende maand",
+  used_once: "één keer",
+  used_times: "{n} keer",
 };
 
 const ES: Record<Key, string> = {
@@ -2072,6 +2080,8 @@ const ES: Record<Key, string> = {
   calendar_nothing: "Nada ese día.",
   calendar_previous: "Mes anterior",
   calendar_next: "Mes siguiente",
+  used_once: "una vez",
+  used_times: "{n} veces",
 };
 
 const IT: Record<Key, string> = {
@@ -2474,6 +2484,8 @@ const IT: Record<Key, string> = {
   calendar_nothing: "Niente in questo giorno.",
   calendar_previous: "Mese precedente",
   calendar_next: "Mese successivo",
+  used_once: "una volta",
+  used_times: "{n} volte",
 };
 
 const PL: Record<Key, string> = {
@@ -2886,6 +2898,8 @@ const PL: Record<Key, string> = {
   calendar_nothing: "Nic tego dnia.",
   calendar_previous: "Poprzedni miesiąc",
   calendar_next: "Następny miesiąc",
+  used_once: "raz",
+  used_times: "{n} razy",
 };
 
 const PT_BR: Record<Key, string> = {
@@ -3287,6 +3301,8 @@ const PT_BR: Record<Key, string> = {
   calendar_nothing: "Nada neste dia.",
   calendar_previous: "Mês anterior",
   calendar_next: "Próximo mês",
+  used_once: "uma vez",
+  used_times: "{n} vezes",
 };
 
 const LANGUAGES: Record<string, Record<Key, string>> = {
