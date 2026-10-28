@@ -106,6 +106,18 @@ describe("findNames", () => {
     );
   });
 
+  it("takes words added before a name as well as after it", () => {
+    const [check, ...more] = findNames([
+      bought("503", 350, "2026-10-01"),
+      bought("Kfet 503", 420, "2026-10-02"),
+    ]);
+
+    expect(more).toEqual([]);
+    expect(new Set(check.spellings.map((spelling) => spelling.title))).toEqual(new Set(["503", "Kfet 503"]));
+    expect(findNames([bought("Le", 1, "2026-10-01"), bought("Le Clerc", 1, "2026-10-02")])).toEqual([]);
+    expect(findNames([bought("ar", 1, "2026-10-01"), bought("Bar", 1, "2026-10-02")])).toEqual([]);
+  });
+
   it("takes a name with its spaces put in or left out", () => {
     expect(findNames([bought("Le Clerc", 1, "2026-10-01"), bought("Leclerc", 1, "2026-10-02")])).toHaveLength(1);
   });

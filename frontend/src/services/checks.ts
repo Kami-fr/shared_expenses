@@ -227,7 +227,9 @@ function distance(a: string, b: string, most: number): number {
 /**
  * Whether two names, already folded, are one shop written two ways: spaces
  * put in or left out ("le clerc"), a slip of a letter or two in one word, or
- * words added after the other ("leclerc" and "leclerc drive").
+ * words added before or after the other ("leclerc" and "leclerc drive", "503"
+ * and "kfet 503"). Whole words only, and three letters at least: "le" is no
+ * shop, and "ar" is not "bar".
  *
  * A slip is looked for word by word, in one word only, and only in a word
  * long enough to have one: "Aug rent" and "Jul rent" are two months, and
@@ -240,7 +242,7 @@ function sameShop(a: string, b: string): boolean {
 
   const [short, long] = a.length <= b.length ? [a, b] : [b, a];
 
-  if (short.length >= 4 && long.startsWith(`${short} `)) {
+  if (short.length >= 3 && (long.startsWith(`${short} `) || long.endsWith(` ${short}`))) {
     return true;
   }
 

@@ -14976,7 +14976,7 @@ function tn(e, t) {
   if (e.replace(/ /g, "") === t.replace(/ /g, ""))
     return !0;
   const [r, a] = e.length <= t.length ? [e, t] : [t, e];
-  if (r.length >= 4 && a.startsWith(`${r} `))
+  if (r.length >= 3 && (a.startsWith(`${r} `) || a.endsWith(` ${r}`)))
     return !0;
   const i = e.split(" "), s = t.split(" ");
   if (i.length !== s.length)
