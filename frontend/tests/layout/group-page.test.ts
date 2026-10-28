@@ -111,6 +111,15 @@ const SCENES: Record<string, (translate: Translate) => Promise<void>> = {
     await click(page("se-expense-dialog", "se-segmented.units", "button:nth-child(4)"));
   },
   "an occurrence opened": () => ifThere(".item-button .repeat"),
+  "the calendar": () => click(page("se-segmented", "button:nth-child(2)")),
+  "the calendar, a month back": async () => {
+    await click(page("se-segmented", "button:nth-child(2)"));
+    await click(page("se-calendar", ".step"));
+  },
+  "the calendar without reimbursements": async () => {
+    await click(page("se-segmented", "button:nth-child(2)"));
+    await click(page("se-calendar", ".toggle"));
+  },
 };
 
 /**
@@ -183,6 +192,27 @@ describe("placement", () => {
 
       expect(middle).toBeGreaterThan(line.top);
       expect(middle).toBeLessThan(line.bottom);
+    }
+  });
+
+  it("the calendar opens on the latest day with something, its rows undated", async () => {
+    await mount("apartment", "fr");
+    await click(page("se-segmented", "button:nth-child(2)"));
+
+    const picked = page("se-calendar").shadowRoot!.querySelector('.day[aria-pressed="true"]');
+
+    expect(picked?.querySelector(".number")?.textContent).toBe("18");
+    // The last heading: "To confirm" comes first on this group.
+    const heads = [...page().shadowRoot!.querySelectorAll(".month-head span")];
+
+    expect(heads.at(-1)?.textContent).toBe("Dimanche 18 octobre");
+
+    const rows = [...page().shadowRoot!.querySelectorAll("section.month .item:not(.due-item)")];
+
+    expect(rows.length).toBeGreaterThan(0);
+
+    for (const row of rows) {
+      expect(row.textContent).not.toContain("18 oct. 2026");
     }
   });
 

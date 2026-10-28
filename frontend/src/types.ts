@@ -419,7 +419,8 @@ export interface HassEntity {
 
 export interface HomeAssistant {
   language: string;
-  locale?: { language: string };
+  /** `first_weekday` is "language" or a weekday's English name, lowercase. */
+  locale?: { language: string; first_weekday?: string };
   /** The house's own settings, of which we read only the currency. */
   config?: { currency?: string };
   /** Every entity's current state, where the person photos are found. */

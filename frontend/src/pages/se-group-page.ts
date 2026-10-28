@@ -6,8 +6,11 @@ import { renderAvatar } from "../components/avatar";
 import { withAvatars } from "../services/avatar";
 import "../components/se-balance-card";
 import "../components/se-button";
+import type { CalendarMark } from "../components/se-calendar";
+import "../components/se-calendar";
 import "../components/se-field";
 import "../components/se-icon";
+import "../components/se-segmented";
 import "../dialogs/se-categories-dialog";
 import "../dialogs/se-expense-dialog";
 import "../dialogs/se-group-dialog";
@@ -18,12 +21,23 @@ import "../dialogs/se-recurring-dialog";
 import "../dialogs/se-statistics-dialog";
 import type { SharedExpensesApi } from "../services/api";
 import {
+  firstWeekday,
+  localToday,
+  readPaymentsShown,
+  readView,
+  rememberPaymentsShown,
+  rememberView,
+  type ListView,
+} from "../services/calendar";
+import {
   colorFor,
   colorOf,
   dateToIso,
   formatDayDate,
+  formatLongDay,
   formatMoney,
   formatMonthLong,
+  isoToDateInput,
   moneyNeedles,
   sortByName,
 } from "../services/format";
@@ -146,6 +160,18 @@ export class SeGroupPage extends LitElement {
 
   /** The search box is open: the magnifier in the header was pressed. */
   @state() private searching = false;
+
+  /** The list by month, or the month as a calendar. Remembered per browser. */
+  @state() private view: ListView = readView();
+
+  /** The calendar's month, `YYYY-MM`; unset means the one today falls in. */
+  @state() private calendarMonth?: string;
+
+  /** The day picked on the calendar; unset means the month's latest that has something. */
+  @state() private calendarDay?: string;
+
+  /** The calendar shows reimbursements and debts as well as expenses. */
+  @state() private calendarPayments = readPaymentsShown();
 
   @state() private loading = true;
 
@@ -827,6 +853,8 @@ export class SeGroupPage extends LitElement {
     this.payments = [];
     this.recurring = [];
     this.result = undefined;
+    this.calendarMonth = undefined;
+    this.calendarDay = undefined;
   }
 
   protected render() {
@@ -1256,8 +1284,150 @@ export class SeGroupPage extends LitElement {
         @settle-up=${this.settleUp}
       ></se-balance-card>
 
-      ${this.searching ? this.renderSearch() : nothing} ${this.renderActivityCard()}
+      <se-segmented
+        .value=${this.view}
+        .options=${[
+          { value: "list", label: this.localize("view_list") },
+          { value: "calendar", label: this.localize("view_calendar") },
+        ]}
+        @value-changed=${this.pickView}
+      ></se-segmented>
+
+      ${this.searching ? this.renderSearch() : nothing}
+      ${this.view === "calendar" ? this.renderCalendar() : this.renderActivityCard()}
     `;
+  }
+
+  private pickView = (event: CustomEvent) => {
+    this.view = event.detail.value as ListView;
+    rememberView(this.view);
+  };
+
+  /**
+   * The month as a calendar, and under it what happened on the day picked.
+   *
+   * The same entries as the list, the search included, so switching views
+   * never makes anything appear or vanish; only the reimbursements may be
+   * left off, by the button that says so. The rows under it are the list's
+   * own, without the date each would repeat from the heading.
+   */
+  private renderCalendar() {
+    const today = localToday();
+    const entries = this.matching().filter(
+      (entry) => this.calendarPayments || entry.kind === "expense",
+    );
+    const months = this.activity().map((entry) => monthOf(entry.at));
+    const current = today.slice(0, 7);
+    const month = this.calendarMonth ?? current;
+    const earliest = months.reduce((first, at) => (at < first ? at : first), current);
+    const latest = months.reduce((last, at) => (at > last ? at : last), current);
+
+    const byDay = new Map<string, Activity[]>();
+
+    for (const entry of entries) {
+      const day = isoToDateInput(entry.at);
+
+      byDay.set(day, [...(byDay.get(day) ?? []), entry]);
+    }
+
+    const marks = new Map<string, CalendarMark[]>();
+
+    for (const [day, onDay] of byDay) {
+      // Oldest first, so a day's dots read in the order they were spent.
+      marks.set(
+        day,
+        [...onDay].reverse().map((entry) => ({
+          colour: this.colourOf(entry),
+          payment: entry.kind === "payment",
+        })),
+      );
+    }
+
+    const day = this.calendarDay ?? this.latestDay(byDay, month, today);
+    const searching = this.query.trim() !== "";
+
+    return html`
+      <div class="card">
+        <se-calendar
+          .localize=${this.localize}
+          .language=${this.language}
+          .month=${month}
+          .earliest=${earliest}
+          .latest=${latest}
+          .today=${today}
+          .selected=${day ?? null}
+          .firstDay=${firstWeekday(this.language, this.hass?.locale?.first_weekday)}
+          .marks=${marks}
+          .spent=${searching ? "" : this.money(this.spentIn(month))}
+          .payments=${this.calendarPayments}
+          @month-changed=${(event: CustomEvent) => {
+            this.calendarMonth = event.detail.value;
+            this.calendarDay = undefined;
+          }}
+          @day-picked=${(event: CustomEvent) => (this.calendarDay = event.detail.value)}
+          @payments-toggled=${(event: CustomEvent) => {
+            this.calendarPayments = event.detail.value;
+            rememberPaymentsShown(this.calendarPayments);
+          }}
+        ></se-calendar>
+      </div>
+
+      ${day ? this.renderDay(day, byDay.get(day) ?? [], today, searching) : nothing}
+    `;
+  }
+
+  /** What happened on one day, under a heading that says which. */
+  private renderDay(day: string, entries: Activity[], today: string, searching: boolean) {
+    const spent = this.expenses
+      .filter((expense) => isoToDateInput(expense.expense_date) === day)
+      .reduce((sum, expense) => sum + expense.converted_amount, 0);
+
+    return html`
+      <section class="month">
+        <div class="month-head">
+          <span>${formatLongDay(day, this.language, today)}</span>
+          ${searching || spent === 0 ? nothing : html`<b>${this.money(spent)}</b>`}
+        </div>
+        <div class="card">
+          ${entries.length === 0
+            ? html`<div class="empty">
+                ${searching ? this.localize("no_match") : this.localize("calendar_nothing")}
+              </div>`
+            : entries.map((entry) =>
+                entry.kind === "expense"
+                  ? this.renderExpense(entry.expense, false)
+                  : this.renderPayment(entry.payment, false),
+              )}
+        </div>
+      </section>
+    `;
+  }
+
+  /**
+   * The day the calendar opens on in a month: today when something happened
+   * today, else the latest day that has something, else none.
+   */
+  private latestDay(byDay: Map<string, Activity[]>, month: string, today: string) {
+    if (byDay.has(today) && today.startsWith(month)) {
+      return today;
+    }
+
+    return [...byDay.keys()]
+      .filter((day) => day.startsWith(month))
+      .sort()
+      .at(-1);
+  }
+
+  /** The colour a row of the list draws down its side, for its dot. */
+  private colourOf(entry: Activity): string {
+    const payerId =
+      entry.kind === "expense"
+        ? entry.expense.paid_by_member_id
+        : entry.payment.kind === "debt"
+          ? entry.payment.to_member_id
+          : entry.payment.from_member_id;
+
+    return this.memberById(payerId)?.color ?? colorFor(payerId);
   }
 
   /**
@@ -1603,7 +1773,7 @@ export class SeGroupPage extends LitElement {
    * it — and on a debt the one who will pay is the one who owes, which is the
    * member on the receiving end of the stored payment.
    */
-  private renderPayment(payment: Payment) {
+  private renderPayment(payment: Payment, dated = true) {
     const debt = payment.kind === "debt";
 
     // Whose money leaves, and whose it becomes. The line reads payer → taker
@@ -1672,9 +1842,11 @@ export class SeGroupPage extends LitElement {
           <div class="muted">
             ${payment.description || this.localize(debt ? "a_debt" : "a_settlement")}
           </div>
-          <div class="muted">
-            ${formatDayDate(payment.payment_date, this.language, "UTC")}
-          </div>
+          ${dated
+            ? html`<div class="muted">
+                ${formatDayDate(payment.payment_date, this.language, "UTC")}
+              </div>`
+            : nothing}
         </div>
         <div class="tail">
           <span class="amount ${this.toneFor(payerId, takerId)}">
@@ -1745,7 +1917,8 @@ export class SeGroupPage extends LitElement {
     return me === payerId ? "negative" : "neutral";
   }
 
-  private renderExpense(expense: Expense) {
+  /** A row of the list; `dated` false under a heading that already says the day. */
+  private renderExpense(expense: Expense, dated = true) {
     const payer = this.memberById(expense.paid_by_member_id);
     const category = this.categories.find((c) => c.id === expense.category_id);
 
@@ -1829,9 +2002,11 @@ export class SeGroupPage extends LitElement {
             had one, and said nothing anybody needed.
           -->
           ${category ? html`<div class="muted">${category.name}</div>` : nothing}
-          <div class="muted">
-            ${formatDayDate(expense.expense_date, this.language, "UTC")}
-          </div>
+          ${dated
+            ? html`<div class="muted">
+                ${formatDayDate(expense.expense_date, this.language, "UTC")}
+              </div>`
+            : nothing}
         </div>
         <div class="tail">
           <!--

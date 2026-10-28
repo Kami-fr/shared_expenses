@@ -76,6 +76,7 @@ directory, restart Home Assistant, then add the integration as in step 2.
 | ⚖️ **Balances** | Who owes what, and the shortest set of transfers that clears it. |
 | 🤝 **Reimbursements and debts** | Record money moved, or merely owed; someone who left the group can still be paid back. |
 | 🔍 **One list** | Expenses and reimbursements together, newest first, searchable by anything on the row: a shop, a person, a category, an amount. |
+| 📅 **Or a calendar** | The month as a wall calendar, a dot per expense in the colour of who paid: tap a day to see what it holds. Reimbursements can be hidden. |
 | 🟢🔴 **Written from where you stand** | "You are owed", green when the money comes your way, red when it leaves. |
 | 📈 **Statistics** | A month, a year or everything: the total and how it compares, where it went, the year around it, and who paid against whose share it was. |
 | 🕓 **History** | Every change, who made it, and what moved; deletions included, and a deleted expense can be brought back from there as the one it was. |

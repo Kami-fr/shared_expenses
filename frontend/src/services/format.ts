@@ -91,6 +91,22 @@ export function formatDayDate(iso: string, language: string, timeZone?: string):
 }
 
 /**
+ * A day as a heading: "Dimanche 18 octobre", with the year only when it is
+ * not the one `today` falls in.
+ */
+export function formatLongDay(day: string, language: string, today: string): string {
+  const formatted = new Intl.DateTimeFormat(language, {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    ...(day.slice(0, 4) === today.slice(0, 4) ? {} : { year: "numeric" }),
+    timeZone: "UTC",
+  }).format(new Date(`${day}T12:00:00Z`));
+
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+}
+
+/**
  * A picked day written out in figures: "24/10/2026", "24.10.2026", "10/24/2026".
  *
  * Numeric, as each language orders it. A value no calendar day matches — a

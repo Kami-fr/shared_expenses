@@ -418,6 +418,13 @@ const EN = {
   recurring_stopped: "No longer repeats",
   fewer: "Less often",
   more_often: "More often",
+  view_list: "List",
+  view_calendar: "Calendar",
+  calendar_spent: "{amount} spent",
+  calendar_payments: "Reimbursements",
+  calendar_nothing: "Nothing on this day.",
+  calendar_previous: "Previous month",
+  calendar_next: "Next month",
 };
 
 export type Key = keyof typeof EN;
@@ -842,6 +849,13 @@ const FR: Record<Key, string> = {
   recurring_stopped: "Ne se répète plus",
   fewer: "Moins souvent",
   more_often: "Plus souvent",
+  view_list: "Liste",
+  view_calendar: "Calendrier",
+  calendar_spent: "{amount} dépensés",
+  calendar_payments: "Remboursements",
+  calendar_nothing: "Rien ce jour-là.",
+  calendar_previous: "Mois précédent",
+  calendar_next: "Mois suivant",
 };
 
 const DE: Record<Key, string> = {
@@ -1249,6 +1263,13 @@ const DE: Record<Key, string> = {
   recurring_stopped: "Wiederholt sich nicht mehr",
   fewer: "Seltener",
   more_often: "Öfter",
+  view_list: "Liste",
+  view_calendar: "Kalender",
+  calendar_spent: "{amount} ausgegeben",
+  calendar_payments: "Rückzahlungen",
+  calendar_nothing: "An diesem Tag nichts.",
+  calendar_previous: "Vorheriger Monat",
+  calendar_next: "Nächster Monat",
 };
 
 const NL: Record<Key, string> = {
@@ -1643,6 +1664,13 @@ const NL: Record<Key, string> = {
   recurring_stopped: "Herhaalt zich niet meer",
   fewer: "Minder vaak",
   more_often: "Vaker",
+  view_list: "Lijst",
+  view_calendar: "Kalender",
+  calendar_spent: "{amount} uitgegeven",
+  calendar_payments: "Terugbetalingen",
+  calendar_nothing: "Niets op deze dag.",
+  calendar_previous: "Vorige maand",
+  calendar_next: "Volgende maand",
 };
 
 const ES: Record<Key, string> = {
@@ -2037,6 +2065,13 @@ const ES: Record<Key, string> = {
   recurring_stopped: "Ya no se repite",
   fewer: "Menos a menudo",
   more_often: "Más a menudo",
+  view_list: "Lista",
+  view_calendar: "Calendario",
+  calendar_spent: "{amount} gastados",
+  calendar_payments: "Reembolsos",
+  calendar_nothing: "Nada ese día.",
+  calendar_previous: "Mes anterior",
+  calendar_next: "Mes siguiente",
 };
 
 const IT: Record<Key, string> = {
@@ -2432,6 +2467,13 @@ const IT: Record<Key, string> = {
   recurring_stopped: "Non si ripete più",
   fewer: "Meno spesso",
   more_often: "Più spesso",
+  view_list: "Elenco",
+  view_calendar: "Calendario",
+  calendar_spent: "{amount} spesi",
+  calendar_payments: "Rimborsi",
+  calendar_nothing: "Niente in questo giorno.",
+  calendar_previous: "Mese precedente",
+  calendar_next: "Mese successivo",
 };
 
 const PL: Record<Key, string> = {
@@ -2837,6 +2879,13 @@ const PL: Record<Key, string> = {
   recurring_stopped: "Już się nie powtarza",
   fewer: "Rzadziej",
   more_often: "Częściej",
+  view_list: "Lista",
+  view_calendar: "Kalendarz",
+  calendar_spent: "Wydano {amount}",
+  calendar_payments: "Zwroty",
+  calendar_nothing: "Nic tego dnia.",
+  calendar_previous: "Poprzedni miesiąc",
+  calendar_next: "Następny miesiąc",
 };
 
 const PT_BR: Record<Key, string> = {
@@ -3231,6 +3280,13 @@ const PT_BR: Record<Key, string> = {
   recurring_stopped: "Já não se repete",
   fewer: "Menos vezes",
   more_often: "Mais vezes",
+  view_list: "Lista",
+  view_calendar: "Calendário",
+  calendar_spent: "{amount} gastos",
+  calendar_payments: "Reembolsos",
+  calendar_nothing: "Nada neste dia.",
+  calendar_previous: "Mês anterior",
+  calendar_next: "Próximo mês",
 };
 
 const LANGUAGES: Record<string, Record<Key, string>> = {

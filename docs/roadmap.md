@@ -900,6 +900,21 @@ something false about people.
       local time and on start once that hour has passed — a restart in the
       night wakes no phone. See `docs/events.md`.
 
+## Sprint 33 — Seen by the day
+
+- [x] **A calendar** beside the list, picked under the balance and remembered
+      by the browser. The month as a wall calendar: a dot per expense in the
+      colour of whoever paid, as the list draws down the row's side, and an
+      empty ring for money moved between members. Only marks, never figures:
+      tapping a day lists it underneath, in the list's own rows, without the
+      date the heading already gives. Opens on today when something happened
+      today, else on the month's latest day that has something.
+- [x] The search filters it as it filters the list. Reimbursements and debts
+      can be hidden from it with one button, remembered as well.
+- [x] A week opens on the day Home Assistant is told it does, else on the
+      language's habit: Sunday in American English and Brazilian Portuguese,
+      Monday elsewhere.
+
 ## Later
 
 - [ ] Weighted splits (by shares, rather than by amount or percentage)

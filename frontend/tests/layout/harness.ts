@@ -200,6 +200,9 @@ export async function settle(): Promise<void> {
 /** Mount the group page of a phone, as the panel does, and wait for it. */
 export async function mount(group: GroupKey, language: string): Promise<HTMLElement> {
   document.body.replaceChildren();
+  // A browser that never opened the panel: a view picked in one scene is
+  // remembered, and would open the next one.
+  window.localStorage.clear();
   // Only the date: Lit and the browser keep their own timers.
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(RECORDED);
