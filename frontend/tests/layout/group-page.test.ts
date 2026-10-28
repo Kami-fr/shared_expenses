@@ -327,6 +327,34 @@ describe("placement", () => {
     expect(page().shadowRoot!.querySelector(".menu .count")?.textContent).toBe("4");
   });
 
+  it("the check sets names right before it reads figures, and gives the usual as a range", async () => {
+    const translate = localizer("fr");
+
+    await mount("apartment", "fr");
+    await slips();
+    await more();
+    await click(button(translate("check_expenses")));
+
+    const dialog = page("se-check-dialog").shadowRoot!;
+    const kinds = [...dialog.querySelectorAll(".kind")].map((kind) => kind.textContent!.split(" · ")[0]);
+
+    // A figure is read against its name's others: merged names first.
+    expect(kinds).toEqual(
+      (["check_names", "check_duplicates", "check_amounts", "check_categories"] as Key[]).map(
+        translate,
+      ),
+    );
+
+    // 109,00 against the four 10,90, the 12,50 and the 11,00: the demo is in dollars.
+    const usual = [...dialog.querySelectorAll(".fact")].find((fact) =>
+      fact.textContent!.startsWith("Ses "),
+    )!;
+
+    expect(usual.textContent!.replace(/\s/gu, " ")).toBe(
+      "Ses 6 autres achats : 10,90–11,00 $US. Une virgule oubliée ?",
+    );
+  });
+
   it("a day is written as the panel's language writes it", async () => {
     await mount("apartment", "fr");
     await plus();

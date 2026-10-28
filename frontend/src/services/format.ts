@@ -8,6 +8,29 @@ export function formatMoney(cents: number, currency: string, language: string): 
   }).format(cents / 100);
 }
 
+/**
+ * Two amounts in cents as one range, "8,50–13,20 €", in the reader's own way
+ * of writing one. Two equal ends are one figure: Intl would mark it "≃".
+ */
+export function formatMoneyRange(
+  low: number,
+  high: number,
+  currency: string,
+  language: string,
+): string {
+  if (low === high) {
+    return formatMoney(low, currency, language);
+  }
+
+  const format = new Intl.NumberFormat(language, { style: "currency", currency }) as Intl.NumberFormat & {
+    formatRange?: (start: number, end: number) => string;
+  };
+
+  return format.formatRange
+    ? format.formatRange(low / 100, high / 100)
+    : `${format.format(low / 100)} – ${format.format(high / 100)}`;
+}
+
 /** Format an amount in cents with an explicit sign, for balances. */
 export function formatSignedMoney(
   cents: number,

@@ -12,7 +12,7 @@ import {
   type DuplicateCheck,
   type NamesCheck,
 } from "../services/checks";
-import { formatDayDate, formatMoney } from "../services/format";
+import { formatDayDate, formatMoney, formatMoneyRange } from "../services/format";
 import { errorMessage, type Key, type Localizer } from "../services/localize";
 import { sharedStyles } from "../styles/shared";
 import type { Category, Expense, Group, Member } from "../types";
@@ -198,11 +198,11 @@ export class SeCheckDialog extends LitElement {
         ${none
           ? html`<div class="empty">${translate("check_nothing")}</div>`
           : html`
-              ${this.renderKind("check_amounts", amounts, (check) => this.renderAmount(check))}
               ${this.renderKind("check_names", names, (check) => this.renderNames(check))}
               ${this.renderKind("check_duplicates", duplicates, (check) =>
                 this.renderDuplicate(check),
               )}
+              ${this.renderKind("check_amounts", amounts, (check) => this.renderAmount(check))}
               ${this.renderKind("check_categories", categories, (check) =>
                 this.renderCategory(check),
               )}
@@ -231,7 +231,7 @@ export class SeCheckDialog extends LitElement {
     const { expense } = check;
     const translate = this.localize;
     const usual = this.fill(check.fix === null ? "check_usual" : "check_usual_slip", {
-      amount: `<b>${this.money(check.usual, expense.currency)}</b>`,
+      range: `<b>${formatMoneyRange(check.low, check.high, expense.currency, this.language)}</b>`,
       n: String(check.times),
     });
 

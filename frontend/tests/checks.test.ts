@@ -52,6 +52,16 @@ describe("findAmounts", () => {
     expect(check.fix).toBe(1090);
   });
 
+  it("reads the usual as a range of the middle half, so one other slip does not stretch it", () => {
+    const others = [800, 900, 1000, 1100, 9_900].map((amount, index) =>
+      bought("Boulangerie", amount, `2026-09-0${index + 1}`),
+    );
+    const [check] = findAmounts([...others, bought("Boulangerie", 100_000, "2026-10-17")]);
+
+    expect([check.low, check.high]).toEqual([900, 1100]);
+    expect(check.times).toBe(5);
+  });
+
   it("offers no fix when no slip of the point explains the figure", () => {
     const [check] = findAmounts([...weekly("Boulangerie", 1090), bought("Boulangerie", 7700, "2026-10-17")]);
 

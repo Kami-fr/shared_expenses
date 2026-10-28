@@ -26,6 +26,9 @@ export interface AmountCheck {
   expense: Expense;
   /** What the same name usually costs: the middle of its other figures. */
   usual: number;
+  /** Where the middle half of its other figures lie, from the lowest to the highest. */
+  low: number;
+  high: number;
   /** How many other figures that is read from. */
   times: number;
   /** The figure it most likely meant, when a slip of the decimal point explains it. */
@@ -136,6 +139,17 @@ function median(values: number[]): number {
 }
 
 /**
+ * The middle half of some figures, as a range a person can read: the lowest
+ * and highest quarter left out, so one other slip does not stretch it.
+ */
+function middleHalf(values: number[]): [number, number] {
+  const sorted = [...values].sort((a, b) => a - b);
+  const last = sorted.length - 1;
+
+  return [sorted[Math.floor(last / 4)], sorted[Math.ceil((last * 3) / 4)]];
+}
+
+/**
  * A figure five times what the same name usually costs, or a fifth of it.
  *
  * Read against the others in the same currency, and only once there are
@@ -167,12 +181,15 @@ export function findAmounts(purchases: Expense[]): AmountCheck[] {
         [expense.amount / 10, expense.amount / 100, expense.amount * 10, expense.amount * 100]
           .filter((figure) => Number.isInteger(figure) && figure >= usual * 0.8 && figure <= usual * 1.25)
           .sort((a, b) => Math.abs(a - usual) - Math.abs(b - usual))[0] ?? null;
+      const [low, high] = middleHalf(others);
 
       checks.push({
         kind: "amount",
         key: `${expense.id}:${expense.amount}`,
         expense,
         usual,
+        low,
+        high,
         times: others.length,
         fix,
       });

@@ -22,6 +22,7 @@ import {
   firstName,
   formatDayDate,
   formatMoney,
+  formatMoneyRange,
   formatMonth,
   formatMonthLong,
   formatNumericDay,
@@ -105,6 +106,11 @@ describe("formatMoney and formatSignedMoney", () => {
     expect(plain(formatSignedMoney(8542, "EUR", "en"))).toBe("+€85.42");
     expect(plain(formatSignedMoney(-8542, "EUR", "en"))).toBe("-€85.42");
     expect(plain(formatSignedMoney(0, "EUR", "en"))).toBe("€0.00");
+  });
+
+  it("writes a range once, and two equal ends as one figure", () => {
+    expect(plain(formatMoneyRange(850, 1320, "EUR", "fr"))).toBe("8,50–13,20 €");
+    expect(plain(formatMoneyRange(1349, 1349, "EUR", "fr"))).toBe("13,49 €");
   });
 });
 
