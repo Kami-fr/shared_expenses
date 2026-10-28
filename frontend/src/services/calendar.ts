@@ -84,15 +84,13 @@ export function localToday(now = new Date()): string {
 }
 
 /**
- * Which view the group page opens on, and whether the calendar shows the
- * reimbursements, remembered per browser.
+ * Which view the group page opens on, remembered per browser.
  *
  * Display preferences, not group data, kept as the statistics keep their
  * chart: every access guarded, since a browser with storage disabled throws
  * outright, and forgetting costs one tap.
  */
 const VIEW_KEY = "shared_expenses.view";
-const PAYMENTS_KEY = "shared_expenses.calendar_payments";
 
 export type ListView = "list" | "calendar";
 
@@ -109,21 +107,5 @@ export function rememberView(view: ListView): void {
     window.localStorage.setItem(VIEW_KEY, view);
   } catch {
     // Not being able to remember is not worth breaking the page over.
-  }
-}
-
-export function readPaymentsShown(): boolean {
-  try {
-    return window.localStorage.getItem(PAYMENTS_KEY) !== "0";
-  } catch {
-    return true;
-  }
-}
-
-export function rememberPaymentsShown(shown: boolean): void {
-  try {
-    window.localStorage.setItem(PAYMENTS_KEY, shown ? "1" : "0");
-  } catch {
-    // As above.
   }
 }

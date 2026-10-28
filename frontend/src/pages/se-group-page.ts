@@ -25,9 +25,7 @@ import type { SharedExpensesApi } from "../services/api";
 import {
   firstWeekday,
   localToday,
-  readPaymentsShown,
   readView,
-  rememberPaymentsShown,
   rememberView,
   type ListView,
 } from "../services/calendar";
@@ -175,9 +173,6 @@ export class SeGroupPage extends LitElement {
 
   /** The day picked on the calendar; unset means the month's latest that has something. */
   @state() private calendarDay?: string;
-
-  /** The calendar shows reimbursements and debts as well as expenses. */
-  @state() private calendarPayments = readPaymentsShown();
 
   @state() private loading = true;
 
@@ -1188,15 +1183,13 @@ export class SeGroupPage extends LitElement {
    * The month as a calendar, and under it what happened on the day picked.
    *
    * The same entries as the list, the search included, so switching views
-   * never makes anything appear or vanish; only the reimbursements may be
-   * left off, by the button that says so. The rows under it are the list's
-   * own, without the date each would repeat from the heading.
+   * never makes anything appear or vanish, the reimbursements with their ring.
+   * The rows under it are the list's own, without the date each would repeat
+   * from the heading.
    */
   private renderCalendar() {
     const today = localToday();
-    const entries = this.matching().filter(
-      (entry) => this.calendarPayments || entry.kind === "expense",
-    );
+    const entries = this.matching();
     const months = this.activity().map((entry) => monthOf(entry.at));
     const current = today.slice(0, 7);
     const month = this.calendarMonth ?? current;
@@ -1240,16 +1233,11 @@ export class SeGroupPage extends LitElement {
           .firstDay=${firstWeekday(this.language, this.hass?.locale?.first_weekday)}
           .marks=${marks}
           .spent=${searching ? "" : this.money(this.spentIn(month))}
-          .payments=${this.calendarPayments}
           @month-changed=${(event: CustomEvent) => {
             this.calendarMonth = event.detail.value;
             this.calendarDay = undefined;
           }}
           @day-picked=${(event: CustomEvent) => (this.calendarDay = event.detail.value)}
-          @payments-toggled=${(event: CustomEvent) => {
-            this.calendarPayments = event.detail.value;
-            rememberPaymentsShown(this.calendarPayments);
-          }}
         ></se-calendar>
       </div>
 

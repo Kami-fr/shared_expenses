@@ -27,9 +27,8 @@ const MARKS_SHOWN = 3;
  * Only marks, never figures: a cell is a seventh of a phone, and the amounts
  * are one tap away, in the rows the page draws under it for the day picked.
  *
- * Fires `month-changed` and `day-picked` with the new value in `detail`, and
- * `payments-toggled` when the reimbursements are hidden or shown again; the
- * page owns all three, as it owns the search.
+ * Fires `month-changed` and `day-picked` with the new value in `detail`; the
+ * page owns both, as it owns the search.
  */
 @customElement("se-calendar")
 export class SeCalendar extends LitElement {
@@ -56,8 +55,6 @@ export class SeCalendar extends LitElement {
 
   /** What the month cost, written out; nothing while a search filters it. */
   @property({ type: String }) public spent = "";
-
-  @property({ type: Boolean }) public payments = true;
 
   public static styles = css`
     :host {
@@ -210,11 +207,15 @@ export class SeCalendar extends LitElement {
       color: var(--secondary-text-color);
     }
 
+    /*
+     * What the two marks mean. The reimbursements used to sit in a button
+     * that hid them; it went, so their ring is read here like the dot.
+     */
     .foot {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 8px;
+      flex-wrap: wrap;
+      gap: 6px 16px;
       margin-top: 2px;
       padding: 10px 4px 0;
       border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
@@ -229,7 +230,7 @@ export class SeCalendar extends LitElement {
     }
 
     .legend .dot,
-    .toggle .ring {
+    .legend .ring {
       flex: none;
     }
 
@@ -237,31 +238,8 @@ export class SeCalendar extends LitElement {
       background: var(--secondary-text-color);
     }
 
-    /* Shown or hidden: a button with a body, tinted while it shows them. */
-    .toggle {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      min-height: 34px;
-      padding: 0 12px;
-      border: none;
-      border-radius: 17px;
-      background: color-mix(in srgb, var(--primary-color, #03a9f4) 20%, transparent);
-      color: var(--primary-color, #03a9f4);
-      font-family: inherit;
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-    }
-
-    .toggle[aria-pressed="false"] {
-      background: var(--divider-color, rgba(0, 0, 0, 0.08));
-      color: var(--secondary-text-color);
-    }
-
-    .toggle:focus-visible {
-      outline: 2px solid var(--primary-color, #03a9f4);
-      outline-offset: 1px;
+    .legend .ring {
+      border-color: var(--secondary-text-color);
     }
   `;
 
@@ -314,13 +292,7 @@ export class SeCalendar extends LitElement {
 
         <div class="foot">
           <span class="legend"><span class="dot"></span>${translate("kind_expense")}</span>
-          <button
-            class="toggle"
-            aria-pressed=${this.payments ? "true" : "false"}
-            @click=${() => this.fire("payments-toggled", !this.payments)}
-          >
-            <span class="ring"></span>${translate("calendar_payments")}
-          </button>
+          <span class="legend"><span class="ring"></span>${translate("calendar_payments")}</span>
         </div>
       </div>
     `;

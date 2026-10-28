@@ -182,10 +182,6 @@ const SCENES: Record<string, (translate: Translate) => Promise<void>> = {
     await click(page("se-segmented", "button:nth-child(2)"));
     await click(page("se-calendar", ".step"));
   },
-  "the calendar without reimbursements": async () => {
-    await click(page("se-segmented", "button:nth-child(2)"));
-    await click(page("se-calendar", ".toggle"));
-  },
 };
 
 /**
@@ -280,6 +276,20 @@ describe("placement", () => {
     for (const row of rows) {
       expect(row.textContent).not.toContain("18 oct. 2026");
     }
+  });
+
+  it("the calendar's foot explains both marks and presses nothing", async () => {
+    await mount("apartment", "fr");
+    await click(page("se-segmented", "button:nth-child(2)"));
+
+    const foot = page("se-calendar").shadowRoot!.querySelector(".foot")!;
+
+    expect(foot.querySelector("button")).toBeNull();
+    expect([...foot.querySelectorAll(".legend")].map((item) => item.textContent?.trim())).toEqual([
+      "Dépense",
+      "Remboursements",
+    ]);
+    expect(foot.querySelector(".legend .ring")).not.toBeNull();
   });
 
   it("a name taken fills the title and its category, never the amount", async () => {
