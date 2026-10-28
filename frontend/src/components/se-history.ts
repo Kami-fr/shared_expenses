@@ -13,6 +13,7 @@ import { localToday } from "../services/calendar";
 import {
   firstName,
   formatClock,
+  formatClockRange,
   formatDayDate,
   formatJournalDay,
   formatMoney,
@@ -21,7 +22,7 @@ import { readChange, type HistoryContext } from "../services/history";
 import {
   expenseAt,
   expenseState,
-  foldAdditions,
+  foldRuns,
   journalDay,
   paymentAt,
   paymentState,
@@ -103,8 +104,8 @@ const DRAWN = new Set([
   "shares",
 ]);
 
-/** How many names a folded run of additions shows before "…". */
-const RUN_NAMES = 6;
+/** How many things a run shows before the rest wait behind "See all". */
+const RUN_SHOWN = 5;
 
 /** The order a run counts what it holds in: the money first. */
 const RUN_KINDS: RevisionEntity[] = ["expense", "payment", "recurring", "category", "member", "group"];
@@ -410,12 +411,6 @@ export class SeHistory extends LitElement {
         color: var(--primary-color, #03a9f4);
       }
 
-      .titles {
-        margin-top: 6px;
-        font-size: 13px;
-        color: var(--secondary-text-color);
-      }
-
       .swatch {
         display: inline-block;
         width: 14px;
@@ -511,7 +506,7 @@ export class SeHistory extends LitElement {
     const today = localToday();
     const days = new Map<string, JournalItem[]>();
 
-    for (const item of foldAdditions(this.revisions)) {
+    for (const item of foldRuns(this.revisions)) {
       const newest = item.kind === "one" ? item.revision : item.revisions[0];
       const day = journalDay(newest.at);
 
@@ -541,7 +536,7 @@ export class SeHistory extends LitElement {
    * face used to carry the mark on its corner and sit beside the thing, and
    * then the payer's name a column away read as a second author.
    */
-  private renderWho(revision: Revision, said?: string) {
+  private renderWho(revision: Revision, said?: string, when?: string) {
     const actor = this.actorOf(revision);
     const name = actor?.name ?? this.localize("someone");
     const mark = ACTIONS[revision.action];
@@ -561,7 +556,7 @@ export class SeHistory extends LitElement {
           .fallback=${mark.fallback}
           .size=${16}
         ></se-icon>
-        <span class="clock">${formatClock(revision.at, this.language)}</span>
+        <span class="clock">${when ?? formatClock(revision.at, this.language)}</span>
       </div>
     `;
   }
@@ -725,26 +720,30 @@ export class SeHistory extends LitElement {
   }
 
   /**
-   * Additions in a row by one person on one day, as one line: how many, the
-   * first few names, and the whole run behind a press.
+   * The same action done several times in a row by one person on one day:
+   * said once, "Alex added 3 expenses", from the first time to the last, and
+   * each thing under it as the list draws it.
+   *
+   * A long run — the group set up, a month typed in at once — shows its
+   * newest few and keeps the rest behind a press, so a screen of setting up
+   * does not stand between the reader and yesterday.
    */
   private renderRun(revisions: Revision[]) {
     const key = revisions[0].id;
     const open = this.unfolded.has(key);
-    const said = `${this.localize("history_created")} ${this.countOf(revisions)}`;
-    const names = revisions.slice(0, RUN_NAMES).map((revision) => this.nameOfEntry(revision));
+    const said = `${this.localize(`history_${revisions[0].action}`)} ${this.countOf(revisions)}`;
+    const when = formatClockRange(revisions.at(-1)!.at, revisions[0].at, this.language);
+    const shown = open ? revisions : revisions.slice(0, RUN_SHOWN);
 
     return html`
       <div class="event">
-        ${this.renderWho(revisions[0], said)}
-        ${open
-          ? revisions.map((revision) => this.renderWhat(revision))
-          : html`<div class="titles">
-              ${names.join(" · ")}${revisions.length > RUN_NAMES ? " …" : ""}
-            </div>`}
-        <button class="chip plain" @click=${() => this.toggleRun(key)}>
-          ${this.localize(open ? "done" : "see_all")}
-        </button>
+        ${this.renderWho(revisions[0], said, when)}
+        ${shown.map((revision) => this.renderWhat(revision))}
+        ${revisions.length > RUN_SHOWN
+          ? html`<button class="chip plain" @click=${() => this.toggleRun(key)}>
+              ${open ? this.localize("done") : `${this.localize("see_all")} (${revisions.length})`}
+            </button>`
+          : nothing}
       </div>
     `;
   }
@@ -777,7 +776,7 @@ export class SeHistory extends LitElement {
     return new Intl.ListFormat(this.language, { type: "conjunction" }).format(counted);
   }
 
-  /** What an entry is called in a list of them: its label, or who paid whom. */
+  /** What an entry is called: its label, or who paid whom. */
   private nameOfEntry(revision: Revision): string {
     return (
       revision.entity_label ??

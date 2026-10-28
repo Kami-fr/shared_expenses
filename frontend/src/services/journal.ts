@@ -211,32 +211,38 @@ export function shareMoves(
   };
 }
 
-/** One line of the journal, or several additions read as one. */
+/** One line of the journal, or several of the same action read as one. */
 export type JournalItem =
   | { kind: "one"; revision: Revision }
   | { kind: "run"; revisions: Revision[] };
 
-/** How many additions in a row it takes to fold them into one line. */
-const RUN = 3;
+/**
+ * What can be said of several things at once. A skipped occurrence is said
+ * with the recurring expense it belongs to ("skipped a date of the rent"),
+ * which a count cannot stand in for.
+ */
+const RUNS: Revision["action"][] = ["created", "updated", "deleted", "restored"];
 
 /**
- * The journal's lines, with additions in a row folded together.
+ * The journal's lines, with the same action done several times in a row
+ * gathered under one.
  *
  * Things added one after another by the same person on the same day — a
  * receipt typed in, a month caught up on, the group set up with its
- * categories and its people — are one thing they did, and twenty identical
- * "added the expense" lines buried the one deletion in among them. Three or
- * more fold, whatever they are; two still read fine apart.
+ * categories and its people — are one thing they did. Said once, "Alex added
+ * 3 expenses", with the three of them under it, rather than three lines that
+ * each said who and what again. The same for a round of corrections or a
+ * clear-out: two in a row are enough.
  */
-export function foldAdditions(revisions: Revision[]): JournalItem[] {
+export function foldRuns(revisions: Revision[]): JournalItem[] {
   const items: JournalItem[] = [];
   let run: Revision[] = [];
 
   const close = () => {
-    if (run.length >= RUN) {
+    if (run.length > 1) {
       items.push({ kind: "run", revisions: run });
-    } else {
-      items.push(...run.map((revision) => ({ kind: "one" as const, revision })));
+    } else if (run.length === 1) {
+      items.push({ kind: "one", revision: run[0] });
     }
 
     run = [];
@@ -244,16 +250,16 @@ export function foldAdditions(revisions: Revision[]): JournalItem[] {
 
   for (const revision of revisions) {
     const joins =
-      revision.action === "created" &&
-      (run.length === 0 ||
-        (run[0].actor_user_id === revision.actor_user_id &&
-          journalDay(run[0].at) === journalDay(revision.at)));
+      run.length > 0 &&
+      run[0].action === revision.action &&
+      run[0].actor_user_id === revision.actor_user_id &&
+      journalDay(run[0].at) === journalDay(revision.at);
 
     if (!joins) {
       close();
     }
 
-    if (revision.action === "created") {
+    if (RUNS.includes(revision.action)) {
       run.push(revision);
     } else {
       items.push({ kind: "one", revision });

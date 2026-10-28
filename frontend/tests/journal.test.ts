@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 import {
   expenseAt,
   expenseState,
-  foldAdditions,
+  foldRuns,
   shareMoves,
   statesAround,
 } from "../src/services/journal";
@@ -144,39 +144,48 @@ describe("shareMoves", () => {
   });
 });
 
-describe("foldAdditions", () => {
+describe("foldRuns", () => {
   const added = (actor: string, at = "2026-10-29T09:00:00+00:00") =>
     revision("created", [], { entity_id: `x${next}`, actor_user_id: actor, at });
+  const kinds = (items: ReturnType<typeof foldRuns>) => items.map((item) => item.kind);
 
-  it("folds three additions in a row by one person on one day", () => {
-    const items = foldAdditions([added("u1"), added("u1"), added("u1"), added("u2")]);
-
-    expect(items.map((item) => item.kind)).toEqual(["run", "one"]);
+  it("gathers additions in a row by one person on one day, from two", () => {
+    expect(kinds(foldRuns([added("u1"), added("u1"), added("u1"), added("u2")]))).toEqual(["run", "one"]);
+    expect(kinds(foldRuns([added("u1"), added("u1")]))).toEqual(["run"]);
   });
 
-  it("leaves two apart, and breaks a run at anything else", () => {
-    const edit = revision("updated", []);
-    const items = foldAdditions([added("u1"), added("u1"), edit, added("u1"), added("u1")]);
+  it("breaks a run at another action, and gathers that one too", () => {
+    const edit = () => revision("updated", []);
 
-    expect(items.map((item) => item.kind)).toEqual(["one", "one", "one", "one", "one"]);
+    expect(kinds(foldRuns([added("u1"), added("u1"), edit(), edit(), added("u1")]))).toEqual([
+      "run",
+      "run",
+      "one",
+    ]);
   });
 
-  it("folds whatever was added in a row: the group set up with its categories", () => {
+  it("gathers whatever was added in a row: the group set up with its categories", () => {
     const category = revision("created", [], { entity_type: "category" });
     const payment = revision("created", [], { entity_type: "payment" });
-    const items = foldAdditions([added("u1"), payment, added("u1"), category]);
+    const items = foldRuns([added("u1"), payment, added("u1"), category]);
 
     expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({ kind: "run" });
   });
 
+  it("keeps skipped dates apart: each is said with its own recurring expense", () => {
+    const skipped = () => revision("skipped", [], { entity_type: "recurring" });
+
+    expect(kinds(foldRuns([skipped(), skipped()]))).toEqual(["one", "one"]);
+  });
+
   it("breaks a run at midnight", () => {
-    const items = foldAdditions([
+    const items = foldRuns([
       added("u1", "2026-10-29T09:00:00"),
       added("u1", "2026-10-29T08:00:00"),
       added("u1", "2026-10-28T23:00:00"),
     ]);
 
-    expect(items.map((item) => item.kind)).toEqual(["one", "one", "one"]);
+    expect(kinds(items)).toEqual(["run", "one"]);
   });
 });

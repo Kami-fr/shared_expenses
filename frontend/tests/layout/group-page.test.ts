@@ -472,8 +472,15 @@ describe("placement", () => {
     expect(deletion.querySelector(".thing.gone .title")?.textContent).toContain("Boulangerie");
     expect(deletion.querySelector("button.chip.restore")).toBeTruthy();
 
-    // The demo's twenty-odd additions by Alex, folded under one line.
-    expect(journal.querySelectorAll(".chip.plain").length).toBeGreaterThan(0);
+    // The demo's twenty-odd additions by Alex, said once: the newest five drawn
+    // straight away under it, the rest behind a press.
+    const run = [...journal.querySelectorAll(".event")].find((event) =>
+      /^Alex a ajouté \d+ dépenses/u.test(text(event.querySelector(".author .done"))),
+    )!;
+
+    expect(run).toBeTruthy();
+    expect(run.querySelectorAll(".thing, .frame")).toHaveLength(5);
+    expect(run.querySelector(".chip.plain")).toBeTruthy();
   });
 
   it("a day is written as the panel's language writes it", async () => {

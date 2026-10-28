@@ -21,6 +21,7 @@ import {
   dateToIso,
   firstName,
   formatClock,
+  formatClockRange,
   formatDayDate,
   formatJournalDay,
   formatMoney,
@@ -183,6 +184,13 @@ describe("dates", () => {
     const at = new Date(2026, 9, 29, 9, 12).toISOString();
 
     expect(formatClock(at, "fr")).toBe("09:12");
+  });
+
+  it("writes a span of time once, and a single minute as itself", () => {
+    const at = (minute: number) => new Date(2026, 9, 29, 19, minute).toISOString();
+
+    expect(plain(formatClockRange(at(2), at(28), "fr"))).toMatch(/^19:02 ?– ?19:28$/u);
+    expect(formatClockRange(at(28), at(28), "fr")).toBe("19:28");
   });
 });
 

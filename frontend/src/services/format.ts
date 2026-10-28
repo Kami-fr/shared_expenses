@@ -159,6 +159,22 @@ export function formatClock(iso: string, language: string): string {
 }
 
 /**
+ * From when to when several things were done: "19:02–19:28", as the
+ * language writes a span. One time when they all fall in the same minute,
+ * since "19:28–19:28" is a span of nothing.
+ */
+export function formatClockRange(first: string, last: string, language: string): string {
+  if (formatClock(first, language) === formatClock(last, language)) {
+    return formatClock(last, language);
+  }
+
+  return new Intl.DateTimeFormat(language, { hour: "2-digit", minute: "2-digit" }).formatRange(
+    new Date(first),
+    new Date(last),
+  );
+}
+
+/**
  * A picked day written out in figures: "24/10/2026", "24.10.2026", "10/24/2026".
  *
  * Numeric, as each language orders it. A value no calendar day matches — a
