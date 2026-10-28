@@ -10,6 +10,7 @@ from homeassistant.core import HomeAssistant, callback
 
 from . import (
     categories,
+    checks,
     expenses,
     groups,
     members,
@@ -25,6 +26,7 @@ COMMANDS = (
     *members.COMMANDS,
     *categories.COMMANDS,
     *expenses.COMMANDS,
+    *checks.COMMANDS,
     *payments.COMMANDS,
     *rates.COMMANDS,
     *recurring.COMMANDS,

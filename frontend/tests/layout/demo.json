@@ -4556,6 +4556,20 @@
     "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7"
    },
    "result": []
+  },
+  {
+   "request": {
+    "type": "shared_expenses/list_check_dismissals",
+    "group_id": "01M5N3R3MVC6W3NEM495DR4Y94"
+   },
+   "result": []
+  },
+  {
+   "request": {
+    "type": "shared_expenses/list_check_dismissals",
+    "group_id": "01M5N3R3RNEZK7YXQWNKESW2T7"
+   },
+   "result": []
   }
  ]
 }

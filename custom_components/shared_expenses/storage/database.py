@@ -16,6 +16,7 @@ from ..const import DATABASE_NAME
 from ..exceptions import DatabaseNotReadyError
 from .migrations import initialize_database
 from .repositories.category_repository import CategoryRepository
+from .repositories.check_repository import CheckRepository
 from .repositories.exchange_rate_repository import ExchangeRateRepository
 from .repositories.expense_repository import ExpenseRepository
 from .repositories.group_member_repository import GroupMemberRepository
@@ -56,6 +57,7 @@ class Database:
         self._expense_repository: ExpenseRepository | None = None
         self._payment_repository: PaymentRepository | None = None
         self._recurring_repository: RecurringRepository | None = None
+        self._check_repository: CheckRepository | None = None
         self._revision_repository: RevisionRepository | None = None
         self._exchange_rate_repository: ExchangeRateRepository | None = None
 
@@ -134,6 +136,13 @@ class Database:
         return self._recurring_repository
 
     @property
+    def check_repository(self) -> CheckRepository:
+        """Return the repository of dismissed checks."""
+
+        assert self._check_repository is not None
+        return self._check_repository
+
+    @property
     def revision_repository(self) -> RevisionRepository:
         """Return the revision repository."""
 
@@ -176,6 +185,7 @@ class Database:
         self._expense_repository = ExpenseRepository(self)
         self._payment_repository = PaymentRepository(self)
         self._recurring_repository = RecurringRepository(self)
+        self._check_repository = CheckRepository(self)
         self._revision_repository = RevisionRepository(self)
         self._exchange_rate_repository = ExchangeRateRepository(self)
 

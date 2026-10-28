@@ -395,6 +395,33 @@ export class SharedExpensesApi {
     });
   }
 
+  /** The checks a member answered "this is right": `kind|key` each. */
+  public async listCheckDismissals(groupId: string): Promise<string[]> {
+    const answered: { kind: string; key: string }[] = await this.call(
+      "list_check_dismissals",
+      { group_id: groupId },
+    );
+
+    return answered.map(({ kind, key }) => `${kind}|${key}`);
+  }
+
+  public dismissCheck(groupId: string, kind: string, key: string): Promise<null> {
+    return this.call("dismiss_check", { group_id: groupId, kind, key });
+  }
+
+  /** Set one field right on several expenses at once, all or none. */
+  public correctExpenses(
+    groupId: string,
+    expenseIds: string[],
+    change: { title: string } | { category_id: string | null } | { amount: number },
+  ): Promise<Expense[]> {
+    return this.call("correct_expenses", {
+      group_id: groupId,
+      expense_ids: expenseIds,
+      ...change,
+    });
+  }
+
   public listExpenseShares(groupId: string): Promise<ExpenseShare[]> {
     return this.call("list_expense_shares", { group_id: groupId });
   }

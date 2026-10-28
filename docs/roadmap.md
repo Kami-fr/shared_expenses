@@ -900,7 +900,7 @@ something false about people.
       local time and on start once that hour has passed — a restart in the
       night wakes no phone. See `docs/events.md`.
 
-## Sprint 33 — Seen by the day
+## Sprint 33 — Seen by the day, and set right
 
 - [x] **A calendar** beside the list, picked under the balance and remembered
       by the browser. The month as a wall calendar: a dot per expense in the
@@ -921,6 +921,23 @@ something false about people.
       category it was used. Taking one fills the title and that category,
       never the amount. Enter takes the first. Not on a refund, an occurrence
       or an expense being changed.
+- [x] **Checking the expenses** for typing slips, from the menu, with how
+      many questions there are beside it and nothing on the page itself. Four
+      kinds, each worked out in the panel from the expenses it already holds:
+      a figure five times its name's usual or a fifth of it (offering the
+      usual when a slipped decimal point explains it); one shop written
+      several ways — case, accents, spaces, a slip of a letter in one long
+      word, words added — gathered into one question with the name to keep
+      picked from its spellings; the same purchase twice on a day; a purchase
+      filed apart from where its name is filed three times in four. Each card
+      answers "that's right" or corrects in one tap; anything the check
+      cannot guess opens the expense.
+- [x] `correct_expenses` sets one field right on several expenses, all or
+      none, each one checked as if opened by hand and journalled as such. A
+      name or a category moves no money: the shares stay. A figure is spread
+      by the expense's own rule, and refused where it kept none.
+- [x] "That's right" is kept by the backend (schema v18, `check_dismissals`),
+      so a question is asked once; a change to what it was about asks again.
 
 ## Later
 

@@ -12,6 +12,7 @@ import "../components/se-field";
 import "../components/se-icon";
 import "../components/se-segmented";
 import "../dialogs/se-categories-dialog";
+import "../dialogs/se-check-dialog";
 import "../dialogs/se-expense-dialog";
 import "../dialogs/se-group-dialog";
 import "../dialogs/se-history-dialog";
@@ -42,6 +43,7 @@ import {
   sortByName,
 } from "../services/format";
 import { errorMessage, type Localizer } from "../services/localize";
+import { countChecks, findChecks, type Checks } from "../services/checks";
 import { shortDay, varies, whoPays } from "../services/recurrence";
 import { monthOf } from "../services/statistics-period";
 import { sharedStyles } from "../styles/shared";
@@ -69,7 +71,8 @@ type Dialog =
   | "categories"
   | "history"
   | "statistics"
-  | "recurring";
+  | "recurring"
+  | "check";
 
 /**
  * One thing that happened in the group, expense or payment alike.
@@ -143,6 +146,9 @@ export class SeGroupPage extends LitElement {
 
   /** What comes back: the rent, the subscriptions. */
   @state() private recurring: Recurring[] = [];
+
+  /** The checks a member answered "this is right", as `kind|key`. */
+  @state() private answered: string[] = [];
 
   /** A recurring expense opened to be changed, in the expense dialog. */
   @state() private editedRecurring?: Recurring;
@@ -652,6 +658,22 @@ export class SeGroupPage extends LitElement {
         padding-top: 12px;
       }
 
+      /* How many questions the check has: a quiet pill, as the menu is. */
+      .menu .count {
+        min-width: 20px;
+        height: 20px;
+        padding: 0 6px;
+        box-sizing: border-box;
+        border-radius: 10px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 700;
+        background: color-mix(in srgb, var(--primary-color, #03a9f4) 22%, transparent);
+        color: var(--primary-color, #03a9f4);
+      }
+
       .menu .danger {
         color: var(--error-color, #db4437);
       }
@@ -852,6 +874,7 @@ export class SeGroupPage extends LitElement {
     this.expenses = [];
     this.payments = [];
     this.recurring = [];
+    this.answered = [];
     this.result = undefined;
     this.calendarMonth = undefined;
     this.calendarDay = undefined;
@@ -1164,6 +1187,9 @@ export class SeGroupPage extends LitElement {
   private renderMoreMenu() {
     const translate = this.localize;
     const archiving = this.may("manage_group");
+    // How many questions the check has, said where it is opened: a count in
+    // the menu rather than a banner on the page, which nobody asked for.
+    const waiting = countChecks(this.checks());
 
     return html`
       <button role="menuitem" @click=${() => this.openDialog("history")}>
@@ -1171,6 +1197,10 @@ export class SeGroupPage extends LitElement {
       </button>
       <button role="menuitem" @click=${() => this.openDialog("recurring")}>
         ${translate("recurring_expenses")}
+      </button>
+      <button role="menuitem" @click=${() => this.openDialog("check")}>
+        ${translate("check_expenses")}
+        ${waiting > 0 ? html`<span class="count">${waiting}</span>` : nothing}
       </button>
       <button role="menuitem" class="separated" @click=${() => this.openDialog("member")}>
         ${translate("members")}
@@ -1416,6 +1446,16 @@ export class SeGroupPage extends LitElement {
       .filter((day) => day.startsWith(month))
       .sort()
       .at(-1);
+  }
+
+  /**
+   * The typing slips the check would ask about, less those already answered.
+   * Worked out from the expenses on the page, each time it is asked: the menu
+   * and the dialog are open seldom, and a cached answer would go stale with
+   * every expense added.
+   */
+  private checks(): Checks {
+    return findChecks(this.expenses, new Set(this.answered));
   }
 
   /** The colour a row of the list draws down its side, for its dot. */
@@ -2155,6 +2195,32 @@ export class SeGroupPage extends LitElement {
       `;
     }
 
+    if (this.dialog === "check") {
+      return html`
+        <se-check-dialog
+          .api=${this.api}
+          .localize=${this.localize}
+          .group=${this.group}
+          .checks=${this.checks()}
+          .categories=${this.categories}
+          .members=${this.pastMembers}
+          .editable=${this.expenses
+            .filter((expense) => this.mayEdit(expense))
+            .map((expense) => expense.id)}
+          .language=${this.language}
+          @dialog-cancelled=${this.closeDialog}
+          @checks-changed=${() => this.load({ keepError: true })}
+          @expense-picked=${(event: CustomEvent) => {
+            const expense = this.expenses.find((one) => one.id === event.detail.expenseId);
+
+            if (expense) {
+              this.openExpense(expense);
+            }
+          }}
+        ></se-check-dialog>
+      `;
+    }
+
     if (this.dialog === "recurring") {
       return html`
         <se-recurring-dialog
@@ -2452,6 +2518,7 @@ export class SeGroupPage extends LitElement {
         payments,
         result,
         recurring,
+        answered,
       ] = await Promise.all([
         this.api.getGroup(this.groupId),
         this.api.listGroups(),
@@ -2463,6 +2530,7 @@ export class SeGroupPage extends LitElement {
         this.api.listPayments(this.groupId),
         this.api.getBalances(this.groupId),
         this.api.listRecurring(this.groupId),
+        this.api.listCheckDismissals(this.groupId),
       ]);
 
       this.group = group;
@@ -2475,6 +2543,7 @@ export class SeGroupPage extends LitElement {
       this.payments = payments;
       this.result = result;
       this.recurring = recurring;
+      this.answered = answered;
     } catch (error) {
       this.error = errorMessage(error, this.localize);
 

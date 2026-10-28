@@ -1705,6 +1705,152 @@ class SharedExpensesManager:
                 changes=revisions.deletion(state),
             )
 
+    async def correct_expenses(
+        self,
+        group_id: str,
+        expense_ids: Sequence[str],
+        changes: dict[str, Any],
+        *,
+        actor_user_id: str | None = None,
+    ) -> list[Expense]:
+        """Set one field right on several expenses at once, all or none.
+
+        What the panel's check offers in one tap: four spellings of a shop
+        renamed to one, a purchase put back under the category it is always
+        filed under, a figure typed ten times too large brought back. `changes`
+        holds exactly one of `title`, `category_id` or `amount`.
+
+        A name or a category is a label, and correcting it moves no money: the
+        shares stay exactly as they are, whatever rule the new category
+        carries. Re-splitting a month of shopping because its label was
+        tidied would be a far larger change than the one asked for.
+
+        A figure moves money, and goes through `update_expense` under the
+        expense's own rule, which is what spreads the new figure the way the
+        old one was spread. An expense that kept no rule — its shares were sent
+        already worked out — has nothing to spread it by and is refused: the
+        panel opens it instead, for somebody to say how.
+
+        Every expense is checked before the first is written, and the writes
+        share one transaction: a refusal halfway would leave a shop with two
+        names, which is the state this is meant to end. Each still gets its own
+        line in the journal, as if corrected by hand.
+        """
+
+        await self._get_active_group(group_id)
+
+        if len(changes) != 1 or not set(changes) <= {"title", "category_id", "amount"}:
+            raise InvalidExpenseError(
+                "A correction changes exactly one of title, category or amount.",
+                code="correction_one_field",
+            )
+
+        if "title" in changes:
+            changes = {"title": " ".join(changes["title"].split())}
+
+            if not changes["title"]:
+                raise InvalidExpenseError(
+                    "An expense needs a title.",
+                    code="expense_title_empty",
+                )
+
+        if "category_id" in changes:
+            await self._get_group_category(group_id, changes["category_id"])
+
+        targets: list[Expense] = []
+
+        for expense_id in dict.fromkeys(expense_ids):
+            expense = await self.get_expense(expense_id)
+
+            if expense.group_id != group_id:
+                raise ExpenseNotFoundError(expense_id)
+
+            if "amount" in changes:
+                if expense.split_rule is None:
+                    raise InvalidExpenseError(
+                        "This expense keeps no rule to spread a new figure by.",
+                        code="correction_needs_rule",
+                    )
+
+                # A purchase stays a purchase and a refund a refund: which
+                # way the money went is not a typing slip.
+                purchase = expense.amount > 0
+
+                if changes["amount"] == 0 or (changes["amount"] > 0) != purchase:
+                    raise InvalidExpenseError(
+                        "A correction keeps the amount's sign.",
+                        code="correction_changes_sign",
+                    )
+
+            targets.append(expense)
+
+        repository = self._database.expense_repository
+
+        async with self._database.transaction():
+            for expense in targets:
+                if "amount" in changes:
+                    await self.update_expense(
+                        replace(expense, amount=changes["amount"]),
+                        split_rule=expense.split_rule,
+                        actor_user_id=actor_user_id,
+                    )
+                    continue
+
+                shares = await repository.get_shares(expense.id)
+                corrected = replace(expense, **changes)
+                moved = revisions.diff(
+                    revisions.expense_state(expense, shares),
+                    revisions.expense_state(corrected, shares),
+                )
+
+                if not moved:
+                    continue
+
+                await repository.update(corrected, shares)
+
+                await self._record(
+                    group_id=group_id,
+                    entity_type=RevisionEntity.EXPENSE,
+                    entity_id=expense.id,
+                    label=corrected.title,
+                    action=RevisionAction.UPDATED,
+                    actor_user_id=actor_user_id,
+                    changes=moved,
+                )
+
+        return [await self.get_expense(expense.id) for expense in targets]
+
+    async def list_check_dismissals(self, group_id: str) -> list[tuple[str, str]]:
+        """Return the (kind, key) of every check a member answered "this is right"."""
+
+        await self.get_group(group_id)
+
+        return await self._database.check_repository.list_by_group(group_id)
+
+    async def dismiss_check(
+        self,
+        group_id: str,
+        kind: str,
+        key: str,
+        *,
+        actor_user_id: str | None = None,
+    ) -> None:
+        """Keep a check answered "this is right", so the panel stops raising it.
+
+        Not journalled and not announced: it moves no money and changes no
+        expense, and the journal is the story of the money.
+        """
+
+        await self._get_active_group(group_id)
+
+        await self._database.check_repository.dismiss(
+            group_id,
+            kind,
+            key,
+            datetime.now(UTC),
+            await self._member_of(actor_user_id),
+        )
+
     async def restore_expense(
         self,
         group_id: str,

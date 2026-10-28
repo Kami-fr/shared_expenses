@@ -11,6 +11,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { localizer, type Key } from "../../src/services/localize";
+import type { Expense } from "../../src/types";
 import {
   LANGUAGES,
   button,
@@ -59,6 +60,46 @@ const typeTitle = async (text: string) => {
   input.focus();
   input.value = text;
   input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+  await settle();
+};
+
+/**
+ * Slips of every kind the check asks about, added to the demo's expenses: a
+ * shop written three ways, its figure typed ten times over once, filed
+ * nowhere once, and a subscription entered twice. Copies of one of the
+ * demo's own purchases, so the payer, the rule and the currency are real.
+ */
+const slips = async () => {
+  const shown = page() as unknown as { expenses: Expense[] };
+  const base = shown.expenses.find((expense) => expense.amount > 0)!;
+  const make = (id: string, title: string, amount: number, day: string, extra = {}) => ({
+    ...base,
+    id,
+    title,
+    amount,
+    converted_amount: amount,
+    description: null,
+    recurring_id: null,
+    refund_of: null,
+    expense_date: `${day}T10:00:00+00:00`,
+    created_at: `${day}T18:00:00+00:00`,
+    ...extra,
+  });
+
+  shown.expenses = [
+    ...shown.expenses,
+    ...["02", "09", "16", "23"].map((day, index) =>
+      make(`slip-${index}`, "Leclerc", 1090, `2026-09-${day}`),
+    ),
+    make("slip-case", "leclerc ", 1250, "2026-09-30"),
+    make("slip-letter", "Leclrc", 990, "2026-10-07"),
+    make("slip-point", "Leclerc", 10_900, "2026-10-14"),
+    make("slip-nowhere", "Leclerc", 1100, "2026-10-20", { category_id: null }),
+    make("slip-once", "Netflix", 1349, "2026-10-06"),
+    make("slip-twice", "Netflix", 1349, "2026-10-06", {
+      created_at: "2026-10-06T19:00:00+00:00",
+    }),
+  ];
   await settle();
 };
 
@@ -126,6 +167,15 @@ const SCENES: Record<string, (translate: Translate) => Promise<void>> = {
     await plus();
     await click(page(".choice.main"));
     await typeTitle("gr");
+  },
+  "the check": async (translate) => {
+    await more();
+    await click(button(translate("check_expenses")));
+  },
+  "the check, with typing slips": async (translate) => {
+    await slips();
+    await more();
+    await click(button(translate("check_expenses")));
   },
   "the calendar": () => click(page("se-segmented", "button:nth-child(2)")),
   "the calendar, a month back": async () => {
@@ -260,6 +310,21 @@ describe("placement", () => {
     );
     expect(dialog.amountInput).toBe("");
     expect(page("se-expense-dialog").shadowRoot!.querySelector(".names")).toBeNull();
+  });
+
+  it("the menu says how many questions the check has", async () => {
+    await mount("apartment", "en");
+    await more();
+
+    // The demo has no slips: nothing to say, not a zero.
+    expect(page().shadowRoot!.querySelector(".menu .count")).toBeNull();
+
+    await click(page(".actions button:nth-child(3)"));
+    await slips();
+    await more();
+
+    // A figure, a name written three ways, a twin, a category.
+    expect(page().shadowRoot!.querySelector(".menu .count")?.textContent).toBe("4");
   });
 
   it("a day is written as the panel's language writes it", async () => {

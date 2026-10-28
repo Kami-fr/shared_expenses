@@ -437,6 +437,31 @@ This table belongs to no group. A rate is a fact about the market.
 
 ---
 
+### check_dismissals
+
+| Column | Type | Description |
+|---------|------|-------------|
+| group_id | TEXT | FK → groups.id, cascade |
+| kind | TEXT | `amount`, `names`, `duplicate` or `category` |
+| key | TEXT | What was answered, as the panel names it |
+| dismissed_at | TEXT | UTC ISO-8601 timestamp |
+| dismissed_by_member_id | TEXT | Who answered, or null |
+
+Primary key: `(group_id, kind, key)`; answering twice keeps the first answer.
+
+The panel looks a group's expenses over for typing slips — a figure ten times
+its usual, one shop written several ways, the same purchase twice, a category
+its shop is never filed under — and works all of it out from the expenses it
+already holds. The one thing it cannot work out again is a member's answer
+"this is right", which is all this table keeps. The key names exactly what was
+answered (an expense and the figure it held, the spellings of a name, two
+expenses, an expense and its category), so a change to any of them asks again.
+
+Not money and not journalled. Corrections themselves are ordinary updates to
+`expenses`, each with its revision.
+
+---
+
 ### schema_version
 
 A single row holding a single integer. See **Migrations** below.
@@ -574,7 +599,7 @@ would be gone by the first statement. A migration that dies halfway therefore
 leaves the database at the version it began at, and the next start runs the
 whole of it again instead of tripping over the half already applied.
 
-**Current version: 17.**
+**Current version: 18.**
 
 | Version | What it added |
 |---------|---------------|
@@ -595,6 +620,7 @@ whole of it again instead of tripping over the half already applied.
 | 15 | `expenses.refund_of` and its index: the purchase a refund answers |
 | 16 | `payments.expense_id` again: the expense a reimbursement is about |
 | 17 | `recurring_expenses`, and `expenses.recurring_id` with its index |
+| 18 | `check_dismissals`: the typing-slip checks answered "this is right" |
 
 **v14 is the exception to that, and v15 is why.** A column went onto `payments`
 on a reading of "reimbursement" that turned out to be the wrong one — what wanted
