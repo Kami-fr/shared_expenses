@@ -355,6 +355,30 @@ describe("placement", () => {
     );
   });
 
+  it("a check card carries its expense as the list draws it, and opens it", async () => {
+    await mount("apartment", "en");
+    await slips();
+    await more();
+    await click(button(localizer("en")("check_expenses")));
+
+    const dialog = page("se-check-dialog").shadowRoot!;
+    const tiles = (card: Element) =>
+      [...card.querySelectorAll(".tiles .item")].map(
+        (tile) => tile.querySelector(".title")!.textContent!.trim(),
+      );
+    const cards = [...dialog.querySelectorAll(".question.tiled")];
+
+    // The twin with both of its halves; the figure and the category with theirs.
+    expect(cards.map(tiles)).toEqual([["Netflix", "Netflix"], ["Leclerc"], ["Leclerc"]]);
+
+    // Who shares it, as on the list: the part the card used to leave out.
+    expect(cards[1].querySelectorAll(".tiles .stack-avatars .avatar").length).toBeGreaterThan(0);
+
+    await click(cards[1].querySelector(".tiles .item") as HTMLElement);
+
+    expect(page("se-expense-dialog")).toBeTruthy();
+  });
+
   it("a day is written as the panel's language writes it", async () => {
     await mount("apartment", "fr");
     await plus();

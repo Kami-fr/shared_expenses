@@ -3,6 +3,7 @@ import { customElement, property, state } from "lit/decorators.js";
 
 import "../components/se-button";
 import "../components/se-dialog";
+import { expenseTileStyles, renderExpenseTile } from "../components/expense-tile";
 import type { SharedExpensesApi } from "../services/api";
 import {
   type AmountCheck,
@@ -24,6 +25,8 @@ import type { Category, Expense, Group, Member } from "../types";
  * answers, the way "To confirm" asks on the group page: "this is right" on
  * the left, the correction on the right, filled. The correction is the one
  * the check found likeliest; anything it cannot guess opens the expense.
+ * A card about one expense, or two that look the same, carries them as the
+ * group page lists them, so what is asked about is recognised at a glance.
  *
  * Nothing here decides what is wrong — the page hands the checks in, worked
  * out from what it already holds — and nothing changes without a press. Fires
@@ -60,6 +63,7 @@ export class SeCheckDialog extends LitElement {
 
   public static styles = [
     sharedStyles,
+    expenseTileStyles,
     css`
       /* The list's own month heading: what kind of slip, and how many. */
       .kind {
@@ -109,11 +113,25 @@ export class SeCheckDialog extends LitElement {
         overflow-wrap: anywhere;
       }
 
-      .figure {
-        flex: none;
-        font-size: 15px;
-        font-weight: 500;
-        font-variant-numeric: tabular-nums;
+      /*
+       * A question about expenses: the list's own tiles across the top, edge
+       * to edge, and what is asked about them under a hairline.
+       */
+      .question.tiled {
+        gap: 0;
+        padding: 0;
+        overflow: hidden;
+      }
+
+      .tiles {
+        border-bottom: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+      }
+
+      .body {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 10px 14px 12px;
       }
 
       .fact {
@@ -236,35 +254,33 @@ export class SeCheckDialog extends LitElement {
     });
 
     return html`
-      <div class="question">
-        <div class="line">
-          <span class="name">${expense.title}</span>
-          <span class="figure">${this.money(expense.amount, expense.currency)}</span>
-        </div>
-        <div class="fact">${this.paid(expense)}</div>
-        <div class="fact">${this.rich(usual)}</div>
-        <div class="answers">
-          ${this.right(check)}
-          ${this.mine(expense)
-            ? check.fix !== null && expense.split_rule
-              ? html`<se-button
-                  ?disabled=${this.busy !== undefined}
-                  @click=${() =>
-                    this.answer(check, () =>
-                      this.api.correctExpenses(this.group.id, [expense.id], {
-                        amount: check.fix!,
-                      }),
+      <div class="question tiled">
+        ${this.tiles([expense])}
+        <div class="body">
+          <div class="fact">${this.rich(usual)}</div>
+          <div class="answers">
+            ${this.right(check)}
+            ${this.mine(expense)
+              ? check.fix !== null && expense.split_rule
+                ? html`<se-button
+                    ?disabled=${this.busy !== undefined}
+                    @click=${() =>
+                      this.answer(check, () =>
+                        this.api.correctExpenses(this.group.id, [expense.id], {
+                          amount: check.fix!,
+                        }),
+                      )}
+                  >
+                    ${translate("check_set_amount").replace(
+                      "{amount}",
+                      this.money(check.fix, expense.currency),
                     )}
-                >
-                  ${translate("check_set_amount").replace(
-                    "{amount}",
-                    this.money(check.fix, expense.currency),
-                  )}
-                </se-button>`
-              : html`<se-button @click=${() => this.open(expense)}>
-                  ${translate("check_fix")}
-                </se-button>`
-            : nothing}
+                  </se-button>`
+                : html`<se-button @click=${() => this.open(expense)}>
+                    ${translate("check_fix")}
+                  </se-button>`
+              : nothing}
+          </div>
         </div>
       </div>
     `;
@@ -325,33 +341,32 @@ export class SeCheckDialog extends LitElement {
   }
 
   private renderDuplicate(check: DuplicateCheck) {
-    const { second } = check;
+    const { first, second } = check;
     const translate = this.localize;
 
     return html`
-      <div class="question">
-        <div class="line">
-          <span class="name">${second.title}</span>
-          <span class="figure">${this.money(second.amount, second.currency)}</span>
-        </div>
-        <div class="fact">
-          ${this.rich(
-            this.fill("check_twice", {
-              date: `<b>${this.day(second)}</b>`,
-              name: this.escape(this.payerName(second)),
-            }),
-          )}
-        </div>
-        <div class="answers">
-          ${this.right(check, "check_two_purchases")}
-          ${this.mine(second)
-            ? html`<se-button
-                ?disabled=${this.busy !== undefined}
-                @click=${() => this.answer(check, () => this.api.deleteExpense(second.id))}
-              >
-                ${translate("check_delete_one")}
-              </se-button>`
-            : nothing}
+      <div class="question tiled">
+        ${this.tiles([first, second])}
+        <div class="body">
+          <div class="fact">
+            ${this.rich(
+              this.fill("check_twice", {
+                date: `<b>${this.day(second)}</b>`,
+                name: this.escape(this.payerName(second)),
+              }),
+            )}
+          </div>
+          <div class="answers">
+            ${this.right(check, "check_two_purchases")}
+            ${this.mine(second)
+              ? html`<se-button
+                  ?disabled=${this.busy !== undefined}
+                  @click=${() => this.answer(check, () => this.api.deleteExpense(second.id))}
+                >
+                  ${translate("check_delete_one")}
+                </se-button>`
+              : nothing}
+          </div>
         </div>
       </div>
     `;
@@ -364,39 +379,59 @@ export class SeCheckDialog extends LitElement {
     const filed = expense.category_id ? this.categoryName(expense.category_id) : null;
 
     return html`
-      <div class="question">
-        <div class="line">
-          <span class="name">${expense.title}</span>
-          <span class="figure">${this.money(expense.amount, expense.currency)}</span>
-        </div>
-        <div class="fact">
-          ${this.rich(
-            this.fill(filed === null ? "check_category_none" : "check_category_usual", {
-              date: this.escape(this.day(expense)),
-              category: `<b>${this.escape(filed ?? "")}</b>`,
-              usual: `<b>${this.escape(usual)}</b>`,
-              n: String(check.times),
-            }),
-          )}
-        </div>
-        <div class="answers">
-          ${this.right(check)}
-          ${this.mine(expense)
-            ? html`<se-button
-                ?disabled=${this.busy !== undefined}
-                @click=${() =>
-                  this.answer(check, () =>
-                    this.api.correctExpenses(this.group.id, [expense.id], {
-                      category_id: check.usual,
-                    }),
-                  )}
-              >
-                ${translate("check_set_category").replace("{category}", usual)}
-              </se-button>`
-            : nothing}
+      <div class="question tiled">
+        ${this.tiles([expense])}
+        <div class="body">
+          <div class="fact">
+            ${this.rich(
+              this.fill(filed === null ? "check_category_none" : "check_category_usual", {
+                date: this.escape(this.day(expense)),
+                category: `<b>${this.escape(filed ?? "")}</b>`,
+                usual: `<b>${this.escape(usual)}</b>`,
+                n: String(check.times),
+              }),
+            )}
+          </div>
+          <div class="answers">
+            ${this.right(check)}
+            ${this.mine(expense)
+              ? html`<se-button
+                  ?disabled=${this.busy !== undefined}
+                  @click=${() =>
+                    this.answer(check, () =>
+                      this.api.correctExpenses(this.group.id, [expense.id], {
+                        category_id: check.usual,
+                      }),
+                    )}
+                >
+                  ${translate("check_set_category").replace("{category}", usual)}
+                </se-button>`
+              : nothing}
+          </div>
         </div>
       </div>
     `;
+  }
+
+  /**
+   * The expenses a question is about, drawn as the group page lists them, so
+   * the one being asked about is the one just scrolled past: who paid, what
+   * for, what was written, who shares it. Pressed, it opens, as on the page.
+   */
+  private tiles(expenses: Expense[]) {
+    const context = {
+      members: this.members,
+      categories: this.categories,
+      language: this.language,
+      localize: this.localize,
+      currency: this.group.currency,
+    };
+
+    return html`<div class="tiles">
+      ${expenses.map((expense) =>
+        renderExpenseTile(expense, context, this.mine(expense), () => this.open(expense)),
+      )}
+    </div>`;
   }
 
   /** "This is right": kept by the backend, so the question is not asked again. */
@@ -442,10 +477,6 @@ export class SeCheckDialog extends LitElement {
 
   private mine(expense: Expense): boolean {
     return this.editable.includes(expense.id);
-  }
-
-  private paid(expense: Expense): string {
-    return this.fill("check_paid", { date: this.day(expense), name: this.payerName(expense) });
   }
 
   private day(expense: Expense): string {

@@ -3,6 +3,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import { keyed } from "lit/directives/keyed.js";
 
 import { renderAvatar } from "../components/avatar";
+import { expenseTileStyles, renderExpenseTile } from "../components/expense-tile";
 import { withAvatars } from "../services/avatar";
 import "../components/se-balance-card";
 import "../components/se-button";
@@ -32,7 +33,6 @@ import {
 } from "../services/calendar";
 import {
   colorFor,
-  colorOf,
   dateToIso,
   formatDayDate,
   formatLongDay,
@@ -215,6 +215,7 @@ export class SeGroupPage extends LitElement {
 
   public static styles = [
     sharedStyles,
+    expenseTileStyles,
     css`
       :host {
         display: block;
@@ -274,90 +275,6 @@ export class SeGroupPage extends LitElement {
         min-height: var(--header-height, 56px);
         box-sizing: border-box;
         position: relative;
-      }
-
-      /*
-       * A row, with whose money left drawn down its side.
-       *
-       * The avatar already carries the colour, but it is a 36px circle among
-       * others: the list reads as a run of rows, not as a run of people. A rule
-       * the height of the row groups them at a glance, without adding a word to
-       * a line that has three already.
-       *
-       * The colour is never the only thing saying it — the avatar and its
-       * tooltip stay, which matters to anyone who reads colour poorly.
-       */
-      .item {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 14px 16px 14px 12px;
-        border-left: 4px solid transparent;
-      }
-
-      .item + .item {
-        border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
-      }
-
-      .item .info {
-        flex: 1;
-        min-width: 0;
-      }
-
-      .item .title {
-        font-size: 15px;
-        font-weight: 500;
-      }
-
-      .converted {
-        display: block;
-        font-size: 12px;
-        color: var(--secondary-text-color);
-        font-variant-numeric: tabular-nums;
-      }
-
-      /*
-       * A row you can press. Only the button's own borders go: a blanket
-       * "border: none" would take the payer's colour with them, .item carrying
-       * it as a border and this rule coming after.
-       */
-      .item-button {
-        border-top: none;
-        border-right: none;
-        border-bottom: none;
-        background: none;
-        color: inherit;
-        width: 100%;
-        text-align: left;
-        cursor: pointer;
-        font-family: inherit;
-      }
-
-      .item-button:hover {
-        background: var(--secondary-background-color, #f6f6f6);
-      }
-
-      /*
-       * A row you may read but not rewrite: somebody else's, in a project that
-       * does not let its members touch what is not theirs.
-       *
-       * Never greyed out. The line is true, it is somebody's money and it is
-       * worth reading — it is simply not yours to change. Dimming it would say
-       * it mattered less, which is a different thing and a false one. Only the
-       * pointer and the hover go, so nothing invites a press that would do
-       * nothing.
-       */
-      .item-fixed {
-        border-top: none;
-        border-right: none;
-        border-bottom: none;
-        background: none;
-        color: inherit;
-        opacity: 1;
-        width: 100%;
-        text-align: left;
-        font-family: inherit;
-        cursor: default;
       }
 
       .chevron {
@@ -704,52 +621,6 @@ export class SeGroupPage extends LitElement {
         color: var(--secondary-text-color);
       }
 
-      .note {
-        font-size: 12px;
-        font-weight: 400;
-        color: var(--secondary-text-color);
-        overflow-wrap: anywhere;
-      }
-
-      .tail {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-end;
-        gap: 6px;
-      }
-
-      /* Holds the face and its mark together, so the pair scrolls as one. */
-      .face {
-        position: relative;
-        flex: 0 0 auto;
-        line-height: 0;
-      }
-
-      /*
-       * The category on the corner of the face rather than in a column of its
-       * own — the journal's arrangement, see se-history. Who paid and what for
-       * are one glance, and a third circle in the row would have been paid for
-       * by the width of the title.
-       *
-       * It also settles the row with no category: nothing is drawn and nothing
-       * has to be held open for it, where a column would have needed a blank
-       * kept in it to stop the titles going ragged.
-       *
-       * The ring is the card's own background and not a colour: it is what keeps
-       * an orange mark on an orange avatar from reading as one shape.
-       */
-      .face .pip {
-        position: absolute;
-        right: -5px;
-        bottom: -5px;
-        border-radius: 50%;
-        border: 2px solid var(--card-background-color, #fff);
-      }
-
-      .stack-avatars {
-        display: flex;
-      }
-
       /*
        * A month of the list: its name and what it cost, over its rows. A run
        * of dates in full on every line said when, but never where one month
@@ -798,32 +669,12 @@ export class SeGroupPage extends LitElement {
         gap: 8px;
       }
 
-      /* Inline-flex, not inline: se-icon is a block, and a block inside an
-         inline span breaks the line — the mark fell under the title. */
-      .repeat {
-        display: inline-flex;
-        color: var(--secondary-text-color);
-        margin-left: 4px;
-        vertical-align: middle;
-      }
-
       .month-head b {
         font-size: 13px;
         letter-spacing: 0;
         text-transform: none;
         color: var(--primary-text-color);
         font-variant-numeric: tabular-nums;
-      }
-
-      .stack-avatars .avatar.small {
-        width: 26px;
-        height: 26px;
-        font-size: 10px;
-        border: 2px solid var(--card-background-color, #fff);
-      }
-
-      .stack-avatars .avatar.small + .avatar.small {
-        margin-left: -8px;
       }
     `,
   ];
@@ -1959,159 +1810,19 @@ export class SeGroupPage extends LitElement {
 
   /** A row of the list; `dated` false under a heading that already says the day. */
   private renderExpense(expense: Expense, dated = true) {
-    const payer = this.memberById(expense.paid_by_member_id);
-    const category = this.categories.find((c) => c.id === expense.category_id);
-
-    const editable = this.mayEdit(expense);
-
-    // Money a shop gave back. It is the one row here whose figure carries a
-    // minus, and the avatar on the left is who received it rather than who paid.
-    const refund = expense.amount < 0;
-
-    return html`
-      <button
-        class=${`item ${editable ? "item-button" : "item-fixed"}`}
-        style=${`border-left-color:${payer?.color ?? colorFor(expense.paid_by_member_id)}`}
-        ?disabled=${!editable}
-        @click=${() => this.openExpense(expense)}
-      >
-        <span class="face">
-          ${this.renderMemberAvatar(
-            payer?.name ?? "?",
-            expense.paid_by_member_id,
-            `${this.localize(refund ? "refunded_to" : "paid_by")} ${payer?.name ?? "?"}`,
-          )}
-          <!--
-            What it was, on the corner of who paid for it, exactly as the journal
-            marks the face that wrote a line. The category was a word in grey
-            under the title and nothing else, so telling the bread from the
-            weekly shopping meant reading every row — while the icon and colour
-            it was given when it was created were only ever seen in the dialog
-            where they were chosen.
-
-            Hidden from screen readers: the name is still written underneath, in
-            the reader's own language, and hearing it twice is not hearing it
-            better.
-
-            A glyph nearly filling the badge, as the journal's does. The default
-            ratio is measured for a 34px pill and would leave a mark this small
-            with a glyph too faint to tell a loaf from a barcode.
-          -->
-          ${category
-            ? html`<se-icon
-                class="pip"
-                aria-hidden="true"
-                .icon=${category.icon}
-                .fallback=${category.name.charAt(0).toUpperCase()}
-                .color=${colorOf(category, this.categories)}
-                .size=${18}
-                .glyph=${0.82}
-              ></se-icon>`
-            : nothing}
-        </span>
-        <div class="info">
-          <div class="title">
-            ${expense.title}
-            <!--
-              An occurrence of something that comes back: the rent, the
-              subscription. Said by a mark rather than a word, the way the corner
-              of the avatar says the category, and kept when the recurring
-              expense has since been stopped — this one did come back.
-            -->
-            ${expense.recurring_id
-              ? html`<span
-                  class="repeat"
-                  role="img"
-                  aria-label=${this.localize("repeats")}
-                  title=${this.localize("repeats")}
-                  ><se-icon plain .icon=${"mdi:repeat"} fallback="↻" .size=${15}></se-icon
-                ></span>`
-              : nothing}
-          </div>
-          <!--
-            On its own line, under the shop. Beside the title it wrapped
-            wherever the width ran out — "Two / tickets" — and moved under the
-            title whole when the title was long, so one fact sat in two places.
-          -->
-          ${expense.description
-            ? html`<div class="note">${expense.description}</div>`
-            : nothing}
-          <!--
-            Nothing where there is no category. "No category" is a fact about
-            the form, not about the shop: it named an absence, on every row that
-            had one, and said nothing anybody needed.
-          -->
-          ${category ? html`<div class="muted">${category.name}</div>` : nothing}
-          ${dated
-            ? html`<div class="muted">
-                ${formatDayDate(expense.expense_date, this.language, "UTC")}
-              </div>`
-            : nothing}
-        </div>
-        <div class="tail">
-          <!--
-            Money that left the group, or came back to it. Red on a purchase and
-            green on a refund, for whoever is reading: this row is not a movement
-            between two of you and so it has no side to be on. A reimbursement is
-            the other case and takes its colour from the reader, which is what
-            toneFor is for.
-
-            So the two colours answer two different questions in the same list,
-            and that is the point rather than an inconsistency: crossing the
-            group's edge is a direction, moving inside it is a position.
-          -->
-          <span class="amount ${refund ? "positive" : "negative"}">
-            <!--
-              Without its minus. Only a refund is ever negative here, so the sign
-              carried nothing the green was not already saying, and said it in the
-              one place a figure is read for its size. Math.abs rather than a
-              branch: a purchase is never negative, so there is nothing for it to
-              do on one.
-            -->
-            ${formatMoney(Math.abs(expense.amount), expense.currency, this.language)}
-          </span>
-          <!--
-            What it weighs in the group, under what was handed over at the till.
-            Both, because both are true and neither answers the other: 100 USD
-            is what was paid, 87,68 EUR is what it costs whoever shares it.
-          -->
-          ${expense.currency === this.group!.currency
-            ? nothing
-            : html`<span class="converted">
-                ${formatMoney(
-                  Math.abs(expense.converted_amount),
-                  this.group!.currency,
-                  this.language,
-                )}
-              </span>`}
-          ${this.renderParticipants(expense)}
-        </div>
-      </button>
-    `;
-  }
-
-  /** The members actually sharing the expense, stacked like on a receipt. */
-  private renderParticipants(expense: Expense) {
-    const shares = (expense.shares ?? []).filter((share) => share.amount !== 0);
-
-    if (shares.length === 0) {
-      return nothing;
-    }
-
-    return html`
-      <div class="stack-avatars">
-        ${shares.map((share) => {
-          const member = this.memberById(share.member_id);
-
-          return renderAvatar(
-            member,
-            member?.name ?? "?",
-            share.member_id,
-            "small",
-          );
-        })}
-      </div>
-    `;
+    return renderExpenseTile(
+      expense,
+      {
+        members: this.pastMembers,
+        categories: this.categories,
+        language: this.language,
+        localize: this.localize,
+        currency: this.group!.currency,
+      },
+      this.mayEdit(expense),
+      () => this.openExpense(expense),
+      dated,
+    );
   }
 
 
