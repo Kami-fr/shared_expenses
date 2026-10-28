@@ -19,6 +19,7 @@ import {
   formatMoney,
 } from "../services/format";
 import { readChange, type HistoryContext } from "../services/history";
+import { rhythm } from "../services/recurrence";
 import {
   expenseAt,
   expenseState,
@@ -710,13 +711,85 @@ export class SeHistory extends LitElement {
    * frame, and what moved under it.
    */
   private renderFrame(revision: Revision) {
+    const recurring = revision.entity_type === "recurring";
+    const rhythm = recurring ? this.rhythmOf(revision) : null;
+
     return html`
       <div class="frame">
-        <div class="frame-name">${this.nameOfEntry(revision)}</div>
+        <div class="frame-name">
+          ${this.nameOfEntry(revision)}
+          <!--
+            The recurring expense wears the mark its occurrences wear in the
+            list, so the two read as one thing: the rent, and a month of it.
+            Its name alone, beside a tile of the same name, was a riddle.
+          -->
+          ${recurring
+            ? html`<span
+                class="repeat"
+                role="img"
+                aria-label=${this.localize("repeats")}
+                title=${this.localize("repeats")}
+                ><se-icon plain .icon=${"mdi:repeat"} fallback="↻" .size=${15}></se-icon
+              ></span>`
+            : nothing}
+        </div>
+        ${rhythm ? html`<div class="muted">${rhythm}</div>` : nothing}
         ${this.renderChanges(revision)}
       </div>
       ${this.renderRestore(revision)}
     `;
+  }
+
+  /**
+   * "Tous les mois · 5,80 €": what a recurring expense proposes, read off
+   * the revision that set it up or took it away — the only ones holding the
+   * whole of it. A change says what moved under the name instead.
+   */
+  private rhythmOf(revision: Revision): string | null {
+    if (revision.action !== "created" && revision.action !== "deleted") {
+      return null;
+    }
+
+    const side = revision.action === "created" ? "after" : "before";
+    const state = new Map(revision.changes.map((change) => [change.field, change[side]]));
+    const every = state.get("every");
+    const unit = state.get("unit");
+
+    if (typeof every !== "number" || (unit !== "day" && unit !== "week" && unit !== "month")) {
+      return null;
+    }
+
+    const amount = state.get("amount");
+    const said = rhythm(every, unit, this.localize);
+
+    return typeof amount === "number"
+      ? `${said} · ${formatMoney(amount, String(state.get("currency") ?? this.currency), this.language)}`
+      : said;
+  }
+
+  /**
+   * A run's things in the order they read best: a recurring expense set up
+   * with its first occurrence comes right before it, the plan before the
+   * month it produced, rather than after it as the clock had them.
+   */
+  private planFirst(revisions: Revision[]): Revision[] {
+    const ordered = [...revisions];
+
+    for (const plan of revisions.filter((revision) => revision.entity_type === "recurring")) {
+      const from = ordered.indexOf(plan);
+      const to = ordered.findIndex((revision) => {
+        const live = revision.entity_type === "expense" ? this.stillThere(revision) : undefined;
+
+        return live !== undefined && (live as Expense).recurring_id === plan.entity_id;
+      });
+
+      if (to !== -1 && to < from) {
+        ordered.splice(from, 1);
+        ordered.splice(to, 0, plan);
+      }
+    }
+
+    return ordered;
   }
 
   /**
@@ -733,7 +806,8 @@ export class SeHistory extends LitElement {
     const open = this.unfolded.has(key);
     const said = `${this.localize(`history_${revisions[0].action}`)} ${this.countOf(revisions)}`;
     const when = formatClockRange(revisions.at(-1)!.at, revisions[0].at, this.language);
-    const shown = open ? revisions : revisions.slice(0, RUN_SHOWN);
+    const ordered = this.planFirst(revisions);
+    const shown = open ? ordered : ordered.slice(0, RUN_SHOWN);
 
     return html`
       <div class="event">
