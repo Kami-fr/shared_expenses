@@ -130,6 +130,35 @@ export function formatLongDay(day: string, language: string, today: string): str
 }
 
 /**
+ * A day as a heading of the journal: "Aujourd'hui", "Hier", then as
+ * `formatLongDay` writes it.
+ *
+ * The browser's own words for the two nearest days, so no language has to be
+ * taught them. The journal is read for what just happened, and "Jeudi 29
+ * octobre" made the reader work out that it was this morning.
+ */
+export function formatJournalDay(day: string, language: string, today: string): string {
+  const apart = Math.round(
+    (Date.parse(`${today}T12:00:00Z`) - Date.parse(`${day}T12:00:00Z`)) / 86_400_000,
+  );
+
+  if (apart === 0 || apart === 1) {
+    const near = new Intl.RelativeTimeFormat(language, { numeric: "auto" }).format(-apart, "day");
+
+    return near.charAt(0).toUpperCase() + near.slice(1);
+  }
+
+  return formatLongDay(day, language, today);
+}
+
+/** The time of day something was done, on the reader's own clock: "09:12". */
+export function formatClock(iso: string, language: string): string {
+  return new Intl.DateTimeFormat(language, { hour: "2-digit", minute: "2-digit" }).format(
+    new Date(iso),
+  );
+}
+
+/**
  * A picked day written out in figures: "24/10/2026", "24.10.2026", "10/24/2026".
  *
  * Numeric, as each language orders it. A value no calendar day matches — a

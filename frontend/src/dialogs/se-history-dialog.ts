@@ -125,6 +125,7 @@ export class SeHistoryDialog extends LitElement {
         .expenses=${this.expenses}
         .payments=${this.payments}
         .openable=${this.openable}
+        .meId=${this.meId}
         .currency=${this.group.currency}
         .language=${this.language}
         @revision-restored=${this.restore}

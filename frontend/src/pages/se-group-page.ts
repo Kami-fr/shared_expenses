@@ -2,8 +2,12 @@ import { LitElement, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { keyed } from "lit/directives/keyed.js";
 
-import { renderAvatar } from "../components/avatar";
-import { expenseTileStyles, renderExpenseTile } from "../components/expense-tile";
+import {
+  expenseTileStyles,
+  renderExpenseTile,
+  renderPaymentTile,
+  type ExpenseTileContext,
+} from "../components/expense-tile";
 import { withAvatars } from "../services/avatar";
 import "../components/se-balance-card";
 import "../components/se-button";
@@ -32,7 +36,6 @@ import {
 import {
   colorFor,
   dateToIso,
-  formatDayDate,
   formatLongDay,
   formatMoney,
   formatMonthLong,
@@ -1639,190 +1642,38 @@ export class SeGroupPage extends LitElement {
     );
   }
 
-  /**
-   * A payment, said the way its kind reads, and from where you stand.
-   *
-   * The two kinds are one movement of money and differ only in words, so the
-   * words are the whole job here: a debt shown as "Dupont → Michel" reads as
-   * Dupont having paid, which is true of a loan and nonsense for a debt
-   * somebody is only writing down.
-   *
-   * Which is why the names swap round by kind. The arrow always points at
-   * whoever ends up with the money — a reimbursement has sent it, a debt owes
-   * it — and on a debt the one who will pay is the one who owes, which is the
-   * member on the receiving end of the stored payment.
-   */
-  private renderPayment(payment: Payment, dated = true) {
-    const debt = payment.kind === "debt";
-
-    // Whose money leaves, and whose it becomes. The line reads payer → taker
-    // whatever the kind; only which stored member is which changes.
-    const payerId = debt ? payment.to_member_id : payment.from_member_id;
-    const takerId = debt ? payment.from_member_id : payment.to_member_id;
-
-    // The line is the payer's: on a reimbursement the one whose money left, on
-    // a debt the one who owes it — a debt is somebody's, and it is theirs, not
-    // the lender's.
-    const payer = this.memberById(payerId);
-    const colour = payer?.color ?? colorFor(payerId);
-
-    // The other end. A payment has exactly one, which is what makes it a
-    // payment and not an expense.
-    const taker = this.memberById(takerId);
-
-    const editable = this.mayEdit(payment);
-
-    return html`
-      <button
-        class=${`item ${editable ? "item-button" : "item-fixed"}`}
-        style=${`border-left-color:${colour}`}
-        ?disabled=${!editable}
-        @click=${() => this.openPayment(undefined, payment)}
-      >
-        <span class="face">
-          <!--
-            Whose line it is, wearing the same face the expenses above and below
-            it show. This was the kind's own icon at 36px and nothing else, so
-            the one list where money moves between two people was the one list
-            neither of them had a face in.
-          -->
-          ${this.renderMemberAvatar(payer?.name ?? "?", payerId)}
-          <!--
-            Reimbursement or debt on the corner, exactly as an expense wears its
-            category. It keeps the payer's colour, which the avatar behind it
-            carries as well: the ring is what holds the two apart, and holding a
-            mark apart from an avatar of its own colour is the whole reason that
-            ring exists. Which of the two it is, the glyph says — a hand holding
-            a coin for money still owed, two arrows for money that moved.
-
-            Hidden from screen readers: the line underneath already says
-            "Reimbursement" or "Debt" in the reader's own language.
-          -->
-          <se-icon
-            class="pip"
-            aria-hidden="true"
-            .icon=${debt ? "mdi:hand-coin-outline" : "mdi:swap-horizontal"}
-            .fallback=${debt ? "→" : "⇄"}
-            .color=${colour}
-            .size=${18}
-            .glyph=${0.82}
-          ></se-icon>
-        </span>
-        <div class="info">
-          <div class="title">
-            ${this.nameFrom(payerId)} → ${this.nameFrom(takerId)}
-          </div>
-          <!--
-            Where an expense shows its category: same grid, same reading. What
-            somebody wrote about it wins the line — "Dette" is already said by
-            the icon and the colour, and a note is only ever there because it
-            said something they were not.
-          -->
-          <div class="muted">
-            ${payment.description || this.localize(debt ? "a_debt" : "a_settlement")}
-          </div>
-          ${dated
-            ? html`<div class="muted">
-                ${formatDayDate(payment.payment_date, this.language, "UTC")}
-              </div>`
-            : nothing}
-        </div>
-        <div class="tail">
-          <span class="amount ${this.toneFor(payerId, takerId)}">
-            ${formatMoney(payment.amount, payment.currency, this.language)}
-          </span>
-          <!-- What it weighs in the group, exactly as on an expense. -->
-          ${payment.currency === this.group!.currency
-            ? nothing
-            : html`<span class="converted">
-                ${formatMoney(
-                  payment.converted_amount,
-                  this.group!.currency,
-                  this.language,
-                )}
-              </span>`}
-          <!--
-            Who it reaches, where an expense keeps the people who share it. The
-            same stack and the same 26px, holding one face rather than several:
-            a payment has one other end, and putting it anywhere else on the row
-            would have been a fourth column for a list that reads in three.
-          -->
-          <div class="stack-avatars">
-            ${renderAvatar(taker, taker?.name ?? "?", takerId, "small")}
-          </div>
-        </div>
-      </button>
-    `;
-  }
-
-
-
-
-  /**
-   * A member's name, or "you" when it is yours.
-   *
-   * The balance card has always been written from where you stand — "on te
-   * doit", not "Stéphane doit recevoir". The list underneath it was not, so the
-   * same fact was told twice in two voices, and finding yourself in a row meant
-   * spotting your own name among the others first.
-   */
-  private nameFrom(id: string): string {
-    if (id === this.meId()) {
-      return this.localize("you");
-    }
-
-    return this.memberById(id)?.name ?? "?";
-  }
-
-  /**
-   * What a movement of money does to you, in one colour.
-   *
-   * Green when it comes your way, red when it leaves you — the reading the
-   * balance card already trained. Kind has nothing to do with it: a debt owed
-   * to you is money coming, and every debt used to be red on the grounds that a
-   * debt is a bad thing, which is only true of the ones you owe.
-   *
-   * Neither, when the line is not about you: two other people settling up is a
-   * fact, not good news or bad. Same when no member is you at all — an admin
-   * looking in, a tablet in the kitchen. There is no point of view to take.
-   */
-  private toneFor(payerId: string, takerId: string): string {
-    const me = this.meId();
-
-    if (me === takerId) {
-      return "positive";
-    }
-
-    return me === payerId ? "negative" : "neutral";
-  }
-
   /** A row of the list; `dated` false under a heading that already says the day. */
   private renderExpense(expense: Expense, dated = true) {
     return renderExpenseTile(
       expense,
-      {
-        members: this.pastMembers,
-        categories: this.categories,
-        language: this.language,
-        localize: this.localize,
-        currency: this.group!.currency,
-      },
+      this.tileContext(),
       this.mayEdit(expense),
       () => this.openExpense(expense),
       dated,
     );
   }
 
+  /** A payment's row, beside the expenses' in the same list. */
+  private renderPayment(payment: Payment, dated = true) {
+    return renderPaymentTile(
+      payment,
+      this.tileContext(),
+      this.mayEdit(payment),
+      () => this.openPayment(undefined, payment),
+      dated,
+    );
+  }
 
-  /**
-   * A member as a coloured initial.
-   *
-   * `hint` names what the avatar stands for: on an expense row the one on the
-   * left is the payer and the ones on the right are who shares it, which the
-   * circles alone do not say.
-   */
-  private renderMemberAvatar(name: string, id: string, hint?: string) {
-    return renderAvatar(this.memberById(id), name, id, "", hint ?? name);
+  /** What a row needs to name the people and the marks it draws. */
+  private tileContext(): ExpenseTileContext {
+    return {
+      members: this.pastMembers,
+      categories: this.categories,
+      language: this.language,
+      localize: this.localize,
+      currency: this.group!.currency,
+      me: this.meId(),
+    };
   }
 
   private renderDialog() {

@@ -11,7 +11,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { localizer, type Key } from "../../src/services/localize";
-import type { Expense } from "../../src/types";
+import type { Expense, Revision } from "../../src/types";
 import {
   LANGUAGES,
   button,
@@ -103,6 +103,61 @@ const slips = async () => {
   await settle();
 };
 
+/**
+ * The journal with something in it besides the demo's additions: Alex fixing
+ * an expense's figure, its category and who shares it, then deleting another.
+ */
+const edits = async () => {
+  const dialog = page("se-history-dialog") as unknown as { revisions: Revision[] };
+  const alex = "01M5N3R3MWTH1D4GNMNDJA1TN7";
+  const marcus = "01M5N3R3N8H2M2NRMC0FPWJG36";
+  const line = (extra: Partial<Revision>): Revision => ({
+    id: `edit-${extra.action}`,
+    group_id: "01M5N3R3MVC6W3NEM495DR4Y94",
+    entity_type: "expense",
+    entity_id: "",
+    entity_label: null,
+    action: "updated",
+    actor_user_id: "417341e0a3e746fc8f07a5c053176a11",
+    changes: [],
+    at: "2026-10-23T20:00:00+00:00",
+    ...extra,
+  });
+
+  dialog.revisions = [
+    line({
+      entity_id: "01M5N3R3RHYRN2NJWS1NPH0S14",
+      entity_label: "Groceries + BBQ",
+      at: "2026-10-23T20:30:00+00:00",
+      changes: [
+        { field: "amount", before: 14360, after: 13460 },
+        { field: "category_id", before: "01M5N3R3NSVFNE0QJZZP1VJ2ZK", after: "01M5N3R3NM7D5FP3M4VWPPHFHP" },
+        {
+          field: "shares",
+          before: { [alex]: 11360, "01M5N3R3N5R8FE0EPSK19R63GM": 1000, [marcus]: 1000, "01M5N3R3NCR99091EQC99FDF8T": 1000 },
+          after: { [alex]: 11460, "01M5N3R3N5R8FE0EPSK19R63GM": 1000, "01M5N3R3NCR99091EQC99FDF8T": 1000 },
+        },
+      ],
+    }),
+    line({
+      entity_id: "gone-bakery",
+      entity_label: "Boulangerie",
+      action: "deleted",
+      changes: [
+        { field: "title", before: "Boulangerie", after: null },
+        { field: "amount", before: 1090, after: null },
+        { field: "currency", before: "USD", after: null },
+        { field: "paid_by_member_id", before: alex, after: null },
+        { field: "created_by_member_id", before: alex, after: null },
+        { field: "expense_date", before: "2026-10-23T12:00:00+00:00", after: null },
+        { field: "shares", before: { [alex]: 1090 }, after: null },
+      ],
+    }),
+    ...dialog.revisions,
+  ];
+  await settle();
+};
+
 /** Each screen, reached from a freshly opened group page. */
 const SCENES: Record<string, (translate: Translate) => Promise<void>> = {
   "the page": async () => {},
@@ -132,6 +187,11 @@ const SCENES: Record<string, (translate: Translate) => Promise<void>> = {
   "the history": async (translate) => {
     await more();
     await click(button(translate("group_history")));
+  },
+  "the history, after changes": async (translate) => {
+    await more();
+    await click(button(translate("group_history")));
+    await edits();
   },
   "the members": async (translate) => {
     await more();
@@ -387,6 +447,33 @@ describe("placement", () => {
     await click(cards[1].querySelector(".tiles .item") as HTMLElement);
 
     expect(page("se-expense-dialog")).toBeTruthy();
+  });
+
+  it("the journal says who changed an expense, and shows it with what it was", async () => {
+    await mount("apartment", "fr");
+    await more();
+    await click(button(localizer("fr")("group_history")));
+    await edits();
+
+    const journal = page("se-history-dialog", "se-history").shadowRoot!;
+    const text = (node: Element | null) => node!.textContent!.replace(/\s+/gu, " ").trim();
+    const [edit, deletion] = [...journal.querySelectorAll(".event")];
+
+    // Who did it, on a line of its own; the thing under it, as the list draws it.
+    expect(text(edit.querySelector(".author .done"))).toBe("Alex a modifié la dépense");
+    expect(text(edit.querySelector(".thing .title"))).toBe("Groceries + BBQ");
+    expect(text(edit.querySelector(".thing .amount .was"))).toBe("143,60 $US");
+    expect(text(edit.querySelector(".thing .muted s"))).toBe("Dining Out");
+    // Marcus stays in the stack, faded, and is named under it.
+    expect(edit.querySelectorAll(".thing .stack-avatars .avatar.out")).toHaveLength(1);
+    expect(text(edit.querySelector(".moves"))).toContain("Marcus ne partage plus");
+
+    // A deletion draws what it took, and offers it back as a button.
+    expect(deletion.querySelector(".thing.gone .title")?.textContent).toContain("Boulangerie");
+    expect(deletion.querySelector("button.chip.restore")).toBeTruthy();
+
+    // The demo's twenty-odd additions by Alex, folded under one line.
+    expect(journal.querySelectorAll(".chip.plain").length).toBeGreaterThan(0);
   });
 
   it("a day is written as the panel's language writes it", async () => {

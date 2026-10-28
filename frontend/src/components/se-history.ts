@@ -1,10 +1,35 @@
 import { LitElement, css, html, nothing } from "lit";
-import { customElement, property } from "lit/decorators.js";
+import { customElement, property, state } from "lit/decorators.js";
 
 import "./se-icon";
 import { renderAvatar } from "./avatar";
-import { firstName, formatDayDate, formatMoney } from "../services/format";
+import {
+  expenseTileStyles,
+  renderExpenseTile,
+  renderPaymentTile,
+  type ExpenseTileContext,
+} from "./expense-tile";
+import { localToday } from "../services/calendar";
+import {
+  firstName,
+  formatClock,
+  formatDayDate,
+  formatJournalDay,
+  formatMoney,
+} from "../services/format";
 import { readChange, type HistoryContext } from "../services/history";
+import {
+  expenseAt,
+  expenseState,
+  foldAdditions,
+  journalDay,
+  paymentAt,
+  paymentState,
+  shareMoves,
+  statesAround,
+  type JournalItem,
+  type State,
+} from "../services/journal";
 import type { Key, Localizer } from "../services/localize";
 import { sharedStyles } from "../styles/shared";
 import type {
@@ -62,6 +87,27 @@ const ACTIONS: Record<
     fallback: "»",
   },
 };
+
+/**
+ * The fields the journal's tile draws for itself, struck through where they
+ * moved. Everything else a change carries is said in a line under it.
+ */
+const DRAWN = new Set([
+  "title",
+  "description",
+  "amount",
+  "currency",
+  "category_id",
+  "expense_date",
+  "payment_date",
+  "shares",
+]);
+
+/** How many names a folded run of additions shows before "…". */
+const RUN_NAMES = 6;
+
+/** The order a run counts what it holds in: the money first. */
+const RUN_KINDS: RevisionEntity[] = ["expense", "payment", "recurring", "category", "member", "group"];
 
 /**
  * A list of revisions, newest first.
@@ -136,8 +182,15 @@ export class SeHistory extends LitElement {
    */
   @property({ attribute: false }) public restorable: string[] = [];
 
+  /** Which member is reading: a payment is written from where they stand. */
+  @property({ type: String }) public meId: string | null = null;
+
+  /** The folded runs of additions somebody opened, by their newest line. */
+  @state() private unfolded = new Set<string>();
+
   public static styles = [
     sharedStyles,
+    expenseTileStyles,
     css`
       :host {
         display: block;
@@ -223,9 +276,152 @@ export class SeHistory extends LitElement {
         white-space: nowrap;
       }
 
-      /* Reads as a link, on the line whose deletion it undoes. See .link. */
-      .restore {
-        margin-top: 4px;
+      /*
+        A button with a body, under the line whose deletion it undoes. It was a
+        word in the accent colour, which read as one more piece of text in a
+        list made of text. The check's chip: tinted, rounded, 32px.
+      */
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        min-height: 32px;
+        margin-top: 8px;
+        padding: 0 12px;
+        border: none;
+        border-radius: 16px;
+        background: color-mix(in srgb, var(--primary-color, #03a9f4) 22%, transparent);
+        color: var(--primary-color, #03a9f4);
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+      }
+
+      /* Unfolding a run is no answer to anything: the chip's body, untinted. */
+      .chip.plain {
+        background: var(--divider-color, rgba(0, 0, 0, 0.08));
+        color: var(--primary-text-color);
+        font-weight: 400;
+      }
+
+      /* The group journal's day, as the group page heads its months. */
+      .day {
+        padding: 18px 4px 6px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        color: var(--secondary-text-color);
+      }
+
+      .day:first-child {
+        padding-top: 4px;
+      }
+
+      .event {
+        padding: 12px 0 14px;
+      }
+
+      .event + .event {
+        border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+      }
+
+      .author {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 14px;
+      }
+
+      .author .avatar {
+        flex: none;
+        width: 28px;
+        height: 28px;
+        font-size: 11px;
+      }
+
+      .author .done {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .author b {
+        font-weight: 500;
+      }
+
+      .author se-icon {
+        flex: none;
+      }
+
+      .clock {
+        flex: none;
+        font-size: 13px;
+        color: var(--secondary-text-color);
+        font-variant-numeric: tabular-nums;
+      }
+
+      /*
+        The thing, as the list draws it, on a ground of its own so it reads as
+        the object of the line above rather than one more line. Gone, it fades:
+        still there to be recognised, plainly no longer in the group.
+      */
+      .thing,
+      .frame {
+        margin-top: 8px;
+        border-radius: 12px;
+        overflow: hidden;
+        background: var(--secondary-background-color, #202020);
+      }
+
+      .thing .item {
+        padding-top: 10px;
+        padding-bottom: 10px;
+      }
+
+      .thing .item-button:hover {
+        background: var(--divider-color, rgba(0, 0, 0, 0.08));
+      }
+
+      .thing.gone {
+        opacity: 0.55;
+      }
+
+      .frame {
+        padding: 10px 14px;
+      }
+
+      .frame-name {
+        font-size: 15px;
+        font-weight: 500;
+      }
+
+      /* What the tile cannot draw: who paid, who shares it for how much. */
+      .moves {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 6px 2px 0;
+        font-size: 12px;
+        color: var(--secondary-text-color);
+      }
+
+      .moves b {
+        font-weight: 500;
+        color: var(--primary-color, #03a9f4);
+      }
+
+      .titles {
+        margin-top: 6px;
+        font-size: 13px;
+        color: var(--secondary-text-color);
+      }
+
+      .swatch {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        vertical-align: -2px;
       }
 
       .change {
@@ -291,7 +487,313 @@ export class SeHistory extends LitElement {
       return html`<div class="empty">${this.localize("no_history")}</div>`;
     }
 
-    return html`${this.revisions.map((revision) => this.renderEntry(revision))}`;
+    // One expense's own history keeps its lines: every one of them is about
+    // the expense just opened, and drawing it again on each would be showing
+    // the reader what they pressed.
+    if (!this.withSubject) {
+      return html`${this.revisions.map((revision) => this.renderEntry(revision))}`;
+    }
+
+    return this.renderJournal();
+  }
+
+  /**
+   * The group journal, a day at a time.
+   *
+   * Each line says who did it on a line of its own, then shows the thing itself
+   * as the list draws it — after the change, with what moved still showing what
+   * it was. It used to be a sentence with the name in quotes, two first names
+   * of which only one had done anything, and the fields that moved and nothing
+   * else: true, and no help in telling which 40 euros it was, or what that
+   * expense had looked like a minute before.
+   */
+  private renderJournal() {
+    const today = localToday();
+    const days = new Map<string, JournalItem[]>();
+
+    for (const item of foldAdditions(this.revisions)) {
+      const newest = item.kind === "one" ? item.revision : item.revisions[0];
+      const day = journalDay(newest.at);
+
+      days.set(day, [...(days.get(day) ?? []), item]);
+    }
+
+    return html`${[...days].map(
+      ([day, items]) => html`
+        <div class="day">${formatJournalDay(day, this.language, today)}</div>
+        ${items.map((item) =>
+          item.kind === "one" ? this.renderEvent(item.revision) : this.renderRun(item.revisions),
+        )}
+      `,
+    )}`;
+  }
+
+  private renderEvent(revision: Revision) {
+    return html`
+      <div class="event">${this.renderWho(revision)} ${this.renderWhat(revision)}</div>
+    `;
+  }
+
+  /**
+   * Who did it, and what to: its own line, above the thing.
+   *
+   * Their face, their name and the verb, the action's mark and the time. The
+   * face used to carry the mark on its corner and sit beside the thing, and
+   * then the payer's name a column away read as a second author.
+   */
+  private renderWho(revision: Revision, said?: string) {
+    const actor = this.actorOf(revision);
+    const name = actor?.name ?? this.localize("someone");
+    const mark = ACTIONS[revision.action];
+    const done =
+      said ??
+      `${this.localize(`history_${revision.action}`)} ${this.localize(SUBJECTS[revision.entity_type])}`;
+
+    return html`
+      <div class="author">
+        ${renderAvatar(actor, name, revision.actor_user_id ?? revision.id)}
+        <span class="done"><b>${name}</b> ${done}</span>
+        <se-icon
+          plain
+          aria-hidden="true"
+          .icon=${mark.icon}
+          .color=${mark.color}
+          .fallback=${mark.fallback}
+          .size=${16}
+        ></se-icon>
+        <span class="clock">${formatClock(revision.at, this.language)}</span>
+      </div>
+    `;
+  }
+
+  /** The thing a line is about: its tile when it is money, its name otherwise. */
+  private renderWhat(revision: Revision) {
+    const tile =
+      revision.entity_type === "expense" || revision.entity_type === "payment"
+        ? this.renderThing(revision)
+        : null;
+
+    return tile ?? this.renderFrame(revision);
+  }
+
+  /**
+   * An expense or a payment as it stood right after this line, as the list
+   * draws it, and after a change with what each moved part was.
+   *
+   * Null when there is nothing to draw it from: gone, and deleted before the
+   * deletions froze what they took.
+   */
+  private renderThing(revision: Revision) {
+    const live = this.stillThere(revision);
+    const expense = revision.entity_type === "expense";
+    const now = live
+      ? expense
+        ? expenseState(live as Expense)
+        : paymentState(live as Payment)
+      : null;
+    const { before, after } = statesAround(this.revisions, revision, now);
+    const shown = after ?? before;
+
+    if (shown === null) {
+      return null;
+    }
+
+    const context: ExpenseTileContext = {
+      members: this.members,
+      categories: this.categories,
+      language: this.language,
+      localize: this.localize,
+      currency: this.currency,
+      me: this.meId,
+    };
+    const canOpen = live !== undefined && this.openable.includes(revision.entity_id);
+    const open = () => this.pick(revision);
+    const changed = revision.action === "updated" ? before : null;
+    const tile = expense
+      ? renderExpenseTile(
+          expenseAt(shown, live as Expense | undefined, this.currency),
+          context,
+          canOpen,
+          open,
+          true,
+          changed ? expenseAt(changed, live as Expense | undefined, this.currency) : undefined,
+        )
+      : renderPaymentTile(
+          paymentAt(shown, live as Payment | undefined, this.currency),
+          context,
+          canOpen,
+          open,
+          true,
+          changed ? paymentAt(changed, live as Payment | undefined, this.currency) : undefined,
+        );
+
+    return html`
+      <div class=${`thing${revision.action === "deleted" ? " gone" : ""}`}>${tile}</div>
+      ${changed && after ? this.renderMoves(revision, changed, after) : nothing}
+      ${this.renderRestore(revision)}
+    `;
+  }
+
+  /**
+   * What a change moved that the tile does not draw: who paid, who sends to
+   * whom, and who shares it for how much.
+   */
+  private renderMoves(revision: Revision, before: State, after: State) {
+    const context = this.changeContext(revision);
+    const lines = revision.changes
+      .filter((change) => !DRAWN.has(change.field))
+      .map((change) => readChange(change, context))
+      .filter((change) => change !== null);
+    const shares = revision.changes.some((change) => change.field === "shares")
+      ? this.renderShareMoves(
+          (before.shares ?? {}) as Record<string, number>,
+          (after.shares ?? {}) as Record<string, number>,
+        )
+      : nothing;
+
+    if (lines.length === 0 && shares === nothing) {
+      return nothing;
+    }
+
+    return html`
+      <div class="moves">
+        ${lines.map(
+          (change) => html`
+            <div>
+              ${change.label}
+              ${change.before === null ? nothing : html`<s>${change.before}</s> →`}
+              <b>${change.after ?? "—"}</b>
+            </div>
+          `,
+        )}
+        ${shares}
+      </div>
+    `;
+  }
+
+  /**
+   * Who stopped or started sharing, and the others' parts.
+   *
+   * The faces in the tile already show who is in, the one who left faded where
+   * they stood; this says it in words, with the figures the faces cannot.
+   */
+  private renderShareMoves(before: Record<string, number>, after: Record<string, number>) {
+    const moves = shareMoves(before, after);
+    const money = (cents: number) => formatMoney(cents, this.currency, this.language);
+    const parts = [
+      ...moves.out.map(
+        (member) => html`<b>${this.localize("history_share_out").replace("{name}", this.nameOf(member))}</b>`,
+      ),
+      ...moves.in.map(
+        (member) => html`<b>${this.localize("history_share_in").replace("{name}", this.nameOf(member))}</b>`,
+      ),
+      ...(moves.each
+        ? [this.renderEach(money(moves.each.before), money(moves.each.after))]
+        : moves.moved.map(
+            (move) =>
+              html`${this.nameOf(move.member)} <s>${money(move.before)}</s> → <b>${money(move.after)}</b>`,
+          )),
+    ];
+
+    if (parts.length === 0) {
+      return nothing;
+    }
+
+    return html`<div>${parts.map((part, index) => html`${index > 0 ? " · " : ""}${part}`)}</div>`;
+  }
+
+  /** "each 22,10 → 29,47", with the figure it became in bold, in any word order. */
+  private renderEach(before: string, after: string) {
+    const [head, tail = ""] = this.localize("history_share_each").split("{after}");
+
+    return html`${head.replace("{before}", before)}<b>${after}</b>${tail.replace("{before}", before)}`;
+  }
+
+  /**
+   * A thing that is not money — a category, a person, the group itself, a
+   * recurring expense — or money nothing can be drawn from: its name in a
+   * frame, and what moved under it.
+   */
+  private renderFrame(revision: Revision) {
+    return html`
+      <div class="frame">
+        <div class="frame-name">${this.nameOfEntry(revision)}</div>
+        ${this.renderChanges(revision)}
+      </div>
+      ${this.renderRestore(revision)}
+    `;
+  }
+
+  /**
+   * Additions in a row by one person on one day, as one line: how many, the
+   * first few names, and the whole run behind a press.
+   */
+  private renderRun(revisions: Revision[]) {
+    const key = revisions[0].id;
+    const open = this.unfolded.has(key);
+    const said = `${this.localize("history_created")} ${this.countOf(revisions)}`;
+    const names = revisions.slice(0, RUN_NAMES).map((revision) => this.nameOfEntry(revision));
+
+    return html`
+      <div class="event">
+        ${this.renderWho(revisions[0], said)}
+        ${open
+          ? revisions.map((revision) => this.renderWhat(revision))
+          : html`<div class="titles">
+              ${names.join(" · ")}${revisions.length > RUN_NAMES ? " …" : ""}
+            </div>`}
+        <button class="chip plain" @click=${() => this.toggleRun(key)}>
+          ${this.localize(open ? "done" : "see_all")}
+        </button>
+      </div>
+    `;
+  }
+
+  /**
+   * What a run holds, kind by kind: "15 dépenses et 1 remboursement", joined
+   * the way the reader's language joins a list.
+   */
+  private countOf(revisions: Revision[]): string {
+    const counted = RUN_KINDS.map((kind) => {
+      const n = revisions.filter((revision) => revision.entity_type === kind).length;
+
+      if (n === 0) {
+        return null;
+      }
+
+      // The group is made once, and "1 group" says less than "the group".
+      if (kind === "group") {
+        return this.localize("the_group");
+      }
+
+      const one = new Intl.PluralRules(this.language).select(n) === "one";
+
+      return this.localize(`history_count_${kind}${one ? "_one" : ""}` as Key).replace(
+        "{n}",
+        String(n),
+      );
+    }).filter((part) => part !== null);
+
+    return new Intl.ListFormat(this.language, { type: "conjunction" }).format(counted);
+  }
+
+  /** What an entry is called in a list of them: its label, or who paid whom. */
+  private nameOfEntry(revision: Revision): string {
+    return (
+      revision.entity_label ??
+      this.subjectOf(revision)?.whose ??
+      this.localize(SUBJECTS[revision.entity_type])
+    );
+  }
+
+  private toggleRun(key: string) {
+    const unfolded = new Set(this.unfolded);
+
+    if (!unfolded.delete(key)) {
+      unfolded.add(key);
+    }
+
+    this.unfolded = unfolded;
   }
 
   private renderEntry(revision: Revision) {
@@ -403,7 +905,7 @@ export class SeHistory extends LitElement {
     }
 
     return html`
-      <button class="link restore" @click=${() => this.restore(revision)}>
+      <button class="chip restore" @click=${() => this.restore(revision)}>
         ${this.localize("restore_entry")}
       </button>
     `;
@@ -583,7 +1085,40 @@ export class SeHistory extends LitElement {
       return nothing;
     }
 
-    const context: HistoryContext = {
+    const context = this.changeContext(revision);
+
+    const readable = revision.changes
+      .map((change) => ({ field: change.field, read: readChange(change, context) }))
+      .filter((change) => change.read !== null);
+
+    // A colour is shown as itself. "#5c6b8a → #8b5fbf" was the database
+    // talking, and nobody reads a colour from its code.
+    const value = (field: string, text: string) =>
+      field === "color"
+        ? html`<span class="swatch" role="img" aria-label=${text} style=${`background:${text}`}></span>`
+        : text;
+
+    return html`
+      ${readable.map(
+        ({ field, read: change }) => html`
+          <div class="change">
+            <span class="field">${change!.label}</span>
+            ${change!.before === null
+              ? nothing
+              : html`<span class="before">${value(field, change!.before)}</span>
+                  <span class="arrow">→</span>`}
+            ${change!.after === null
+              ? html`<span class="after">—</span>`
+              : html`<span class="after">${value(field, change!.after)}</span>`}
+          </div>
+        `,
+      )}
+    `;
+  }
+
+  /** What a change is read against, for this entry. */
+  private changeContext(revision: Revision): HistoryContext {
+    return {
       localize: this.localize,
       members: this.members,
       categories: this.categories,
@@ -591,27 +1126,6 @@ export class SeHistory extends LitElement {
       amountCurrency: this.amountCurrencyOf(revision),
       language: this.language,
     };
-
-    const readable = revision.changes
-      .map((change) => readChange(change, context))
-      .filter((change) => change !== null);
-
-    return html`
-      ${readable.map(
-        (change) => html`
-          <div class="change">
-            <span class="field">${change.label}</span>
-            ${change.before === null
-              ? nothing
-              : html`<span class="before">${change.before}</span>
-                  <span class="arrow">→</span>`}
-            ${change.after === null
-              ? html`<span class="after">—</span>`
-              : html`<span class="after">${change.after}</span>`}
-          </div>
-        `,
-      )}
-    `;
   }
 
   /**

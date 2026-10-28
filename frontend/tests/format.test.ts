@@ -20,7 +20,9 @@ import {
   colorOf,
   dateToIso,
   firstName,
+  formatClock,
   formatDayDate,
+  formatJournalDay,
   formatMoney,
   formatMoneyRange,
   formatMonth,
@@ -168,6 +170,19 @@ describe("dates", () => {
   it("labels a month as itself, wherever the reader is", () => {
     expect(formatMonth("2026-01", "en")).toContain("Jan");
     expect(formatMonth("2026-12", "en")).toContain("Dec");
+  });
+
+  it("heads the journal with today and yesterday in words, then the day itself", () => {
+    expect(formatJournalDay("2026-10-29", "fr", "2026-10-29")).toBe("Aujourd’hui");
+    expect(formatJournalDay("2026-10-28", "fr", "2026-10-29")).toBe("Hier");
+    expect(formatJournalDay("2026-10-27", "fr", "2026-10-29")).toBe("Mardi 27 octobre");
+    expect(formatJournalDay("2025-12-31", "en", "2026-01-01")).toBe("Yesterday");
+  });
+
+  it("writes the time of day on the reader's clock", () => {
+    const at = new Date(2026, 9, 29, 9, 12).toISOString();
+
+    expect(formatClock(at, "fr")).toBe("09:12");
   });
 });
 

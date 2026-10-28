@@ -20,7 +20,7 @@ import "./se-icon";
 import { renderAvatar } from "./avatar";
 import { colorFor, colorOf, formatDayDate, formatMoney } from "../services/format";
 import type { Localizer } from "../services/localize";
-import type { Category, Expense, Member } from "../types";
+import type { Category, Expense, Member, Payment } from "../types";
 
 /** What the tile needs to name the people and the marks it draws. */
 export interface ExpenseTileContext {
@@ -31,18 +31,31 @@ export interface ExpenseTileContext {
   localize: Localizer;
   /** The group's currency: a figure in another one also says what it weighs in it. */
   currency: string;
+  /** Which member is reading, if any: a payment is written from where they stand. */
+  me?: string | null;
 }
 
-/** A row of the list; `dated` false under a heading that already says the day. */
+/**
+ * A row of the list; `dated` false under a heading that already says the day.
+ *
+ * `before` is the same expense as it stood before a change, for the journal:
+ * each part that moved then shows what it was, struck through, beside what it
+ * became. The list never passes one, and draws exactly what it drew.
+ */
 export function renderExpenseTile(
   expense: Expense,
   context: ExpenseTileContext,
   editable: boolean,
   open: () => void,
   dated = true,
+  before?: Expense,
 ) {
   const payer = context.members.find((member) => member.id === expense.paid_by_member_id);
   const category = context.categories.find((c) => c.id === expense.category_id);
+  const moved = (field: keyof Expense) => before !== undefined && before[field] !== expense[field];
+  const categoryName = (id: string | null) =>
+    context.categories.find((c) => c.id === id)?.name ?? context.localize("no_category");
+  const day = (value: string) => formatDayDate(value, context.language, "UTC");
 
   // Money a shop gave back. It is the one row here whose figure carries a
   // minus, and the avatar on the left is who received it rather than who paid.
@@ -94,7 +107,9 @@ export function renderExpenseTile(
       </span>
       <div class="info">
         <div class="title">
-          ${expense.title}
+          ${moved("title")
+            ? html`<span class="was">${before!.title}</span><span class="now">${expense.title}</span>`
+            : expense.title}
           <!--
             An occurrence of something that comes back: the rent, the
             subscription. Said by a mark rather than a word, the way the corner
@@ -116,20 +131,35 @@ export function renderExpenseTile(
           wherever the width ran out — "Two / tickets" — and moved under the
           title whole when the title was long, so one fact sat in two places.
         -->
-        ${expense.description
-          ? html`<div class="note">${expense.description}</div>`
-          : nothing}
+        ${moved("description")
+          ? html`<div class="note">
+              ${before!.description ? html`<span class="was">${before!.description}</span>` : nothing}
+              <span class="now">${expense.description ?? "—"}</span>
+            </div>`
+          : expense.description
+            ? html`<div class="note">${expense.description}</div>`
+            : nothing}
         <!--
           Nothing where there is no category. "No category" is a fact about
           the form, not about the shop: it named an absence, on every row that
           had one, and said nothing anybody needed.
         -->
-        ${category ? html`<div class="muted">${category.name}</div>` : nothing}
-        ${dated
+        ${moved("category_id")
           ? html`<div class="muted">
-              ${formatDayDate(expense.expense_date, context.language, "UTC")}
+              ${strike(categoryName(before!.category_id), categoryName(expense.category_id))}
             </div>`
-          : nothing}
+          : category
+            ? html`<div class="muted">${category.name}</div>`
+            : nothing}
+        ${moved("expense_date") && day(before!.expense_date) !== day(expense.expense_date)
+          ? html`<div class="muted">
+              ${strike(day(before!.expense_date), day(expense.expense_date))}
+            </div>`
+          : dated
+            ? html`<div class="muted">
+                ${formatDayDate(expense.expense_date, context.language, "UTC")}
+              </div>`
+            : nothing}
       </div>
       <div class="tail">
         <!--
@@ -151,6 +181,11 @@ export function renderExpenseTile(
             branch: a purchase is never negative, so there is nothing for it to
             do on one.
           -->
+          ${moved("amount") || moved("currency")
+            ? html`<span class="was"
+                >${formatMoney(Math.abs(before!.amount), before!.currency, context.language)}</span
+              >`
+            : nothing}
           ${formatMoney(Math.abs(expense.amount), expense.currency, context.language)}
         </span>
         <!--
@@ -167,31 +202,224 @@ export function renderExpenseTile(
                 context.language,
               )}
             </span>`}
-        ${renderParticipants(expense, context)}
+        ${renderParticipants(expense, context, before)}
       </div>
     </button>
   `;
 }
 
-/** The members actually sharing the expense, stacked like on a receipt. */
-function renderParticipants(expense: Expense, context: ExpenseTileContext) {
-  const shares = (expense.shares ?? []).filter((share) => share.amount !== 0);
+/**
+ * A part that moved, read on one line: what it was, struck through, and what
+ * it became in the accent colour. For the short ones, a category or a day;
+ * a title or a figure takes a line of its own above, where it is read.
+ */
+function strike(was: string, now: string) {
+  return html`<s>${was}</s> → <span class="now">${now}</span>`;
+}
 
-  if (shares.length === 0) {
+/**
+ * A payment, said the way its kind reads, and from where you stand.
+ *
+ * The two kinds are one movement of money and differ only in words, so the
+ * words are the whole job here: a debt shown as "Dupont → Michel" reads as
+ * Dupont having paid, which is true of a loan and nonsense for a debt
+ * somebody is only writing down.
+ *
+ * Which is why the names swap round by kind. The arrow always points at
+ * whoever ends up with the money — a reimbursement has sent it, a debt owes
+ * it — and on a debt the one who will pay is the one who owes, which is the
+ * member on the receiving end of the stored payment.
+ */
+export function renderPaymentTile(
+  payment: Payment,
+  context: ExpenseTileContext,
+  editable: boolean,
+  open: () => void,
+  dated = true,
+  before?: Payment,
+) {
+  const debt = payment.kind === "debt";
+  const moved = (field: keyof Payment) => before !== undefined && before[field] !== payment[field];
+  const day = (value: string) => formatDayDate(value, context.language, "UTC");
+
+  // Whose money leaves, and whose it becomes. The line reads payer → taker
+  // whatever the kind; only which stored member is which changes.
+  const payerId = debt ? payment.to_member_id : payment.from_member_id;
+  const takerId = debt ? payment.from_member_id : payment.to_member_id;
+
+  // The line is the payer's: on a reimbursement the one whose money left, on
+  // a debt the one who owes it — a debt is somebody's, and it is theirs, not
+  // the lender's.
+  const payer = memberOf(payerId, context);
+  const colour = payer?.color ?? colorFor(payerId);
+
+  // The other end. A payment has exactly one, which is what makes it a
+  // payment and not an expense.
+  const taker = memberOf(takerId, context);
+  const note = (entry: Payment) =>
+    entry.description || context.localize(entry.kind === "debt" ? "a_debt" : "a_settlement");
+
+  return html`
+    <button
+      class=${`item ${editable ? "item-button" : "item-fixed"}`}
+      style=${`border-left-color:${colour}`}
+      ?disabled=${!editable}
+      @click=${open}
+    >
+      <span class="face">
+        <!--
+          Whose line it is, wearing the same face the expenses above and below
+          it show. This was the kind's own icon at 36px and nothing else, so
+          the one list where money moves between two people was the one list
+          neither of them had a face in.
+        -->
+        ${renderAvatar(payer, payer?.name ?? "?", payerId, "", payer?.name ?? "?")}
+        <!--
+          Reimbursement or debt on the corner, exactly as an expense wears its
+          category. It keeps the payer's colour, which the avatar behind it
+          carries as well: the ring is what holds the two apart, and holding a
+          mark apart from an avatar of its own colour is the whole reason that
+          ring exists. Which of the two it is, the glyph says — a hand holding
+          a coin for money still owed, two arrows for money that moved.
+
+          Hidden from screen readers: the line underneath already says
+          "Reimbursement" or "Debt" in the reader's own language.
+        -->
+        <se-icon
+          class="pip"
+          aria-hidden="true"
+          .icon=${debt ? "mdi:hand-coin-outline" : "mdi:swap-horizontal"}
+          .fallback=${debt ? "→" : "⇄"}
+          .color=${colour}
+          .size=${18}
+          .glyph=${0.82}
+        ></se-icon>
+      </span>
+      <div class="info">
+        <div class="title">
+          ${nameFrom(context, payerId)} → ${nameFrom(context, takerId)}
+        </div>
+        <!--
+          Where an expense shows its category: same grid, same reading. What
+          somebody wrote about it wins the line — "Dette" is already said by
+          the icon and the colour, and a note is only ever there because it
+          said something they were not.
+        -->
+        <div class="muted">
+          ${before && note(before) !== note(payment) ? strike(note(before), note(payment)) : note(payment)}
+        </div>
+        ${moved("payment_date") && day(before!.payment_date) !== day(payment.payment_date)
+          ? html`<div class="muted">
+              ${strike(day(before!.payment_date), day(payment.payment_date))}
+            </div>`
+          : dated
+            ? html`<div class="muted">
+                ${formatDayDate(payment.payment_date, context.language, "UTC")}
+              </div>`
+            : nothing}
+      </div>
+      <div class="tail">
+        <span class="amount ${toneFor(context, payerId, takerId)}">
+          ${moved("amount") || moved("currency")
+            ? html`<span class="was"
+                >${formatMoney(before!.amount, before!.currency, context.language)}</span
+              >`
+            : nothing}
+          ${formatMoney(payment.amount, payment.currency, context.language)}
+        </span>
+        <!-- What it weighs in the group, exactly as on an expense. -->
+        ${payment.currency === context.currency
+          ? nothing
+          : html`<span class="converted">
+              ${formatMoney(
+                payment.converted_amount,
+                context.currency,
+                context.language,
+              )}
+            </span>`}
+        <!--
+          Who it reaches, where an expense keeps the people who share it. The
+          same stack and the same 26px, holding one face rather than several:
+          a payment has one other end, and putting it anywhere else on the row
+          would have been a fourth column for a list that reads in three.
+        -->
+        <div class="stack-avatars">
+          ${renderAvatar(taker, taker?.name ?? "?", takerId, "small")}
+        </div>
+      </div>
+    </button>
+  `;
+}
+
+/**
+ * A member's name, or "you" when it is yours.
+ *
+ * The balance card has always been written from where you stand — "on te
+ * doit", not "Stéphane doit recevoir". The list underneath it was not, so the
+ * same fact was told twice in two voices, and finding yourself in a row meant
+ * spotting your own name among the others first.
+ */
+function nameFrom(context: ExpenseTileContext, id: string): string {
+  if (id === context.me) {
+    return context.localize("you");
+  }
+
+  return memberOf(id, context)?.name ?? "?";
+}
+
+/**
+ * What a movement of money does to you, in one colour.
+ *
+ * Green when it comes your way, red when it leaves you — the reading the
+ * balance card already trained. Kind has nothing to do with it: a debt owed
+ * to you is money coming, and every debt used to be red on the grounds that a
+ * debt is a bad thing, which is only true of the ones you owe.
+ *
+ * Neither, when the line is not about you: two other people settling up is a
+ * fact, not good news or bad. Same when no member is you at all — an admin
+ * looking in, a tablet in the kitchen. There is no point of view to take.
+ */
+function toneFor(context: ExpenseTileContext, payerId: string, takerId: string): string {
+  const me = context.me;
+
+  if (me === takerId) {
+    return "positive";
+  }
+
+  return me === payerId ? "negative" : "neutral";
+}
+
+/** A member of the group, or of its past. */
+function memberOf(id: string, context: ExpenseTileContext): Member | undefined {
+  return context.members.find((member) => member.id === id);
+}
+
+/**
+ * The members actually sharing the expense, stacked like on a receipt.
+ *
+ * Against `before`, the faces of both: one who stopped sharing stays in the
+ * stack, faded, where they stood, and one who started is ringed. A face simply
+ * missing from the second of two stacks is the one difference the eye does not
+ * find.
+ */
+function renderParticipants(expense: Expense, context: ExpenseTileContext, before?: Expense) {
+  const sharing = (entry: Expense) =>
+    (entry.shares ?? []).filter((share) => share.amount !== 0).map((share) => share.member_id);
+  const now = sharing(expense);
+  const then = before ? sharing(before) : now;
+  const ids = [...then, ...now.filter((id) => !then.includes(id))];
+
+  if (ids.length === 0) {
     return nothing;
   }
 
   return html`
     <div class="stack-avatars">
-      ${shares.map((share) => {
-        const member = context.members.find((item) => item.id === share.member_id);
+      ${ids.map((id) => {
+        const member = context.members.find((item) => item.id === id);
+        const mark = !now.includes(id) ? " out" : !then.includes(id) ? " in" : "";
 
-        return renderAvatar(
-          member,
-          member?.name ?? "?",
-          share.member_id,
-          "small",
-        );
+        return renderAvatar(member, member?.name ?? "?", id, `small${mark}`);
       })}
     </div>
   `;
@@ -350,5 +578,31 @@ export const expenseTileStyles = css`
 
   .stack-avatars .avatar.small + .avatar.small {
     margin-left: -8px;
+  }
+
+  /*
+   * The journal's reading of a change, on the tile as it now stands. What a
+   * part was sits struck through above it, in grey and smaller, so the eye
+   * lands on what it became; the new value takes the accent, the one colour
+   * this panel keeps for "this is the one".
+   */
+  .was {
+    display: block;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--secondary-text-color);
+    text-decoration: line-through;
+  }
+
+  .now {
+    color: var(--primary-color, #03a9f4);
+  }
+
+  .stack-avatars .avatar.small.out {
+    opacity: 0.3;
+  }
+
+  .stack-avatars .avatar.small.in {
+    box-shadow: 0 0 0 2px var(--primary-color, #03a9f4);
   }
 `;
