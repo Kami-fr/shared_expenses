@@ -15,7 +15,6 @@ import type { CalendarMark } from "../components/se-calendar";
 import "../components/se-calendar";
 import "../components/se-field";
 import "../components/se-icon";
-import "../components/se-segmented";
 import "../dialogs/se-categories-dialog";
 import "../dialogs/se-check-dialog";
 import "../dialogs/se-expense-dialog";
@@ -667,6 +666,41 @@ export class SeGroupPage extends LitElement {
         gap: 8px;
       }
 
+      /* List | Calendar in the balance's heading: the sunk track of the
+         calendar's ‹ ›, the view you are in tinted as the calendar's picked
+         day is, and nothing filled. */
+      .views {
+        display: flex;
+        gap: 2px;
+        padding: 3px;
+        border-radius: 999px;
+        background: var(--divider-color, rgba(0, 0, 0, 0.08));
+      }
+
+      .views button {
+        width: 40px;
+        height: 32px;
+        border: none;
+        border-radius: 999px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: none;
+        color: var(--secondary-text-color);
+        cursor: pointer;
+      }
+
+      .views button[aria-pressed="true"] {
+        background: color-mix(in srgb, var(--primary-color, #03a9f4) 22%, transparent);
+        color: var(--primary-color, #03a9f4);
+      }
+
+      .views button:focus-visible {
+        outline: 2px solid var(--primary-color, #03a9f4);
+        outline-offset: -2px;
+      }
+
       .month-head b {
         font-size: 13px;
         letter-spacing: 0;
@@ -1161,26 +1195,57 @@ export class SeGroupPage extends LitElement {
         .currency=${this.group!.currency}
         .language=${this.language}
         @settle-up=${this.settleUp}
-      ></se-balance-card>
-
-      <se-segmented
-        .value=${this.view}
-        .options=${[
-          { value: "list", label: this.localize("view_list") },
-          { value: "calendar", label: this.localize("view_calendar") },
-        ]}
-        @value-changed=${this.pickView}
-      ></se-segmented>
+      >
+        ${this.renderViews()}
+      </se-balance-card>
 
       ${this.searching ? this.renderSearch() : nothing}
       ${this.view === "calendar" ? this.renderCalendar() : this.renderActivityCard()}
     `;
   }
 
-  private pickView = (event: CustomEvent) => {
-    this.view = event.detail.value as ListView;
-    rememberView(this.view);
-  };
+  /**
+   * List or calendar, as two icons at the end of the balance's heading.
+   *
+   * It was a segmented control the width of the page, the chosen half filled
+   * in the theme's colour: the loudest thing on the screen, louder than the
+   * balance above it, for a choice made once and remembered. Here it takes no
+   * line of its own, both views stay in sight with the one you are in lit, and
+   * the same place holds it in either view.
+   */
+  private renderViews() {
+    const views: { view: ListView; icon: string; fallback: string; label: string }[] = [
+      { view: "list", icon: "mdi:format-list-bulleted", fallback: "☰", label: this.localize("view_list") },
+      {
+        view: "calendar",
+        icon: "mdi:calendar-today-outline",
+        fallback: "▦",
+        label: this.localize("view_calendar"),
+      },
+    ];
+
+    return html`
+      <div slot="action" class="views">
+        ${views.map(
+          ({ view, icon, fallback, label }) => html`
+            <button
+              aria-pressed=${this.view === view}
+              aria-label=${label}
+              title=${label}
+              @click=${() => this.pickView(view)}
+            >
+              <se-icon plain .icon=${icon} fallback=${fallback} .size=${20}></se-icon>
+            </button>
+          `,
+        )}
+      </div>
+    `;
+  }
+
+  private pickView(view: ListView) {
+    this.view = view;
+    rememberView(view);
+  }
 
   /**
    * The month as a calendar, and under it what happened on the day picked.

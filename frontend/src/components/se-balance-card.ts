@@ -86,6 +86,19 @@ export class SeBalanceCard extends LitElement {
       /* On a dashboard the title is a link out to the group; it keeps looking
          like the heading it replaced, and takes the width so the button sits
          at the far end. */
+      .head > h3 {
+        flex: 1;
+        min-width: 0;
+      }
+
+      /* Whatever the page puts at the heading's far end — the panel's List |
+         Calendar — draws taller than the title and is held to its line, so the
+         card does not grow by its height. */
+      ::slotted([slot="action"]) {
+        flex: none;
+        margin: -9px 0;
+      }
+
       .head .open {
         flex: 1;
         min-width: 0;
@@ -354,7 +367,8 @@ export class SeBalanceCard extends LitElement {
                     </button>`
                   : nothing}
               `
-            : html`<h3>${title}</h3>`}
+            : html`<h3>${title}</h3>
+                <slot name="action"></slot>`}
         </div>
         ${this.renderBody()}
       </div>

@@ -237,9 +237,9 @@ const SCENES: Record<string, (translate: Translate) => Promise<void>> = {
     await more();
     await click(button(translate("check_expenses")));
   },
-  "the calendar": () => click(page("se-segmented", "button:nth-child(2)")),
+  "the calendar": () => click(page(".views button:nth-child(2)")),
   "the calendar, a month back": async () => {
-    await click(page("se-segmented", "button:nth-child(2)"));
+    await click(page(".views button:nth-child(2)"));
     await click(page("se-calendar", ".step"));
   },
 };
@@ -317,9 +317,33 @@ describe("placement", () => {
     }
   });
 
+  it("list and calendar sit at the end of the balance's heading, on its line", async () => {
+    await mount("apartment", "fr");
+
+    const card = page("se-balance-card");
+    const title = card.shadowRoot!.querySelector(".head h3")!.getBoundingClientRect();
+    const views = page(".views");
+    const box = views.getBoundingClientRect();
+
+    expect(views.assignedSlot).not.toBeNull();
+    expect(Math.abs((box.top + box.bottom) / 2 - (title.top + title.bottom) / 2)).toBeLessThan(2);
+    expect(card.getBoundingClientRect().right - box.right).toBeGreaterThanOrEqual(12);
+
+    const [list, calendar] = [...views.querySelectorAll("button")];
+
+    expect(list.getAttribute("aria-label")).toBe("Liste");
+    expect(list.getAttribute("aria-pressed")).toBe("true");
+
+    await click(calendar);
+
+    expect(calendar.getAttribute("aria-pressed")).toBe("true");
+    expect(list.getAttribute("aria-pressed")).toBe("false");
+    expect(page().shadowRoot!.querySelector("se-calendar")).not.toBeNull();
+  });
+
   it("the calendar opens on the latest day with something, its rows undated", async () => {
     await mount("apartment", "fr");
-    await click(page("se-segmented", "button:nth-child(2)"));
+    await click(page(".views button:nth-child(2)"));
 
     const picked = page("se-calendar").shadowRoot!.querySelector('.day[aria-pressed="true"]');
 
@@ -340,7 +364,7 @@ describe("placement", () => {
 
   it("the calendar's foot explains both marks and presses nothing", async () => {
     await mount("apartment", "fr");
-    await click(page("se-segmented", "button:nth-child(2)"));
+    await click(page(".views button:nth-child(2)"));
 
     const foot = page("se-calendar").shadowRoot!.querySelector(".foot")!;
 
