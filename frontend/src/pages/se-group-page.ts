@@ -1418,8 +1418,11 @@ export class SeGroupPage extends LitElement {
     const checked = varies(item);
     const busy = this.answering === item.id;
 
+    // The day bare: under "To confirm" it can only be when the thing falls due.
+    // "Due Tue, Oct 20" beside the figure and "last time" pushed the payer
+    // onto a line of its own in four languages, a word at a time.
     const facts = [
-      translate("recurring_due").replace("{date}", shortDay(item.next_due!, this.language)),
+      shortDay(item.next_due!, this.language),
       whoPays(item, payer?.name ?? "?", this.meId(), translate),
       ...(item.waiting > 1
         ? [translate("recurring_waiting").replace("{n}", String(item.waiting))]

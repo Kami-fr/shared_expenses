@@ -1526,7 +1526,7 @@ const Dt = {
   you_are_settled: "You are settled up.",
   detailed_balances: "See detailed balances",
   no_activity: "Nothing has happened yet.",
-  search: "Search an expense, a person, an amount…",
+  search: "Expense, person or amount…",
   search_open: "Search",
   search_close: "Close the search",
   no_match: "Nothing matches.",
@@ -1795,7 +1795,6 @@ const Dt = {
   unknown_error: "Something went wrong.",
   // Recurring expenses.
   to_confirm: "To confirm",
-  recurring_due: "Due {date}",
   recurring_pays: "{name} pays",
   recurring_you_pay: "You pay",
   recurring_waiting: "{n} waiting",
@@ -1961,7 +1960,7 @@ const Dt = {
   you_are_settled: "Tu es à jour.",
   detailed_balances: "Voir les soldes détaillés",
   no_activity: "Rien ne s'est encore passé.",
-  search: "Chercher une dépense, une personne, un montant…",
+  search: "Dépense, personne ou montant…",
   search_open: "Chercher",
   search_close: "Fermer la recherche",
   no_match: "Aucun résultat.",
@@ -2229,7 +2228,6 @@ const Dt = {
   unknown_error: "Une erreur est survenue.",
   // Recurring expenses.
   to_confirm: "À confirmer",
-  recurring_due: "Prévue le {date}",
   recurring_pays: "{name} paie",
   recurring_you_pay: "Tu paies",
   recurring_waiting: "{n} en attente",
@@ -2663,7 +2661,6 @@ const Dt = {
   unknown_error: "Etwas ist schiefgelaufen.",
   // Recurring expenses.
   to_confirm: "Zu bestätigen",
-  recurring_due: "Fällig am {date}",
   recurring_pays: "{name} zahlt",
   recurring_you_pay: "Du zahlst",
   recurring_waiting: "{n} offen",
@@ -2829,7 +2826,7 @@ const Dt = {
   you_are_settled: "Je bent bij.",
   detailed_balances: "Bekijk gedetailleerde saldi",
   no_activity: "Er is nog niets gebeurd.",
-  search: "Zoek een uitgave, een persoon, een bedrag…",
+  search: "Uitgave, persoon of bedrag…",
   search_open: "Zoeken",
   search_close: "Zoeken sluiten",
   no_match: "Geen resultaten.",
@@ -3097,7 +3094,6 @@ const Dt = {
   unknown_error: "Er is iets misgegaan.",
   // Recurring expenses.
   to_confirm: "Te bevestigen",
-  recurring_due: "Vervalt op {date}",
   recurring_pays: "{name} betaalt",
   recurring_you_pay: "Jij betaalt",
   recurring_waiting: "{n} open",
@@ -3263,7 +3259,7 @@ const Dt = {
   you_are_settled: "Estás al día.",
   detailed_balances: "Ver los saldos detallados",
   no_activity: "Aún no ha pasado nada.",
-  search: "Buscar un gasto, una persona, un importe…",
+  search: "Gasto, persona o importe…",
   search_open: "Buscar",
   search_close: "Cerrar la búsqueda",
   no_match: "Ningún resultado.",
@@ -3531,7 +3527,6 @@ const Dt = {
   unknown_error: "Se produjo un error.",
   // Recurring expenses.
   to_confirm: "Por confirmar",
-  recurring_due: "Vence el {date}",
   recurring_pays: "Paga {name}",
   recurring_you_pay: "Pagas tú",
   recurring_waiting: "{n} pendientes",
@@ -3697,7 +3692,7 @@ const Dt = {
   you_are_settled: "Sei in pari.",
   detailed_balances: "Vedi i saldi dettagliati",
   no_activity: "Non è ancora successo niente.",
-  search: "Cerca una spesa, una persona, un importo…",
+  search: "Spesa, persona o importo…",
   search_open: "Cerca",
   search_close: "Chiudi la ricerca",
   no_match: "Nessun risultato.",
@@ -3965,7 +3960,6 @@ const Dt = {
   unknown_error: "Si è verificato un errore.",
   // Recurring expenses.
   to_confirm: "Da confermare",
-  recurring_due: "Scade il {date}",
   recurring_pays: "Paga {name}",
   recurring_you_pay: "Paghi tu",
   recurring_waiting: "{n} in attesa",
@@ -4131,7 +4125,7 @@ const Dt = {
   you_are_settled: "Jesteś rozliczony.",
   detailed_balances: "Zobacz szczegółowe salda",
   no_activity: "Jeszcze nic się nie wydarzyło.",
-  search: "Szukaj wydatku, osoby, kwoty…",
+  search: "Wydatek, osoba lub kwota…",
   search_open: "Szukaj",
   search_close: "Zamknij wyszukiwanie",
   no_match: "Brak wyników.",
@@ -4399,7 +4393,6 @@ const Dt = {
   unknown_error: "Coś poszło nie tak.",
   // Recurring expenses.
   to_confirm: "Do potwierdzenia",
-  recurring_due: "Termin: {date}",
   recurring_pays: "Płaci {name}",
   recurring_you_pay: "Płacisz ty",
   recurring_waiting: "Oczekujące: {n}",
@@ -4565,7 +4558,7 @@ const Dt = {
   you_are_settled: "Você está em dia.",
   detailed_balances: "Ver saldos detalhados",
   no_activity: "Nada aconteceu ainda.",
-  search: "Buscar uma despesa, uma pessoa, um valor…",
+  search: "Despesa, pessoa ou valor…",
   search_open: "Buscar",
   search_close: "Fechar a busca",
   no_match: "Nenhum resultado.",
@@ -4833,7 +4826,6 @@ const Dt = {
   unknown_error: "Algo deu errado.",
   // Recurring expenses.
   to_confirm: "A confirmar",
-  recurring_due: "Vence em {date}",
   recurring_pays: "{name} paga",
   recurring_you_pay: "Você paga",
   recurring_waiting: "{n} pendentes",
@@ -16450,7 +16442,7 @@ let y = class extends w {
   }
   renderDueItem(e) {
     const t = this.localize, r = this.memberById(e.paid_by_member_id), a = va(e), i = this.answering === e.id, n = [
-      t("recurring_due").replace("{date}", Fe(e.next_due, this.language)),
+      Fe(e.next_due, this.language),
       ba(e, r?.name ?? "?", this.meId(), t),
       ...e.waiting > 1 ? [t("recurring_waiting").replace("{n}", String(e.waiting))] : []
     ];

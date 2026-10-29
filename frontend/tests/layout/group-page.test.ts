@@ -317,6 +317,39 @@ describe("placement", () => {
     }
   });
 
+  // A placeholder is cut by its field without overflowing anything, so
+  // `cuts()` never sees it: measured here against the room the field leaves.
+  it.each(LANGUAGES)("the search's hint fits its field in %s", async (language) => {
+    await mount("apartment", language);
+    await click(page(".actions button:nth-child(1)"));
+
+    const input = page("se-field.search").shadowRoot!.querySelector("input")!;
+    const style = getComputedStyle(input);
+    const pen = document.createElement("canvas").getContext("2d")!;
+
+    pen.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+
+    const room = input.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+
+    expect(input.placeholder).not.toBe("");
+    expect(pen.measureText(input.placeholder).width).toBeLessThanOrEqual(room);
+  });
+
+  it.each(LANGUAGES)("a waiting occurrence says when and who on one line in %s", async (language) => {
+    await mount("apartment", language);
+
+    const lines = [...page().shadowRoot!.querySelectorAll<HTMLElement>(".due-item .info .muted")];
+
+    expect(lines.length).toBeGreaterThan(0);
+
+    // Its line height is "normal", about 1.2 of the font: two lines are 2.4.
+    for (const line of lines) {
+      const font = parseFloat(getComputedStyle(line).fontSize);
+
+      expect(line.getBoundingClientRect().height, line.textContent!).toBeLessThan(font * 1.8);
+    }
+  });
+
   it("list and calendar sit at the end of the balance's heading, on its line", async () => {
     await mount("apartment", "fr");
 
