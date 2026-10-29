@@ -347,7 +347,7 @@ describe("placement", () => {
     expect(foot.querySelector("button")).toBeNull();
     expect([...foot.querySelectorAll(".legend")].map((item) => item.textContent?.trim())).toEqual([
       "Dépense",
-      "Remboursements",
+      "Remboursement",
     ]);
     expect(foot.querySelector(".legend .ring")).not.toBeNull();
   });
