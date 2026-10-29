@@ -23,7 +23,7 @@ No account to create, no cloud, nothing to sync.</p>
 | ↩️ **Refunds and reimbursements, told apart** | A shop giving money back comes off the purchase it answers, split exactly as the purchase was. Paying a flatmate back is a different thing, and the list says so. |
 | 📊 **See where it went** | Month by month: what the group spent, against the month before, by category as bars or a ring, and what of it was yours. |
 | 🏠 **Part of the house** | A card for the dashboard, optional sensors per group, `add_expense` and `settle_up` actions for a tile or an NFC tag, and an event on the bus for every change. |
-| 🕓 **Nothing is lost** | Every edit is in the history with who made it and what moved. A deleted expense comes back from there as the one it was. |
+| 🕓 **Nothing is lost** | Every edit is in the history with who made it, and the expense as it was before and after. A deleted expense comes back from there as the one it was. |
 | 🌐 **Eight languages** | EN · FR · DE · NL · ES · IT · PL · PT. Light or dark, in your own theme, built for a thumb. |
 
 ## 🚀 Install
@@ -44,10 +44,10 @@ directory, restart Home Assistant, then add the integration as in step 2.
 ## 📸 A look around
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Kami-fr/shared_expenses/main/docs/screenshots/tour.gif" width="270" alt="A quick tour: the apartment's balances, a 36 dollar wine and cheese of which 20 is shared, the weekend in London in pounds, then where the money went, as bars and as a ring" title="Balances, a bill shared in part, a trip in pounds, and where it all went">
+  <img src="https://raw.githubusercontent.com/Kami-fr/shared_expenses/main/docs/screenshots/tour.gif" width="270" alt="A quick tour: the apartment's balances, a 36 dollar wine and cheese of which 20 is shared, the month as a calendar, the weekend in London in pounds, then where the money went, as bars and as a ring" title="Balances, a bill shared in part, the month as a calendar, a trip in pounds, and where it all went">
 </p>
 
-<p align="center"><sub>Balances, a bill shared in part, a trip in pounds, and where it all went.</sub></p>
+<p align="center"><sub>Balances, a bill shared in part, the month as a calendar, a trip in pounds, and where it all went.</sub></p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/Kami-fr/shared_expenses/main/docs/screenshots/01-groups.jpg" width="176" alt="Your groups, one tap in" title="Your groups, one tap in">&nbsp;
@@ -60,6 +60,12 @@ directory, restart Home Assistant, then add the integration as in step 2.
   <img src="https://raw.githubusercontent.com/Kami-fr/shared_expenses/main/docs/screenshots/05-edit-currency.jpg" width="176" alt="The rate, frozen the day it was owed" title="The rate, frozen the day it was owed">&nbsp;
   <img src="https://raw.githubusercontent.com/Kami-fr/shared_expenses/main/docs/screenshots/06-statistics.jpg" width="176" alt="Where the money went" title="Where the money went">&nbsp;
   <img src="https://raw.githubusercontent.com/Kami-fr/shared_expenses/main/docs/screenshots/07-reimbursement.jpg" width="176" alt="Record money paid back" title="Record money paid back">
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Kami-fr/shared_expenses/main/docs/screenshots/08-calendar.jpg" width="176" alt="The month as a calendar, a dot per expense in the colour of who paid" title="The month as a calendar, a dot per expense in the colour of who paid">&nbsp;
+  <img src="https://raw.githubusercontent.com/Kami-fr/shared_expenses/main/docs/screenshots/09-check.jpg" width="176" alt="A check for typing slips: one shop written two ways, a purchase entered twice" title="A check for typing slips: one shop written two ways, a purchase entered twice">&nbsp;
+  <img src="https://raw.githubusercontent.com/Kami-fr/shared_expenses/main/docs/screenshots/10-history.jpg" width="176" alt="The history: who changed what, and the expense before and after" title="The history: who changed what, and the expense before and after">
 </p>
 
 ## 🧰 What is in the box
@@ -77,10 +83,10 @@ directory, restart Home Assistant, then add the integration as in step 2.
 | 🤝 **Reimbursements and debts** | Record money moved, or merely owed; someone who left the group can still be paid back. |
 | 🔍 **One list** | Expenses and reimbursements together, newest first, searchable by anything on the row: a shop, a person, a category, an amount. |
 | 🩺 **A check for typing slips** | A figure ten times its usual, one shop written four ways, the same purchase twice, an odd category: each asked once, set right in one tap or answered "that's right". |
-| 📅 **Or a calendar** | The month as a wall calendar, a dot per expense in the colour of who paid: tap a day to see what it holds. Reimbursements can be hidden. |
+| 📅 **Or a calendar** | The month as a wall calendar, a dot per expense in the colour of who paid: tap a day to see what it holds. Reimbursements wear a ring of their own. |
 | 🟢🔴 **Written from where you stand** | "You are owed", green when the money comes your way, red when it leaves. |
 | 📈 **Statistics** | A month, a year or everything: the total and how it compares, where it went, the year around it, and who paid against whose share it was. |
-| 🕓 **History** | Every change, who made it, and what moved; deletions included, and a deleted expense can be brought back from there as the one it was. |
+| 🕓 **History** | Every change, a day at a time: who made it and when, and the expense as the list shows it, what it was struck through beside what it became. Several in a row read as one line; a deleted expense can be brought back from there as the one it was. |
 | 🏠 **On the dashboard** | A card that tells each viewer what *they* owe, plus optional per-group sensors and `add_expense` / `settle_up` actions. |
 | 📱 **Mobile first** | A single panel, thumb-reachable, in your own theme, light or dark. |
 
