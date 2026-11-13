@@ -61,4 +61,6 @@ RECURRING_DUE_HOUR: Final = 9
 
 PANEL_URL: Final = DOMAIN
 PANEL_TITLE: Final = NAME
-PANEL_ICON: Final = "mdi:account-cash"
+#: The brand's coin cut in two, in one colour: the frontend bundle registers it
+#: (`frontend/src/icons.ts`), being loaded on every page.
+PANEL_ICON: Final = "shared_expenses:coin"
