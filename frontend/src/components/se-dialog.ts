@@ -129,11 +129,17 @@ export class SeDialog extends LitElement {
       margin: 12px 16px 0;
     }
 
+    /*
+     * On a phone the dialog rises from the bottom of the screen, which the
+     * companion app draws under its navigation bar: the buttons keep clear of
+     * it by the height Home Assistant gives in --safe-area-inset-bottom, 0
+     * where there is no bar. Centred on a wider screen, nothing touches it.
+     */
     .actions {
       display: flex;
       justify-content: flex-end;
       gap: 8px;
-      padding: 12px 16px;
+      padding: 12px 16px calc(12px + var(--safe-area-inset-bottom, 0px));
       border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
     }
 
@@ -145,6 +151,10 @@ export class SeDialog extends LitElement {
       .surface {
         max-width: 520px;
         border-radius: 16px;
+      }
+
+      .actions {
+        padding-bottom: 12px;
       }
     }
   `;

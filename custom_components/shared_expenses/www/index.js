@@ -895,11 +895,17 @@ Je.styles = x`
       margin: 12px 16px 0;
     }
 
+    /*
+     * On a phone the dialog rises from the bottom of the screen, which the
+     * companion app draws under its navigation bar: the buttons keep clear of
+     * it by the height Home Assistant gives in --safe-area-inset-bottom, 0
+     * where there is no bar. Centred on a wider screen, nothing touches it.
+     */
     .actions {
       display: flex;
       justify-content: flex-end;
       gap: 8px;
-      padding: 12px 16px;
+      padding: 12px 16px calc(12px + var(--safe-area-inset-bottom, 0px));
       border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
     }
 
@@ -911,6 +917,10 @@ Je.styles = x`
       .surface {
         max-width: 520px;
         border-radius: 16px;
+      }
+
+      .actions {
+        padding-bottom: 12px;
       }
     }
   `;
@@ -17116,7 +17126,7 @@ y.styles = [
          * you just came to see. The extra bottom padding is scrolled into, so it
          * lifts only that last row above the button, without spacing the list.
          */
-        padding: 16px 16px calc(56px + 20px + 16px);
+        padding: 16px 16px calc(56px + 20px + 16px + var(--safe-area-inset-bottom, 0px));
         max-width: 720px;
         margin: 0 auto;
       }
@@ -17217,11 +17227,20 @@ y.styles = [
         background: rgba(255, 255, 255, 0.12);
       }
 
-      /* Within thumb reach, where Home Assistant puts its own add buttons. */
+      /*
+       * Within thumb reach, where Home Assistant puts its own add buttons.
+       *
+       * Measured from above the phone's own navigation bar, as Home Assistant
+       * measures its own: the companion app draws the page under that bar and
+       * says how tall it is in --safe-area-inset-bottom. Counted from the
+       * screen's edge, the plus sat behind the bar's buttons. Everything
+       * pinned to the bottom below adds the same inset; it is 0 where there is
+       * no bar.
+       */
       .fab {
         position: fixed;
         right: 20px;
-        bottom: 20px;
+        bottom: calc(20px + var(--safe-area-inset-bottom, 0px));
         z-index: 2;
         width: 56px;
         height: 56px;
@@ -17252,7 +17271,7 @@ y.styles = [
       .fab-hint {
         position: fixed;
         right: 20px;
-        bottom: 88px;
+        bottom: calc(88px + var(--safe-area-inset-bottom, 0px));
         z-index: 2;
         padding: 8px 14px;
         border-radius: 16px;
@@ -17293,7 +17312,7 @@ y.styles = [
       .choices {
         position: fixed;
         right: 24px;
-        bottom: calc(20px + 56px + 18px);
+        bottom: calc(20px + 56px + 18px + var(--safe-area-inset-bottom, 0px));
         z-index: 6;
         display: flex;
         flex-direction: column;
@@ -17347,7 +17366,7 @@ y.styles = [
       .choice.main {
         position: fixed;
         right: 20px;
-        bottom: 20px;
+        bottom: calc(20px + var(--safe-area-inset-bottom, 0px));
         z-index: 6;
       }
 
@@ -17388,7 +17407,7 @@ y.styles = [
         top: 100%;
         width: min(320px, calc(100% - 32px));
         /* What is left below the header it drops from, less a little air. */
-        max-height: calc(100dvh - var(--header-height, 56px) - 32px);
+        max-height: calc(100dvh - var(--header-height, 56px) - 32px - var(--safe-area-inset-bottom, 0px));
         overflow-y: auto;
         overscroll-behavior: contain;
         padding: 6px;

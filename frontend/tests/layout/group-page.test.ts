@@ -596,4 +596,41 @@ describe("placement", () => {
 
     expect(day.textContent).toBe("23/10/2026");
   });
+
+  /*
+   * The companion app draws the page under Android's navigation bar and gives
+   * its height in --safe-area-inset-bottom; Home Assistant sets it on the
+   * document, where the panel inherits it.
+   */
+  it("the plus and a dialog's buttons stay above the phone's navigation bar", async () => {
+    const BAR = 48;
+    const root = document.documentElement.style;
+
+    root.setProperty("--safe-area-inset-bottom", `${BAR}px`);
+
+    try {
+      await mount("apartment", "fr");
+
+      const clear = window.innerHeight - BAR;
+
+      expect(page(".fab").getBoundingClientRect().bottom).toBeLessThanOrEqual(clear - 20);
+
+      await plus();
+
+      expect(page(".choice.main").getBoundingClientRect().bottom).toBeLessThanOrEqual(clear - 20);
+
+      await click(page(".choice.main"));
+
+      const slot = page("se-expense-dialog", "se-dialog", ".actions slot") as HTMLSlotElement;
+      const actions = slot.assignedElements();
+
+      expect(actions.length).toBeGreaterThan(0);
+
+      for (const action of actions) {
+        expect(action.getBoundingClientRect().bottom).toBeLessThanOrEqual(clear - 12);
+      }
+    } finally {
+      root.removeProperty("--safe-area-inset-bottom");
+    }
+  });
 });
